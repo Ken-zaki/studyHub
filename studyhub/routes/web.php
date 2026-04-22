@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 // Home - Redirect to Login
 Route::get('/', function () {
@@ -24,6 +25,43 @@ Route::get('/forgot-password', function () {
 Route::get('/dashboard', function () {
     return view('home.dashboard');
 })->name('dashboard');
+
+Route::get('/calendar', function () {
+    return view('home.calendar');
+})->name('calendar');
+
+Route::get('/study-groups', function () {
+    return view('home.study-groups');
+})->name('study-groups');
+
+Route::get('/resources', function () {
+    return view('home.resources');
+})->name('resources');
+
+Route::get('/notifications', function () {
+    return view('home.notifications');
+})->name('notifications');
+
+Route::get('/messages', function () {
+    return view('home.messages');
+})->name('messages');
+
+Route::get('/settings', function () {
+    return view('home.settings');
+})->name('settings');
+
+
+Route::post('/set-session', function (Request $request) {
+    session([
+        'user_id' => $request->input('user_id'),
+        'user_first_name' => $request->input('first_name'),
+        'user_last_name' => $request->input('last_name'),
+        'user_username' => $request->input('username'),
+        'user_profile_photo' => $request->input('profile_photo')
+    ]);
+
+    return response()->json(['success' => true]);
+})->name('set-session');
 
 // Logout (POST route for security)
 Route::post('/logout', function () {

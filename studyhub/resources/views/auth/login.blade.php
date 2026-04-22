@@ -392,13 +392,39 @@
                     throw error;
                 }
 
+                // Get user profile from database
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profileError) {
+                    throw new Error('Failed to load user profile');
+                }
+
+                // ✅ NEW: Store user data in Laravel session
+                await fetch('{{ route("set-session") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        user_id: data.user.id,
+                        first_name: profile.first_name,
+                        last_name: profile.last_name,
+                        username: profile.username,
+                        profile_photo: profile.profile_photo_url
+                    })
+                });
+
                 // Success! Redirect to dashboard
                 console.log('Login successful:', data);
                 alert('Login successful! Redirecting to dashboard...');
 
                 // Redirect to your dashboard
                 window.location.href = '{{ url('/dashboard') }}';
-
             } catch (error) {
                 console.error('Login error:', error);
 
