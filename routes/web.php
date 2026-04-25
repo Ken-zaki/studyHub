@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\FriendController;
 
@@ -46,6 +47,7 @@ Route::get('/notifications', function () {
 
 Route::get('/messages', [MessageController::class, 'index'])->name('messages');
 Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
+Route::get('/search/universal', [SearchController::class, 'universal'])->name('universal-search');
 
 // Friend routes
 Route::get('/friends', [FriendController::class, 'index'])->name('friends');
@@ -73,7 +75,9 @@ Route::post('/set-session', function (Request $request) {
 })->name('set-session');
 
 // Logout (POST route for security)
-Route::post('/logout', function () {
-    // Logout logic here
+Route::post('/logout', function (Request $request) {
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
     return redirect()->route('login');
 })->name('logout');

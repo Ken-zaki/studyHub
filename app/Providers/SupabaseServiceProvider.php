@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Http;
+
 /**
  * SupabaseService Provider
  *
@@ -100,6 +102,40 @@ class SupabaseServiceProvider
     }
 
     /**
+     * Get all user profiles
+     *
+     * @return array List of profiles
+     */
+    public function getAllProfiles()
+    {
+        $url = $this->supabaseUrl . '/rest/v1/profiles?select=id,username,first_name,last_name,profile_photo_url&order=username.asc';
+
+        $result = $this->makeRequest($url, 'GET', $this->supabaseServiceKey, null, $this->supabaseServiceKey);
+
+        return is_array($result) && array_is_list($result) ? $result : [];
+    }
+
+    /**
+     * Get users from Supabase Auth admin API
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAllAuthUsers(): array
+    {
+        $url = $this->supabaseUrl . '/auth/v1/admin/users?page=1&per_page=1000';
+
+        $result = $this->makeRequest($url, 'GET', $this->supabaseServiceKey, null, $this->supabaseServiceKey);
+
+        if (!is_array($result)) {
+            return [];
+        }
+
+        $users = $result['users'] ?? [];
+
+        return is_array($users) && array_is_list($users) ? $users : [];
+    }
+
+    /**
      * Create user profile (after signup)
      *
      * @param string $userId UUID from auth.users
@@ -187,42 +223,47 @@ class SupabaseServiceProvider
      */
     private function makeRequest($url, $method, $apiKey, $data = null, $accessToken = null)
     {
-        $ch = curl_init();
-
         $headers = [
-            'apikey: ' . $apiKey,
-            'Content-Type: application/json'
+            'apikey' => $apiKey,
+            'Content-Type' => 'application/json',
         ];
 
         if ($accessToken) {
-            $headers[] = 'Authorization: Bearer ' . $accessToken;
+            $headers['Authorization'] = 'Bearer ' . $accessToken;
         }
 
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        try {
+            $request = Http::withHeaders($headers)->timeout(20);
 
-        if ($data !== null && in_array($method, ['POST', 'PUT', 'PATCH'])) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        }
+            $response = match (strtoupper((string) $method)) {
+                'GET' => $request->get($url),
+                'POST' => $request->post($url, $data ?? []),
+                'PUT' => $request->put($url, $data ?? []),
+                'PATCH' => $request->patch($url, $data ?? []),
+                'DELETE' => $request->delete($url, $data ?? []),
+                default => $request->send($method, $url, [
+                    'json' => $data ?? [],
+                ]),
+            };
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $result = $response->json();
 
-        curl_close($ch);
+            if (!$response->successful()) {
+                return [
+                    'error' => true,
+                    'status' => $response->status(),
+                    'message' => $result['message'] ?? 'Request failed',
+                ];
+            }
 
-        $result = json_decode($response, true);
-
-        if ($httpCode >= 400) {
+            return $result;
+        } catch (\Throwable $exception) {
             return [
                 'error' => true,
-                'status' => $httpCode,
-                'message' => $result['message'] ?? 'Request failed'
+                'status' => 0,
+                'message' => $exception->getMessage(),
             ];
         }
-
-        return $result;
     }
 
     /**

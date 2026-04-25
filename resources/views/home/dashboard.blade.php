@@ -207,6 +207,47 @@
         .top-bar-avatar:hover { opacity: 0.85; transform: scale(0.97); }
         .top-bar-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
+        .profile-menu-wrap {
+            position: relative;
+        }
+
+        .profile-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            min-width: 180px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+            padding: 8px;
+            display: none;
+            z-index: 1200;
+        }
+
+        .profile-menu.open {
+            display: block;
+        }
+
+        .profile-menu-item {
+            width: 100%;
+            text-align: left;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+
+        .profile-menu-item:hover {
+            background: var(--bg-main);
+            color: var(--primary);
+        }
+
         /* ── MAIN LAYOUT ── */
         .main-content {
             margin-left: var(--sidebar-collapsed);
@@ -566,6 +607,8 @@
 </head>
 <body>
 
+@include('partials.universal-search')
+
 <!-- ══════════════════════════════════════════
      LEFT SIDEBAR
 ══════════════════════════════════════════ -->
@@ -678,9 +721,18 @@
         </svg>
         <span class="notif-dot" id="friendReqDot" style="display:none;"></span>
     </a>
-    <button class="top-bar-avatar" id="topBarAvatar" onclick="showProfilePage()" title="Your Profile">
-        <!-- filled by JS -->
-    </button>
+    <div class="profile-menu-wrap" id="profileMenuWrap">
+        <button class="top-bar-avatar" id="topBarAvatar" type="button" title="Your Profile">
+            <!-- filled by JS -->
+        </button>
+        <div class="profile-menu" id="profileMenu">
+            <button class="profile-menu-item" type="button" onclick="showProfilePage()">View Profile</button>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="profile-menu-item" type="submit">Logout</button>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -845,6 +897,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e.target.closest('.post-menu-wrap')) {
             document.querySelectorAll('.post-dropdown.open').forEach(d => d.classList.remove('open'));
         }
+
+        if (!e.target.closest('#profileMenuWrap')) {
+            document.getElementById('profileMenu')?.classList.remove('open');
+        }
+    });
+
+    document.getElementById('topBarAvatar')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('profileMenu')?.classList.toggle('open');
     });
 });
 
@@ -922,6 +983,7 @@ async function renderTrending() {
 
 // ── SHOW PROFILE PAGE ─────────────────────────────────────────────────────────
 function showProfilePage(e) {
+    document.getElementById('profileMenu')?.classList.remove('open');
     if (e) e.preventDefault();
     document.getElementById('feedColumn').style.display = 'none';
     document.getElementById('profileColumn').style.display = 'block';

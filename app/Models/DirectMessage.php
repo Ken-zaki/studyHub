@@ -11,7 +11,14 @@ class DirectMessage extends Model
 
     protected $fillable = [
         'sender_id',
+        'sender_name',
         'receiver_id',
+        'receiver_name',
         'message',
+        'seen_at',
+    ];
+
+    protected $casts = [
+        'seen_at' => 'datetime',
     ];
 }
