@@ -46,6 +46,10 @@ Route::get('/messages', function () {
     return view('home.messages');
 })->name('messages');
 
+Route::get('/profile', function () {
+    return view('home.profile');
+})->name('profile');
+
 Route::get('/settings', function () {
     return view('home.settings');
 })->name('settings');
@@ -68,3 +72,11 @@ Route::post('/logout', function () {
     // Logout logic here
     return redirect()->route('login');
 })->name('logout');
+
+
+use App\Http\Controllers\FocusModeController;
+
+Route::get('/focus-mode',          [FocusModeController::class, 'index'])->name('focus-mode');
+Route::post('/focus-mode/session', [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+Route::post('/focus-mode/materials', [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
+Route::post('/focus-mode/flashcards', [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');

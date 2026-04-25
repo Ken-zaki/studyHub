@@ -271,7 +271,7 @@
         </div>
 
         <nav class="sidebar-nav">
-            <a href="{{ route('dashboard') }}" class="nav-item">
+            <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
                 </svg>
@@ -279,7 +279,7 @@
                 <span class="nav-badge">3</span>
             </a>
 
-            <a href="{{ route('calendar') }}" class="nav-item">
+            <a href="{{ route('calendar') }}" class="{{ request()->routeIs('calendar') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                     <line x1="16" y1="2" x2="16" y2="6"/>
@@ -289,16 +289,16 @@
                 <span class="nav-text">Calendar</span>
             </a>
 
-            <a href="{{ route('resources') }}" class="nav-item active">
+            <a href="{{ route('study-groups') }}" class="{{ request()->routeIs('study-groups') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
                     <circle cx="9" cy="7" r="4"/>
                     <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/>
                 </svg>
-                <span class="nav-text">Resources</span>
+                <span class="nav-text">Study Groups</span>
             </a>
 
-            <a href="{{ route('resources') }}" class="nav-item">
+            <a href="{{ route('resources') }}" class="{{ request()->routeIs('resources') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/>
                     <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
@@ -306,7 +306,7 @@
                 <span class="nav-text">Resources</span>
             </a>
 
-            <a href="{{ route('notifications') }}" class="nav-item">
+            <a href="{{ route('notifications') }}" class="{{ request()->routeIs('notifications') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                     <path d="M13.73 21a2 2 0 01-3.46 0"/>
@@ -315,14 +315,22 @@
                 <span class="nav-badge">5</span>
             </a>
 
-            <a href="{{ route('messages') }}" class="nav-item">
+            <a href="{{ route('messages') }}" class="{{ request()->routeIs('messages') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
                 </svg>
                 <span class="nav-text">Messages</span>
             </a>
 
-            <a href="{{ route('settings') }}" class="nav-item">
+            <a href="{{ route('focus-mode') }}" class="{{ request()->routeIs('focus-mode') ? 'nav-item active' : 'nav-item' }}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3a9 9 0 100 18 9 9 0 000-18z"/>
+                    <path d="M12 7v5l3 3"/>
+                </svg>
+                <span class="nav-text">Focus Mode</span>
+            </a>
+
+            <a href="{{ route('settings') }}" class="{{ request()->routeIs('settings') ? 'nav-item active' : 'nav-item' }}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
