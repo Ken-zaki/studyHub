@@ -2,17 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\FocusModeController;
 
-// ──────────────────────────────────────────────
-// HOME → redirect to login
-// ──────────────────────────────────────────────
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// ──────────────────────────────────────────────
-// AUTH ROUTES
-// ──────────────────────────────────────────────
 Route::get('/login', function () {
     return view('auth.login');
 })->name('login');
@@ -30,9 +25,6 @@ Route::post('/logout', function () {
     return redirect()->route('login');
 })->name('logout');
 
-// ──────────────────────────────────────────────
-// SET SESSION (called from JS after Supabase login)
-// ──────────────────────────────────────────────
 Route::post('/set-session', function (Request $request) {
     session([
         'user_id'            => $request->input('user_id'),
@@ -44,48 +36,35 @@ Route::post('/set-session', function (Request $request) {
     return response()->json(['success' => true]);
 })->name('set-session');
 
-// ──────────────────────────────────────────────
-// PAGE ROUTES
-// Order: Dashboard → Newsfeed → Study Groups →
-//        Resources → Focus Mode → Messages → Settings
-// ──────────────────────────────────────────────
-
-// Dashboard (Coming Soon)
 Route::get('/dashboard', function () {
     return view('home.dashboard', ['activeNav' => 'dashboard']);
 })->name('dashboard');
 
-// Newsfeed (the main feed page)
 Route::get('/newsfeed', function () {
     return view('home.newsfeed', ['activeNav' => 'newsfeed']);
 })->name('newsfeed');
 
-// Study Groups
 Route::get('/study-groups', function () {
     return view('home.study-groups', ['activeNav' => 'study-groups']);
 })->name('study-groups');
 
-// Resources
 Route::get('/resources', function () {
     return view('home.resources', ['activeNav' => 'resources']);
 })->name('resources');
 
-// Focus Mode
-Route::get('/focus-mode', function () {
-    return view('home.focus-mode', ['activeNav' => 'focus-mode']);
-})->name('focus-mode');
+Route::get('/focus-mode',            [FocusModeController::class, 'index'])->name('focus-mode');
+Route::post('/focus-mode/session', [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+Route::post('/focus-mode/materials', [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
+Route::post('/focus-mode/flashcards', [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
 
-// Messages
 Route::get('/messages', function () {
     return view('home.messages', ['activeNav' => 'messages']);
 })->name('messages');
 
-// Settings
 Route::get('/settings', function () {
     return view('home.settings', ['activeNav' => 'settings']);
 })->name('settings');
 
-// ── STILL ACCESSIBLE BUT NOT IN SIDEBAR ──────
 Route::get('/notifications', function () {
     return view('home.notifications', ['activeNav' => 'notifications']);
 })->name('notifications');
