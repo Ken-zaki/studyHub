@@ -261,6 +261,8 @@
     </style>
 </head>
 <body>
+    @include('partials.universal-search')
+
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">

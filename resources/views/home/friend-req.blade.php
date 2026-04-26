@@ -451,6 +451,8 @@
         $avatarInitials = strtoupper(substr($avatarParts[0] ?? 'U', 0, 1).substr($avatarParts[1] ?? '', 0, 1));
     @endphp
 
+    @include('partials.universal-search')
+
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="logo">

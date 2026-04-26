@@ -313,6 +313,28 @@
             font-weight: 600;
         }
 
+        .user-link-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .unread-badge {
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
         .messages-box {
             height: 420px;
             overflow-y: auto;
@@ -348,6 +370,22 @@
             font-size: 11px;
             color: var(--text-light);
             margin-top: 5px;
+        }
+
+        .bubble-sender {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .bubble-seen {
+            display: block;
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+            text-align: right;
         }
 
         .message-input {
@@ -397,6 +435,8 @@
         $avatarParts = preg_split('/\s+/', $avatarSeed, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $avatarInitials = strtoupper(substr($avatarParts[0] ?? 'U', 0, 1).substr($avatarParts[1] ?? '', 0, 1));
     @endphp
+
+    @include('partials.universal-search')
 
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -516,10 +556,15 @@
                     <div class="panel-title">Users</div>
                     @forelse ($users as $user)
                         <a
-                            href="{{ route('messages', ['user' => $user->id]) }}"
+                            href="{{ route('messages', ['user' => $user->id, 'name' => $user->name]) }}"
                             class="user-link {{ (string) $user->id === (string) $selectedUserId ? 'active' : '' }}"
                         >
-                            {{ $user->name }}
+                            <span class="user-link-row">
+                                <span>{{ $user->name }}</span>
+                                @if ((int) ($user->unread_count ?? 0) > 0)
+                                    <span class="unread-badge">{{ (int) $user->unread_count }}</span>
+                                @endif
+                            </span>
                         </a>
                     @empty
                         <p class="muted-note">No other users found.</p>
@@ -530,8 +575,14 @@
                     <div class="messages-box">
                         @forelse ($messages as $msg)
                             <div class="bubble {{ (string) $msg->sender_id === (string) $currentUserId ? 'mine' : 'theirs' }}">
+                                @if ((string) $msg->sender_id !== (string) $currentUserId)
+                                    <span class="bubble-sender">{{ $msg->sender_display_name ?? $selectedUserDisplayName ?? 'Unknown User' }}</span>
+                                @endif
                                 {{ $msg->message }}
                                 <span class="bubble-time">{{ $msg->created_at?->format('M d, Y h:i A') }}</span>
+                                @if ((string) $msg->sender_id === (string) $currentUserId)
+                                    <span class="bubble-seen">{{ $msg->seen_at ? 'Seen' : 'Delivered' }}</span>
+                                @endif
                             </div>
                         @empty
                             <p class="muted-note">No messages yet. Send the first one.</p>
@@ -541,6 +592,7 @@
                     <form method="POST" action="{{ route('messages.store') }}">
                         @csrf
                         <input type="hidden" name="receiver_id" value="{{ $selectedUserId }}">
+                        <input type="hidden" name="receiver_name" value="{{ $selectedUserDisplayName ?? '' }}">
                         <textarea class="message-input" name="message" placeholder="Type your message..." required></textarea>
                         <button class="send-btn" type="submit" {{ !$currentUserId || !$selectedUserId ? 'disabled' : '' }}>Send Message</button>
                     </form>

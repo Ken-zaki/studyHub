@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Friend;
 use App\Models\FriendRequest;
 use App\Models\User;
+use App\Providers\SupabaseServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,43 +18,62 @@ class FriendController extends Controller
     public function index(Request $request): View
     {
         $currentUserId = (string) $request->session()->get('user_id', '');
+        $profiles = $this->loadProfiles();
+        $profilesById = collect($profiles)->keyBy(fn (array $profile) => (string) ($profile['id'] ?? ''));
 
         $friends = collect();
         if ($currentUserId !== '') {
-            $friends = Friend::query()
+            $friendships = Friend::query()
                 ->where(function ($query) use ($currentUserId) {
                     $query->where('user_id', $currentUserId)
                         ->orWhere('friend_id', $currentUserId);
                 })
-                ->with(['user', 'friend'])
                 ->get()
-                ->map(function ($friend) use ($currentUserId) {
-                    return (string) $friend->user_id === (string) $currentUserId 
-                        ? $friend->friend 
-                        : $friend->user;
+                ->map(function ($friendship) use ($currentUserId, $profilesById) {
+                    $friendId = (string) ((string) $friendship->user_id === (string) $currentUserId
+                        ? $friendship->friend_id
+                        : $friendship->user_id);
+
+                    return $this->profileToObject($profilesById->get($friendId), $friendId);
                 });
+
+            $friends = $friendships;
         }
 
         $otherUsers = collect();
         $pendingRequestIds = [];
         
         if ($currentUserId !== '') {
-            $friendIds = $friends->pluck('id')->toArray();
+            $friendIds = $friends->pluck('id')->filter()->map(fn ($id) => (string) $id)->values()->all();
             
-            // Get all users except current user and friends
-            $otherUsers = User::query()
-                ->select('id', 'name')
-                ->where('id', '!=', $currentUserId)
-                ->whereNotIn('id', $friendIds)
-                ->orderBy('name')
-                ->get();
-            
-            // Get pending friend request IDs
             $pendingRequestIds = FriendRequest::query()
-                ->where('sender_id', $currentUserId)
+                ->where(function ($query) use ($currentUserId) {
+                    $query->where('sender_id', $currentUserId)
+                        ->orWhere('receiver_id', $currentUserId);
+                })
                 ->where('status', 'pending')
-                ->pluck('receiver_id')
-                ->toArray();
+                ->get()
+                ->flatMap(function ($request) use ($currentUserId) {
+                    return [
+                        (string) $request->sender_id === (string) $currentUserId
+                            ? (string) $request->receiver_id
+                            : (string) $request->sender_id,
+                    ];
+                })
+                ->unique()
+                ->values()
+                ->all();
+
+            $excludedIds = array_values(array_unique(array_merge([$currentUserId], $friendIds, $pendingRequestIds)));
+
+            // Get all users from Supabase profiles except current user, friends, and pending requests
+            $otherUsers = collect($profiles)
+                ->reject(fn (array $profile) => in_array((string) ($profile['id'] ?? ''), $excludedIds, true))
+                ->map(fn (array $profile) => $this->profileToObject($profile, (string) ($profile['id'] ?? '')))
+                ->sortBy(fn ($user) => strtolower((string) ($user->name ?? '')))
+                ->values();
+        } else {
+            $otherUsers = collect();
         }
 
         return view('home.friend', [
@@ -70,6 +90,8 @@ class FriendController extends Controller
     public function requests(Request $request): View
     {
         $currentUserId = (string) $request->session()->get('user_id', '');
+        $profiles = $this->loadProfiles();
+        $profilesById = collect($profiles)->keyBy(fn (array $profile) => (string) ($profile['id'] ?? ''));
 
         $incomingRequests = collect();
         $sentRequests = collect();
@@ -78,16 +100,40 @@ class FriendController extends Controller
             $incomingRequests = FriendRequest::query()
                 ->where('receiver_id', $currentUserId)
                 ->where('status', 'pending')
-                ->with('sender')
                 ->orderBy('created_at', 'desc')
                 ->get();
+
+            $incomingRequests = $incomingRequests->map(function ($friendRequest) use ($profilesById) {
+                $friendRequest->setRelation(
+                    'sender',
+                    $this->profileToObject($profilesById->get((string) $friendRequest->sender_id), (string) $friendRequest->sender_id)
+                );
+                $friendRequest->setRelation(
+                    'receiver',
+                    $this->profileToObject($profilesById->get((string) $friendRequest->receiver_id), (string) $friendRequest->receiver_id)
+                );
+
+                return $friendRequest;
+            });
 
             $sentRequests = FriendRequest::query()
                 ->where('sender_id', $currentUserId)
                 ->where('status', 'pending')
-                ->with('receiver')
                 ->orderBy('created_at', 'desc')
                 ->get();
+
+            $sentRequests = $sentRequests->map(function ($friendRequest) use ($profilesById) {
+                $friendRequest->setRelation(
+                    'sender',
+                    $this->profileToObject($profilesById->get((string) $friendRequest->sender_id), (string) $friendRequest->sender_id)
+                );
+                $friendRequest->setRelation(
+                    'receiver',
+                    $this->profileToObject($profilesById->get((string) $friendRequest->receiver_id), (string) $friendRequest->receiver_id)
+                );
+
+                return $friendRequest;
+            });
         }
 
         return view('home.friend-req', [
@@ -244,5 +290,72 @@ class FriendController extends Controller
         $friendship->delete();
 
         return redirect()->route('friends')->with('success', 'Friend removed successfully.');
+    }
+
+    /**
+     * Load all profiles from Supabase, with a fallback to the Laravel users table.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadProfiles(): array
+    {
+        $profiles = (new SupabaseServiceProvider())->getAllProfiles();
+
+        if (is_array($profiles) && !empty($profiles)) {
+            return $profiles;
+        }
+
+        return User::query()
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $user): array {
+                return [
+                    'id' => (string) $user->id,
+                    'name' => (string) $user->name,
+                    'first_name' => '',
+                    'last_name' => '',
+                    'username' => '',
+                    'profile_photo_url' => '',
+                    'email' => '',
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * Convert a profile array into a simple object for Blade views.
+     *
+     * @param array<string, mixed>|null $profile
+     */
+    private function profileToObject(?array $profile, string $fallbackId = ''): object
+    {
+        $profile = $profile ?? [];
+
+        $firstName = trim((string) ($profile['first_name'] ?? ''));
+        $lastName = trim((string) ($profile['last_name'] ?? ''));
+        $name = trim($firstName . ' ' . $lastName);
+
+        if ($name === '') {
+            $name = trim((string) ($profile['name'] ?? $profile['username'] ?? ''));
+        }
+
+        if ($name === '') {
+            $name = 'User';
+        }
+
+        $parts = preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $initials = strtoupper(substr($parts[0] ?? 'U', 0, 1) . substr($parts[1] ?? '', 0, 1));
+
+        return (object) [
+            'id' => (string) ($profile['id'] ?? $fallbackId),
+            'name' => $name,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'username' => (string) ($profile['username'] ?? ''),
+            'profile_photo_url' => (string) ($profile['profile_photo_url'] ?? ''),
+            'email' => (string) ($profile['email'] ?? ''),
+            'initials' => $initials,
+        ];
     }
 }
