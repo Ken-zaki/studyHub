@@ -105,10 +105,10 @@
     .cal-day.today .day-num{background:linear-gradient(135deg,var(--primary) 0%,var(--secondary) 100%);color:#fff}
     .day-events{display:flex;flex-direction:column;gap:2px}
     .day-event-chip{font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .chip-deadline{background:rgba(255,107,107,.14);color:#dc2626}
-    .chip-class{background:rgba(42,157,143,.14);color:#0f766e}
-    .chip-group{background:rgba(124,77,202,.14);color:#7c3aed}
-    .chip-event{background:rgba(26,95,122,.12);color:var(--primary)}
+    .chip-todo { background:rgba(255,107,107,.14); color:#dc2626; }
+    .chip-class { background:rgba(42,157,143,.14); color:#0f766e; }
+    .chip-group { background:rgba(124,77,202,.14); color:#7c3aed; }
+    .chip-event { background:rgba(26,95,122,.12); color:var(--primary); }
 
     /* ── WEEK VIEW ──────────────────────────────────────────── */
     #weekView{display:none}
@@ -168,6 +168,24 @@
     .cal-category-toggle{width:16px;height:16px;border-radius:4px;border:2px solid currentColor;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
     .cal-category.active .cal-category-toggle{background:currentColor}
     .cal-category.active .cal-category-toggle::after{content:'';width:8px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translateY(-1px)}
+    .all-ev-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .2s;position:relative}
+    .all-ev-item:last-child{margin-bottom:0}
+    .all-ev-item:hover{border-color:var(--primary);box-shadow:0 3px 10px var(--shadow-sm);transform:translateY(-1px)}
+    .all-ev-item.item-sel{background:#fff5f5;border-color:var(--accent)}
+    .all-ev-check{display:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;align-items:center;justify-content:center;margin-top:1px;background:#fff;transition:all .15s}
+    body.select-mode .all-ev-check{display:flex}
+    .all-ev-item.item-sel .all-ev-check{border-color:var(--accent);background:var(--accent)}
+    .all-ev-item.item-sel .all-ev-check::after{content:'';width:7px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translateY(-1px)}
+    .all-ev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+    .all-ev-info{flex:1;min-width:0}
+    .all-ev-title{font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .all-ev-sub{font-size:11px;color:var(--text-secondary);margin-top:1px}
+    .all-ev-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;margin-top:1px}
+    .all-ev-group-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin:12px 0 6px;padding:0 2px}
+    .all-ev-group-label:first-child{margin-top:0}
+    .all-ev-empty{font-size:13px;color:var(--text-light);text-align:center;padding:16px 0}
+    .all-ev-search{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;margin-bottom:12px;box-sizing:border-box;transition:border-color .2s;background:#fff;color:var(--text-primary)}
+    .all-ev-search:focus{outline:none;border-color:var(--primary)}
 
     /* ── DAY POPOVER ────────────────────────────────────────── */
     /* FIX: use visibility+opacity instead of display so closePopover works cleanly */
@@ -239,6 +257,8 @@
     .state-box.err{color:#dc2626;background:#fff5f5;border-radius:12px;border:1px solid #fecaca}
     .spinner{width:22px;height:22px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 8px}
     @keyframes spin{to{transform:rotate(360deg)}}
+
+
 </style>
 @endpush
 
@@ -394,8 +414,13 @@
             <div id="deadlinesList"><div class="state-box"><div class="spinner"></div></div></div>
         </div>
         <div class="widget-card">
-            <div class="widget-title">📁 My Calendars</div>
+            <div class="widget-title">🗂️ Filter My Events</div>
             <div id="myCalendars"></div>
+        </div>
+        <div class="widget-card" id="allEventsWidget">
+           <div class="widget-title" style="margin-bottom:12px">📋 All My Events</div>
+            <input type="text" class="all-ev-search" id="allEvSearch" placeholder="Search events…">
+            <div id="allEventsList"></div>
         </div>
     </aside>
 </main>
@@ -419,28 +444,74 @@
             <button class="modal-close" id="btnModalClose">✕</button>
         </div>
         <div class="form-group">
-            <label class="form-label">Event Title *</label>
-            <input type="text" class="form-input" id="evTitle" placeholder="e.g. Math Assignment Due" maxlength="120">
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label">Date *</label>
-                <input type="date" class="form-input" id="evDate">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Time</label>
-                <input type="time" class="form-input" id="evTime">
-            </div>
-        </div>
-        <div class="form-group">
             <label class="form-label">Category</label>
-            <select class="form-select" id="evCat">
-                <option value="deadline">📌 Deadline</option>
+            <select class="form-select" id="evCat" onchange="updateModalFields()">
+                <option value="todo">📌 To Do</option>
                 <option value="class">📗 Class Schedule</option>
                 <option value="group">👥 Study Group</option>
                 <option value="event">📅 Event</option>
             </select>
         </div>
+        <div class="form-group">
+            <label class="form-label">Title *</label>
+            <input type="text" class="form-input" id="evTitle"
+                   placeholder="e.g. Math Assignment Due" maxlength="120">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input type="date" class="form-input" id="evDate">
+        </div>
+
+        {{-- TIME FIELDS — shown/hidden per category --}}
+
+        {{-- TODO: deadline time (single point, optional) --}}
+        <div id="timeFieldTodo" class="form-group" style="display:none;">
+            <label class="form-label">Deadline Time <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+            <input type="time" class="form-input" id="evTimeTodo">
+        </div>
+
+        {{-- CLASS: start + end (both required) --}}
+        <div id="timeFieldClass" style="display:none;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Start Time *</label>
+                    <input type="time" class="form-input" id="evTimeStart">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Time *</label>
+                    <input type="time" class="form-input" id="evTimeEnd">
+                </div>
+            </div>
+        </div>
+
+        {{-- GROUP: start required, end optional --}}
+        <div id="timeFieldGroup" style="display:none;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Start Time *</label>
+                    <input type="time" class="form-input" id="evTimeStartGroup">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Time <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+                    <input type="time" class="form-input" id="evTimeEndGroup">
+                </div>
+            </div>
+        </div>
+
+        {{-- EVENT: both optional --}}
+        <div id="timeFieldEvent" style="display:none;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Start Time <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+                    <input type="time" class="form-input" id="evTimeStartEvent">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Time <span style="font-weight:400;color:var(--text-light)">(optional)</span></label>
+                    <input type="time" class="form-input" id="evTimeEndEvent">
+                </div>
+            </div>
+        </div>
+
         <div class="form-group">
             <label class="form-label">Description</label>
             <textarea class="form-textarea" id="evDesc" placeholder="Room, link, notes…"></textarea>
@@ -463,10 +534,10 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button class="btn-delete-ev" id="btnDelEv">Delete Event</button>
+            <button class="btn-delete-ev" id="btnDelEv">Delete</button>
             <div class="modal-right">
                 <button class="btn-cancel" id="btnModalCancel">Cancel</button>
-                <button class="btn-save" id="btnSaveEv">Save Event</button>
+                <button class="btn-save" id="btnSaveEv">Save</button>
             </div>
         </div>
     </div>
@@ -508,7 +579,7 @@ const UID     = @json($userId);
 let curDate    = new Date();
 let allEvents  = [];
 let expanded   = [];
-let filters    = { deadline:true, class:true, group:true, event:true };
+let filters = { todo:true, class:true, group:true, event:true };
 let selectMode = false;
 let selIds     = new Set();
 let editId     = null;
@@ -593,10 +664,10 @@ function expandAll() {
 // ═══════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
-const CC = { deadline:'#dc2626', class:'#0f766e', group:'#7c3aed', event:'#1a5f7a' };
-const CB = { deadline:'rgba(255,107,107,.13)', class:'rgba(42,157,143,.13)', group:'rgba(124,77,202,.13)', event:'rgba(26,95,122,.11)' };
-const CI = { deadline:'📌', class:'📗', group:'👥', event:'📅' };
-const CL = { deadline:'Deadline', class:'Class', group:'Study Group', event:'Event' };
+const CC = { todo:'#dc2626', class:'#0f766e', group:'#7c3aed', event:'#1a5f7a' };
+const CB = { todo:'rgba(255,107,107,.13)', class:'rgba(42,157,143,.13)', group:'rgba(124,77,202,.13)', event:'rgba(26,95,122,.11)' };
+const CI = { todo:'📌', class:'📗', group:'👥', event:'📅' };
+const CL = { todo:'To Do', class:'Class', group:'Study Group', event:'Event' };
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
@@ -672,6 +743,11 @@ function wireUI() {
             closePopover();
         }
     });
+
+    // All events search
+    document.getElementById('allEventsWidget').addEventListener('input', e => {
+        if (e.target.id === 'allEvSearch') renderAllEvents();
+    });
 }
 
 // Navigate: month view → shift month; week view → shift week
@@ -699,6 +775,7 @@ function redraw() {
     renderDeadlines();
     renderMyCalendars();
     renderUpcoming();
+    renderAllEvents();
 }
 
 function updateTitle() {
@@ -787,14 +864,12 @@ function weekRange(ref) {
 
 function renderWeek() {
     const today = new Date();
+    const now   = new Date();
     const { start } = weekRange(curDate);
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const HOUR_HEIGHT = 60; // px per hour
-    const START_HOUR  = 0;  // start at midnight
-    const END_HOUR    = 24;
-    const TOTAL_H     = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
+    const dayNames  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const HOUR_H    = 64;
+    const TOTAL_H   = 24 * HOUR_H;
 
-    // Build days array
     const days = [];
     for (let i = 0; i < 7; i++) {
         const d = new Date(start);
@@ -803,76 +878,90 @@ function renderWeek() {
     }
 
     // Summary bar
-    const counts = { deadline:0, class:0, group:0, event:0 };
-    days.forEach(d => {
-        evForDate(fd(d)).filter(e => filters[e.category])
-            .forEach(e => counts[e.category]++);
-    });
-    const sumColors = { deadline:'#dc2626', class:'#0f766e', group:'#7c3aed', event:'#1a5f7a' };
-    const sumLabels = { deadline:'deadline', class:'class', group:'study group', event:'event' };
-    const summaryHTML = Object.entries(counts)
+    const counts = { todo:0, class:0, group:0, event:0 };
+    days.forEach(d => evForDate(fd(d))
+        .filter(e => filters[e.category])
+        .forEach(e => counts[e.category]++));
+    const sumColors = { todo:'#dc2626', class:'#0f766e', group:'#7c3aed', event:'#1a5f7a' };
+    const sumLabels = { todo:'to do', class:'class', group:'study group', event:'event' };
+    document.getElementById('weekSummaryBar').innerHTML = Object.entries(counts)
         .filter(([,n]) => n > 0)
-        .map(([cat, n]) => `
+        .map(([cat,n]) => `
             <div style="display:flex;align-items:center;gap:5px;padding:5px 12px;
                         border-radius:20px;font-size:13px;font-weight:500;
                         border:1px solid var(--border);background:white;color:var(--text-secondary)">
                 <div style="width:8px;height:8px;border-radius:50%;background:${sumColors[cat]}"></div>
-                ${n} ${sumLabels[cat]}${n !== 1 ? 's' : ''}
+                ${n} ${sumLabels[cat]}${n!==1?'s':''}
             </div>`).join('');
-    document.getElementById('weekSummaryBar').innerHTML = summaryHTML;
 
-    // Scroll to current time or 7am on load
-    const now = new Date();
     const scrollToHour = sameDay(now, today) ? Math.max(0, now.getHours() - 1) : 7;
 
-    // Build the grid
-    let html = `
-    <div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    const hasUntimed = days.some(d =>
+        evForDate(fd(d)).filter(e => filters[e.category] && !e.event_time).length > 0);
 
-        {{-- Day header row --}}
-        <div style="display:grid;grid-template-columns:52px repeat(7,1fr);
-                    border-bottom:1px solid var(--border);background:var(--bg-main);
-                    position:sticky;top:0;z-index:10;">
-            <div style="border-right:1px solid var(--border);"></div>`;
+    let html = `<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:16px;overflow:hidden;">`;
 
+    // ── STICKY HEADER ──
+    html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);
+                          border-bottom:2px solid var(--border);background:var(--bg-main);
+                          position:sticky;top:0;z-index:10;">
+                <div style="border-right:1px solid var(--border);"></div>`;
     days.forEach(d => {
         const isTod = sameDay(d, today);
-        html += `
-            <div style="padding:10px 6px;text-align:center;
-                        border-right:1px solid var(--border);
-                        background:${isTod ? 'rgba(26,95,122,0.06)' : 'transparent'};">
-                <div style="font-size:11px;font-weight:600;color:var(--text-light);
-                            text-transform:uppercase;letter-spacing:.04em;">
-                    ${dayNames[d.getDay()]}
-                </div>
-                <div style="font-size:20px;font-weight:600;margin-top:2px;
-                            color:${isTod ? 'var(--primary)' : 'var(--text-primary)'};">
-                    ${d.getDate()}
-                </div>
-            </div>`;
+        html += `<div style="padding:10px 6px;text-align:center;
+                              border-right:1px solid var(--border);
+                              background:${isTod?'rgba(26,95,122,0.06)':'transparent'};">
+            <div style="font-size:11px;font-weight:600;color:var(--text-light);
+                        text-transform:uppercase;letter-spacing:.04em;">
+                ${dayNames[d.getDay()]}
+            </div>
+            <div style="font-size:20px;font-weight:600;margin-top:2px;
+                        color:${isTod?'var(--primary)':'var(--text-primary)'};">
+                ${d.getDate()}
+            </div>
+        </div>`;
     });
     html += `</div>`;
 
-    // Scrollable body
-    html += `
-        <div id="weekScrollBody" style="overflow-y:auto;max-height:600px;">
-            <div style="display:grid;grid-template-columns:52px repeat(7,1fr);position:relative;">`;
+    // ── ALL-DAY ROW ──
+    if (hasUntimed) {
+        html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);
+                              border-bottom:1px solid var(--border);background:var(--bg-main);min-height:32px;">
+            <div style="border-right:1px solid var(--border);padding:6px 4px;
+                        font-size:10px;color:var(--text-light);text-align:right;
+                        white-space:nowrap;">all day</div>`;
+        days.forEach(d => {
+            const untimed = evForDate(fd(d)).filter(e => filters[e.category] && !e.event_time);
+            html += `<div style="border-right:1px solid var(--border);padding:3px 2px;
+                                  min-height:32px;" onclick="openEvModal(null,'${fd(d)}')">`;
+            untimed.forEach(ev => {
+                html += `<div style="font-size:10px;font-weight:600;padding:3px 6px;margin-bottom:2px;
+                                     border-radius:4px;cursor:pointer;width:100%;box-sizing:border-box;
+                                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                                     background:${CB[ev.category]};color:${CC[ev.category]};
+                                     border-left:3px solid ${CC[ev.category]};"
+                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
+                              title="${esc(ev.title)}">${esc(ev.title)}</div>`;
+            });
+            html += `</div>`;
+        });
+        html += `</div>`;
+    }
 
-    // Time gutter + hour lines
+    // ── SCROLLABLE TIME GRID ──
+    html += `<div id="weekScrollBody" style="overflow-y:auto;max-height:580px;">
+                <div style="display:grid;grid-template-columns:52px repeat(7,1fr);position:relative;">`;
+
+    // Time gutter
     html += `<div style="position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:var(--bg-main);">`;
-    for (let h = START_HOUR; h < END_HOUR; h++) {
-        const top = (h - START_HOUR) * HOUR_HEIGHT;
-        const label = h === 0 ? '12 AM'
-            : h < 12 ? `${h} AM`
-            : h === 12 ? '12 PM'
-            : `${h - 12} PM`;
-        html += `
-            <div style="position:absolute;top:${top}px;right:6px;
-                        font-size:10px;color:var(--text-light);
-                        transform:translateY(-50%);white-space:nowrap;
-                        ${h === 0 ? 'display:none;' : ''}">
-                ${label}
-            </div>`;
+    for (let h = 0; h < 24; h++) {
+        if (h === 0) continue;
+        const label = h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h-12} PM`;
+        html += `<div style="position:absolute;top:${h*HOUR_H}px;right:6px;
+                              font-size:10px;color:var(--text-light);
+                              transform:translateY(-50%);white-space:nowrap;">
+                    ${label}
+                 </div>`;
     }
     html += `</div>`;
 
@@ -880,119 +969,137 @@ function renderWeek() {
     days.forEach(d => {
         const ds    = fd(d);
         const isTod = sameDay(d, today);
-        const evs   = evForDate(ds).filter(e => filters[e.category]);
+        const allEvs = evForDate(ds).filter(e => filters[e.category] && e.event_time);
 
-        html += `
-            <div style="position:relative;height:${TOTAL_H}px;
-                        border-right:1px solid var(--border);
-                        background:${isTod ? 'rgba(26,95,122,0.015)' : 'white'};"
-                 onclick="openEvModal(null,'${ds}')">`;
+        html += `<div style="position:relative;height:${TOTAL_H}px;
+                              border-right:1px solid var(--border);
+                              background:${isTod?'rgba(26,95,122,0.015)':'white'};"
+                     onclick="openEvModal(null,'${ds}')">`;
 
-        // Hour gridlines
-        for (let h = START_HOUR; h < END_HOUR; h++) {
-            const top = (h - START_HOUR) * HOUR_HEIGHT;
-            html += `
-                <div style="position:absolute;top:${top}px;left:0;right:0;
-                            border-top:1px solid ${h === START_HOUR ? 'transparent' : 'var(--border)'};
-                            pointer-events:none;">
-                </div>`;
-            // Half-hour line
-            html += `
-                <div style="position:absolute;top:${top + HOUR_HEIGHT/2}px;left:0;right:0;
-                            border-top:1px dashed rgba(0,0,0,0.06);
-                            pointer-events:none;">
-                </div>`;
+        // Hour + half-hour gridlines
+        for (let h = 0; h < 24; h++) {
+            html += `<div style="position:absolute;top:${h*HOUR_H}px;left:0;right:0;
+                                  border-top:1px solid ${h===0?'transparent':'var(--border)'};
+                                  pointer-events:none;"></div>
+                     <div style="position:absolute;top:${h*HOUR_H + HOUR_H/2}px;left:0;right:0;
+                                  border-top:1px dashed rgba(0,0,0,0.05);
+                                  pointer-events:none;"></div>`;
         }
 
-        // Current time indicator
+        // Current time line
         if (isTod) {
-            const nowMins = now.getHours() * 60 + now.getMinutes();
-            const topPx   = (nowMins / 60) * HOUR_HEIGHT;
-            html += `
-                <div style="position:absolute;top:${topPx}px;left:0;right:0;
-                            border-top:2px solid var(--accent);z-index:3;pointer-events:none;">
-                    <div style="position:absolute;left:-1px;top:-5px;
-                                width:8px;height:8px;border-radius:50%;
-                                background:var(--accent);"></div>
-                </div>`;
+            const pct = (now.getHours()*60 + now.getMinutes()) / 60;
+            html += `<div style="position:absolute;top:${pct*HOUR_H}px;left:0;right:0;
+                                  border-top:2px solid var(--accent);z-index:4;pointer-events:none;">
+                        <div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;
+                                    border-radius:50%;background:var(--accent);"></div>
+                     </div>`;
         }
 
-        // Events — positioned by exact time
-        // Group overlapping events into columns
-        const timedEvs   = evs.filter(e => e.event_time);
-        const untimedEvs = evs.filter(e => !e.event_time);
+        // ── OVERLAP DETECTION ──
+        // Sort events by start time
+        const sorted = [...allEvs].sort((a, b) => a.event_time.localeCompare(b.event_time));
 
-        // Untimed events stacked at top with a subtle bg
-        untimedEvs.forEach((ev, idx) => {
-            html += `
-                <div class="day-event-chip chip-${ev.category}"
-                     style="position:absolute;top:${4 + idx * 22}px;left:2px;right:2px;
-                            font-size:10px;cursor:pointer;z-index:2;
-                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-                     onclick="event.stopPropagation();openEvModal('${ev.id}')"
-                     title="${esc(ev.title)}">
-                    ${esc(ev.title)}
-                </div>`;
+        // For each event, compute pixel top and height
+        function getEventBounds(ev) {
+            const [sh, sm] = ev.event_time.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const topPx    = (startMin / 60) * HOUR_H;
+            let heightPx;
+            if (ev.end_time) {
+                const [eh, em] = ev.end_time.split(':').map(Number);
+                const durMin   = (eh * 60 + em) - startMin;
+                heightPx = Math.max(28, (durMin / 60) * HOUR_H);
+            } else {
+                // Fill the full 1-hour slot if no end time
+                heightPx = HOUR_H;
+            }
+            return { topPx, heightPx, startMin, endMin: startMin + (heightPx / HOUR_H * 60) };
+        }
+
+        // Group overlapping events into columns
+        const placed = []; // { ev, topPx, heightPx, col, totalCols }
+
+        sorted.forEach(ev => {
+            const bounds = getEventBounds(ev);
+
+            // Find overlapping already-placed events
+            const overlapping = placed.filter(p =>
+                bounds.startMin < p.endMin && bounds.endMin > p.startMin
+            );
+
+            // Assign column (first unused)
+            const usedCols = new Set(overlapping.map(p => p.col));
+            let col = 0;
+            while (usedCols.has(col)) col++;
+
+            placed.push({ ev, ...bounds, col });
         });
 
-        // Timed events — detect overlaps and split into side-by-side columns
-        const placed = [];
-        timedEvs.forEach(ev => {
-            const [h, m] = ev.event_time.split(':').map(Number);
-            const startMin = h * 60 + m;
-            const topPx    = ((startMin) / 60) * HOUR_HEIGHT;
-            const evHeight = Math.max(24, HOUR_HEIGHT * 0.85); // ~51px default
+        // Calculate totalCols per event (max col in its overlap group + 1)
+        placed.forEach(item => {
+            const overlapping = placed.filter(p =>
+                item.startMin < p.endMin && item.endMin > p.startMin
+            );
+            item.totalCols = Math.max(...overlapping.map(p => p.col)) + 1;
+        });
 
-            // Find which column this event fits in (no overlap)
-            let col = 0;
-            while (placed.some(p => p.col === col &&
-                Math.abs(p.startMin - startMin) < 55)) {
-                col++;
-            }
-            const totalCols = Math.max(1, col + 1);
-            placed.push({ col, startMin });
-
-            // Recalculate width based on overlaps at same time
-            const overlapping = placed.filter(p => Math.abs(p.startMin - startMin) < 55);
-            const cols        = overlapping.length;
-            const width       = `calc((100% - 4px) / ${cols})`;
-            const left        = `calc(2px + (100% - 4px) / ${cols} * ${col})`;
-
+        // Render events
+        placed.forEach(({ ev, topPx, heightPx, col, totalCols }) => {
+            const colW   = `calc((100% - 2px) / ${totalCols})`;
+            const colL   = `calc(1px + (100% - 2px) / ${totalCols} * ${col})`;
             const timeLabel = fmt12(ev.event_time);
-            html += `
-                <div class="day-event-chip chip-${ev.category}"
-                     style="position:absolute;
-                            top:${topPx}px;
-                            left:${left};
-                            width:${width};
-                            height:${evHeight}px;
-                            font-size:10px;cursor:pointer;z-index:2;
-                            overflow:hidden;display:flex;flex-direction:column;
-                            justify-content:flex-start;padding:3px 5px;
-                            box-sizing:border-box;border-radius:5px;"
-                     onclick="event.stopPropagation();openEvModal('${ev.id}')"
-                     title="${esc(ev.title)} · ${timeLabel}">
-                    <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        ${esc(ev.title)}
-                    </div>
-                    <div style="opacity:.75;font-size:9px;margin-top:1px;">${timeLabel}</div>
-                </div>`;
+            const endLabel  = ev.end_time ? ` – ${fmt12(ev.end_time)}` : '';
+            const isTodo    = ev.category === 'todo';
+            const minH      = Math.max(28, heightPx);
+
+            if (isTodo) {
+                // Todo: horizontal dashed line + full-width pill block
+                html += `<div style="position:absolute;top:${topPx}px;left:0;right:0;
+                                      border-top:1.5px dashed ${CC.todo};opacity:.5;
+                                      pointer-events:none;z-index:2;"></div>
+                         <div style="position:absolute;top:${topPx}px;left:${colL};width:${colW};
+                                      height:${minH}px;z-index:3;box-sizing:border-box;
+                                      background:${CB.todo};border-left:3px solid ${CC.todo};
+                                      border-radius:4px;padding:3px 6px;cursor:pointer;
+                                      overflow:hidden;"
+                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
+                              title="${esc(ev.title)} · ${timeLabel}">
+                            <div style="font-size:10px;font-weight:700;color:${CC.todo};
+                                         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                                         line-height:1.3;">📌 ${esc(ev.title)}</div>
+                            ${minH >= 44 ? `<div style="font-size:9px;color:${CC.todo};opacity:.7;margin-top:2px;">${timeLabel}</div>` : ''}
+                         </div>`;
+            } else {
+                html += `<div style="position:absolute;top:${topPx}px;left:${colL};width:${colW};
+                                      height:${minH}px;z-index:2;box-sizing:border-box;
+                                      background:${CB[ev.category]};
+                                      border-left:3px solid ${CC[ev.category]};
+                                      border-radius:4px;padding:4px 6px;cursor:pointer;
+                                      overflow:hidden;display:flex;flex-direction:column;
+                                      justify-content:flex-start;"
+                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
+                              title="${esc(ev.title)} · ${timeLabel}${endLabel}">
+                            <div style="font-size:10px;font-weight:700;
+                                         color:${CC[ev.category]};
+                                         white-space:nowrap;overflow:hidden;
+                                         text-overflow:ellipsis;line-height:1.3;">
+                                ${esc(ev.title)}
+                            </div>
+                            ${minH >= 44 ? `<div style="font-size:9px;color:${CC[ev.category]};opacity:.75;margin-top:2px;">${timeLabel}${endLabel}</div>` : ''}
+                         </div>`;
+            }
         });
 
         html += `</div>`; // end day column
     });
 
-    html += `</div>`; // end grid
-    html += `</div>`; // end scroll body
-    html += `</div>`; // end outer wrapper
+    html += `</div></div></div>`;
 
     document.getElementById('weekGrid').innerHTML = html;
 
-    // Scroll to the right hour
     const scrollBody = document.getElementById('weekScrollBody');
-    if (scrollBody) {
-        scrollBody.scrollTop = scrollToHour * HOUR_HEIGHT;
-    }
+    if (scrollBody) scrollBody.scrollTop = scrollToHour * HOUR_H;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1091,6 +1198,9 @@ function syncUpcomingSel() {
     document.querySelectorAll('.upcoming-item[data-id]').forEach(el => {
         el.classList.toggle('item-sel', selIds.has(el.dataset.id));
     });
+    document.querySelectorAll('.all-ev-item[data-id]').forEach(el => {
+        el.classList.toggle('item-sel', selIds.has(el.dataset.id));
+    });
 }
 
 function updateBulkBar() {
@@ -1141,7 +1251,7 @@ function handleItemClick(e, id, el) {
 // ═══════════════════════════════════════════════════════════════════
 function renderDeadlines() {
     const today = new Date(); today.setHours(0,0,0,0);
-    const items = allEvents.filter(e => e.category === 'deadline')
+    const items = allEvents.filter(e => e.category === 'todo')
         .sort((a, b) => a.event_date > b.event_date ? 1 : -1).slice(0, 7);
     if (!items.length) {
         document.getElementById('deadlinesList').innerHTML = '<div class="state-box">No deadlines 🎉</div>';
@@ -1176,7 +1286,7 @@ function renderMyCalendars() {
     const cats = [
         { key:'class',    label:'Class Schedule', color:'#0f766e', meta:'Your enrolled classes' },
         { key:'group',    label:'Study Groups',    color:'#7c3aed', meta:`${cntW('group')} events this week` },
-        { key:'deadline', label:'Deadlines',       color:'#dc2626', meta:`${cntW('deadline')} due this week` },
+        { key:'todo', label:'To Do',       color:'#dc2626', meta:`${cntW('todo')} due this week` },
         { key:'event',    label:'Events',          color:'#1a5f7a', meta:'School & personal events' },
     ];
     document.getElementById('myCalendars').innerHTML = cats.map(c => `
@@ -1189,6 +1299,60 @@ function renderMyCalendars() {
             </div>
             <div class="cal-category-toggle"></div>
         </div>`).join('');
+}
+
+function renderAllEvents() {
+    const el = document.getElementById('allEventsList');
+    if (!el) return;
+
+    const q = (document.getElementById('allEvSearch')?.value || '').toLowerCase().trim();
+
+    // Filter by active category filters + search query
+    const evs = allEvents
+        .filter(e => filters[e.category])
+        .filter(e => !q || e.title.toLowerCase().includes(q) || (e.description||'').toLowerCase().includes(q))
+        .sort((a, b) => a.event_date > b.event_date ? 1 : a.event_date < b.event_date ? -1 : (a.event_time||'') > (b.event_time||'') ? 1 : -1);
+
+    if (!evs.length) {
+        el.innerHTML = `<div class="all-ev-empty">${q ? 'No events match your search.' : 'No events yet.'}</div>`;
+        return;
+    }
+
+    // Group by month
+    const groups = {};
+    evs.forEach(ev => {
+        const d   = new Date(ev.event_date + 'T00:00:00');
+        const key = d.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(ev);
+    });
+
+    let html = '';
+    Object.entries(groups).forEach(([month, items]) => {
+        html += `<div class="all-ev-group-label">${month}</div>`;
+        items.forEach(ev => {
+            const d   = new Date(ev.event_date + 'T00:00:00');
+            const dl  = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+            const sel = selIds.has(ev.id);
+            html += `<div class="all-ev-item ${sel ? 'item-sel' : ''}" data-id="${ev.id}"
+                          onclick="handleAllEvClick(event,'${ev.id}',this)">
+                <div class="all-ev-check"></div>
+                <div class="all-ev-dot" style="background:${CC[ev.category]}"></div>
+                <div class="all-ev-info">
+                    <div class="all-ev-title" title="${esc(ev.title)}">${esc(ev.title)}</div>
+                    <div class="all-ev-sub">${dl}${ev.event_time ? ' · ' + fmt12(ev.event_time) : ''}</div>
+                </div>
+                <span class="all-ev-tag" style="background:${CB[ev.category]};color:${CC[ev.category]}">${CI[ev.category]}</span>
+            </div>`;
+        });
+    });
+
+    el.innerHTML = html;
+}
+
+function handleAllEvClick(e, id, el) {
+    if (selectMode) { toggleItemSel(id, el); return; }
+    openEvModal(id);
 }
 
 function toggleFilter(key) {
@@ -1208,11 +1372,28 @@ function openEvModal(id = null, prefill = null) {
         const ev = allEvents.find(e => e.id === id);
         if (!ev) return;
         document.getElementById('modalTitle').textContent = 'Edit Event';
-        document.getElementById('evTitle').value   = ev.title;
-        document.getElementById('evDate').value    = ev.event_date;
-        document.getElementById('evTime').value    = ev.event_time ? ev.event_time.slice(0, 5) : '';
-        document.getElementById('evCat').value     = ev.category;
-        document.getElementById('evDesc').value    = ev.description || '';
+        document.getElementById('evTitle').value = ev.title;
+        document.getElementById('evDate').value  = ev.event_date;
+        document.getElementById('evCat').value   = ev.category;
+        document.getElementById('evDesc').value  = ev.description || '';
+        updateModalFields();
+
+        const st = ev.event_time ? ev.event_time.slice(0,5) : '';
+        const et = ev.end_time   ? ev.end_time.slice(0,5)   : '';
+
+        if (ev.category === 'todo') {
+            document.getElementById('evTimeTodo').value = st;
+        } else if (ev.category === 'class') {
+            document.getElementById('evTimeStart').value = st;
+            document.getElementById('evTimeEnd').value   = et;
+        } else if (ev.category === 'group') {
+            document.getElementById('evTimeStartGroup').value = st;
+            document.getElementById('evTimeEndGroup').value   = et;
+        } else if (ev.category === 'event') {
+            document.getElementById('evTimeStartEvent').value = st;
+            document.getElementById('evTimeEndEvent').value   = et;
+        }
+
         document.getElementById('evRecur').checked = !!ev.is_recurring;
         if (ev.is_recurring) {
             document.getElementById('recurOpts').style.display = 'block';
@@ -1226,6 +1407,7 @@ function openEvModal(id = null, prefill = null) {
     } else {
         document.getElementById('modalTitle').textContent = 'Add Event';
         if (!prefill) document.getElementById('evDate').value = fd(new Date());
+        updateModalFields();
     }
     document.getElementById('eventModal').classList.add('open');
 }
@@ -1235,41 +1417,77 @@ function closeEvModal() {
     editId = null;
 }
 
+function updateModalFields() {
+    const cat = document.getElementById('evCat').value;
+    ['todo','class','group','event'].forEach(c => {
+        const el = document.getElementById(`timeField${c.charAt(0).toUpperCase()+c.slice(1)}`);
+        if (el) el.style.display = cat === c ? '' : 'none';
+    });
+}
+
 function resetForm() {
-    ['evTitle','evDesc','evTime','evRecurEnd'].forEach(id => document.getElementById(id).value = '');
+    ['evTitle','evDesc','evTimeTodo','evTimeStart','evTimeEnd',
+     'evTimeStartGroup','evTimeEndGroup','evTimeStartEvent',
+     'evTimeEndEvent','evRecurEnd'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     document.getElementById('evDate').value    = '';
-    document.getElementById('evCat').value     = 'deadline';
+    document.getElementById('evCat').value     = 'todo';
     document.getElementById('evRecur').checked = false;
     document.getElementById('recurOpts').style.display = 'none';
     document.querySelectorAll('.rday').forEach(b => b.classList.remove('sel'));
     document.getElementById('btnDelEv').style.display = 'none';
+    updateModalFields();
 }
 
 async function saveEv() {
+    const cat   = document.getElementById('evCat').value;
     const title = document.getElementById('evTitle').value.trim();
     const date  = document.getElementById('evDate').value;
-    const time  = document.getElementById('evTime').value || null;
-    const cat   = document.getElementById('evCat').value;
     const desc  = document.getElementById('evDesc').value.trim() || null;
     const recur = document.getElementById('evRecur').checked;
     const rDays = recur ? [...document.querySelectorAll('.rday.sel')].map(b => b.dataset.d) : null;
     const rEnd  = recur ? (document.getElementById('evRecurEnd').value || null) : null;
 
-    if (!title)                         return alert('Please enter a title.');
-    if (!date)                          return alert('Please select a date.');
-    if (recur && rDays && !rDays.length) return alert('Select at least one repeat day.');
+    // Get start/end times per category
+    let startTime = null, endTime = null;
+    if (cat === 'todo') {
+        startTime = document.getElementById('evTimeTodo').value || null;
+    } else if (cat === 'class') {
+        startTime = document.getElementById('evTimeStart').value || null;
+        endTime   = document.getElementById('evTimeEnd').value   || null;
+    } else if (cat === 'group') {
+        startTime = document.getElementById('evTimeStartGroup').value || null;
+        endTime   = document.getElementById('evTimeEndGroup').value   || null;
+    } else if (cat === 'event') {
+        startTime = document.getElementById('evTimeStartEvent').value || null;
+        endTime   = document.getElementById('evTimeEndEvent').value   || null;
+    }
+
+    if (!title) return alert('Please enter a title.');
+    if (!date)  return alert('Please select a date.');
+    if (cat === 'class' && (!startTime || !endTime))
+        return alert('Class schedule requires both start and end time.');
+    if (cat === 'group' && !startTime)
+        return alert('Study group requires a start time.');
+    if (recur && rDays && !rDays.length)
+        return alert('Select at least one repeat day.');
 
     const data = {
-        title, event_date:date, event_time:time, category:cat,
-        description:desc, is_recurring:recur, recur_days:rDays, recur_end:rEnd,
+        title, event_date:date, category:cat, description:desc,
+        event_time: startTime,
+        end_time:   endTime,
+        is_recurring:recur, recur_days:rDays, recur_end:rEnd,
     };
+
     const btn = document.getElementById('btnSaveEv');
     btn.textContent = 'Saving…'; btn.disabled = true;
     try {
         if (editId) {
             const updated = await dbUpdate(editId, data);
             const i = allEvents.findIndex(e => e.id === editId);
-            if (i !== -1) allEvents[i] = { ...allEvents[i], ...data, ...(updated || {}) };
+            if (i !== -1) allEvents[i] = { ...allEvents[i], ...data, ...(updated||{}) };
         } else {
             const row = await dbInsert(data);
             allEvents.push(row);
@@ -1280,7 +1498,7 @@ async function saveEv() {
     } catch (err) {
         alert('Save failed: ' + err.message);
     } finally {
-        btn.textContent = 'Save Event'; btn.disabled = false;
+        btn.textContent = 'Save'; btn.disabled = false;
     }
 }
 
