@@ -100,6 +100,83 @@ class SupabaseServiceProvider
     }
 
     /**
+     * Get user profile by ID.
+     *
+     * @param string $userId
+     * @return array|null
+     */
+    public function getProfileById($userId)
+    {
+        $url = $this->supabaseUrl . '/rest/v1/profiles?id=eq.' . urlencode((string) $userId);
+
+        $result = $this->makeRequest($url, 'GET', $this->supabaseAnonKey);
+
+        return is_array($result) && !empty($result) ? $result[0] : null;
+    }
+
+    /**
+     * Get all profile rows.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getAllProfiles(): array
+    {
+        $url = $this->supabaseUrl . '/rest/v1/profiles?select=*';
+        $result = $this->makeRequest($url, 'GET', $this->supabaseAnonKey);
+
+        return is_array($result) && !isset($result['error']) ? $result : [];
+    }
+
+    /**
+     * Update the stored profile photo URL for a user.
+     *
+     * @param string $userId
+     * @param string $profilePhotoUrl
+     * @return array
+     */
+    public function updateProfilePhoto($userId, $profilePhotoUrl): array
+    {
+        $url = $this->supabaseUrl . '/rest/v1/profiles?id=eq.' . urlencode((string) $userId);
+
+        return $this->makeRequest($url, 'PATCH', $this->supabaseServiceKey, [
+            'profile_photo_url' => (string) $profilePhotoUrl,
+        ]);
+    }
+
+    /**
+     * Generic table query helper.
+     *
+     * @param string $table
+     * @param array<string, string> $queryParams
+     * @param bool $useServiceKey
+     * @return array<int, array<string, mixed>>|array<string, mixed>
+     */
+    public function queryTable($table, array $queryParams = [], $useServiceKey = false)
+    {
+        $queryString = http_build_query($queryParams);
+        $url = $this->supabaseUrl . '/rest/v1/' . $table . ($queryString !== '' ? '?' . $queryString : '');
+        $apiKey = $useServiceKey ? $this->supabaseServiceKey : $this->supabaseAnonKey;
+
+        return $this->makeRequest($url, 'GET', $apiKey);
+    }
+
+    /**
+     * Count rows for a table using query filters.
+     *
+     * @param string $table
+     * @param array<string, string> $queryParams
+     * @param bool $useServiceKey
+     * @return int
+     */
+    public function countTableRows($table, array $queryParams = [], $useServiceKey = false): int
+    {
+        $params = array_merge(['select' => 'id'], $queryParams);
+        $rows = $this->queryTable($table, $params, $useServiceKey);
+
+        return is_array($rows) && !isset($rows['error']) ? count($rows) : 0;
+    }
+
+    /**
      * Create user profile (after signup)
      *
      * @param string $userId UUID from auth.users

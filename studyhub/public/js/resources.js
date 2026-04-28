@@ -290,9 +290,13 @@ function goStep(n) {
     // Validate before advancing
     if (n > currentStep) {
         if (currentStep === 1) {
-            const hasFiles = selectedFiles.length > 0;
-            const hasLink  = document.getElementById('uploadLink').value.trim();
-            if (!hasFiles && !hasLink) { alert('Please attach at least one file or paste a link.'); return; }
+            const hasFiles   = selectedFiles.length > 0;
+            const hasLink    = document.getElementById('uploadLink').value.trim();
+            const hasContent = (document.getElementById('uploadContent')?.value || '').trim();
+            if (!hasFiles && !hasLink && !hasContent) {
+                alert('Please attach a file, paste a link, or write some text content.');
+                return;
+            }
         }
         if (currentStep === 2) {
             let ok = true;
@@ -419,6 +423,31 @@ async function submitUpload() {
         const finalType    = type === 'others' ? 'others' : type;
 
         // Upload each file
+        const textContent2 = (document.getElementById('uploadContent')?.value || '').trim();
+
+        // Allow text-only upload (no files required if content exists)
+        if (!selectedFiles.length && !linkVal && textContent2) {
+            // Text-only resource — insert directly
+            const { error: textErr } = await _supabase.from('resources').insert({
+                uploaded_by:     CURRENT_USER.id,
+                title,
+                description:     desc || null,
+                content:         textContent2,
+                subject:         finalSubject,
+                file_type:       finalType || 'text',
+                file_url:        null,
+                education_level: vis === 'private' ? 'private' : 'public',
+                visibility:      vis === 'private' ? 'private' : 'public',
+                is_approved:     false,
+                tags:            typeOther ? [typeOther] : []
+            });
+            if (textErr) throw textErr;
+            closeUploadModal();
+            alert('✅ Resource uploaded successfully!');
+            loadResources(); loadMyUploads();
+            return;
+        }
+
         const uploadedUrls = [];
         for (const file of selectedFiles) {
             const ext  = file.name.split('.').pop();
@@ -438,16 +467,20 @@ async function submitUpload() {
             uploadedUrls.push({ url: linkVal, name: linkVal });
         }
 
+        const textContent = (document.getElementById('uploadContent')?.value || '').trim();
+
         // Insert one row per file (or one row for link)
         for (const u of uploadedUrls) {
             const { error: insErr } = await _supabase.from('resources').insert({
                 uploaded_by:     CURRENT_USER.id,
                 title:           selectedFiles.length > 1 ? `${title} — ${u.name}` : title,
                 description:     desc || null,
+                content:         textContent || null,
                 subject:         finalSubject,
                 file_type:       finalType,
                 file_url:        u.url,
                 education_level: vis === 'private' ? 'private' : 'public',
+                visibility:      vis === 'private' ? 'private' : 'public',
                 is_approved:     false,
                 tags:            typeOther ? [typeOther] : []
             });
@@ -548,3 +581,445 @@ function escH(t) {
     d.textContent = t;
     return d.innerHTML;
 }
+
+
+/* ============================================================
+   RESOURCE DETAIL — append to resources.js
+   Handles: detail view, ratings, comments, edit, report
+   ============================================================ */
+
+let currentResource = null;
+let currentRating   = 0;
+
+// ── OPEN DETAIL ───────────────────────────────────────────────
+function openDetail(r) {
+    currentResource = r;
+    currentRating   = 0;
+
+    document.getElementById('resDetailOverlay').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    // Scroll to top
+    document.getElementById('resDetailOverlay').scrollTop = 0;
+
+    // Icon
+    document.getElementById('detailIcon').textContent =
+        fileTypeIcon(r.file_type || 'other', r.file_url);
+
+    // Title
+    document.getElementById('detailTitle').textContent = r.title || 'Untitled';
+
+    // Submeta
+    const uploader = r.profiles
+        ? `${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username
+        : 'Unknown';
+    document.getElementById('detailSubmeta').innerHTML = `
+        <span>${escH(uploader)}</span>
+        <span class="dot">·</span>
+        <span>${timeAgo(r.created_at)}</span>
+        <span class="dot">·</span>
+        <span class="res-vis-badge ${r.visibility==='private'?'private':'public'}">${r.visibility==='private'?'🔒 Friends':'🌐 Public'}</span>
+    `;
+
+    // Info sidebar
+    document.getElementById('infoSubject').textContent  = r.subject || '—';
+    document.getElementById('infoType').textContent     = fileTypeLabel(r.file_type || 'other');
+    document.getElementById('infoVis').textContent      = r.visibility === 'private' ? 'Friends only' : 'Public';
+    document.getElementById('infoUploader').textContent = uploader;
+    document.getElementById('infoDate').textContent     = new Date(r.created_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+    if (r.view_count) {
+        document.getElementById('infoViewsRow').style.display = '';
+        document.getElementById('infoViews').textContent = r.view_count;
+    }
+
+    // Description
+    if (r.description) {
+        document.getElementById('detailDescSection').style.display = '';
+        document.getElementById('detailDesc').textContent = r.description;
+    } else {
+        document.getElementById('detailDescSection').style.display = 'none';
+    }
+
+    // Text content
+    if (r.content) {
+        document.getElementById('detailContentSection').style.display = '';
+        document.getElementById('detailContent').textContent = r.content;
+    } else {
+        document.getElementById('detailContentSection').style.display = 'none';
+    }
+
+    // File
+    if (r.file_url && r.file_type !== 'link') {
+        document.getElementById('detailFileSection').style.display = '';
+        const btn = document.getElementById('detailFileBtn');
+        btn.href = r.file_url;
+        btn.textContent = '';
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download File`;
+    } else {
+        document.getElementById('detailFileSection').style.display = 'none';
+    }
+
+    // Link
+    if (r.file_url && r.file_type === 'link') {
+        document.getElementById('detailLinkSection').style.display = '';
+        document.getElementById('detailLinkBtn').href = r.file_url;
+    } else {
+        document.getElementById('detailLinkSection').style.display = 'none';
+    }
+
+    // Edit button — only for uploader
+    const actions = document.getElementById('detailActions');
+    const isOwner = r.uploaded_by === CURRENT_USER.id;
+    actions.innerHTML = isOwner ? `
+        <button class="res-detail-edit-btn" onclick="openEditModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+        </button>` : '';
+
+    // Hide report for own resources
+    document.getElementById('reportBtn').style.display = isOwner ? 'none' : '';
+
+    // Load ratings + comments
+    loadRatings(r.id);
+    loadComments(r.id);
+    setupRatingStars(r.id);
+
+    // Increment view count (fire and forget)
+    _supabase.from('resources')
+        .update({ view_count: (r.view_count || 0) + 1 })
+        .eq('id', r.id).then(() => {});
+}
+
+function closeDetail() {
+    document.getElementById('resDetailOverlay').style.display = 'none';
+    document.body.style.overflow = '';
+    currentResource = null;
+}
+
+// ── RATINGS ───────────────────────────────────────────────────
+async function loadRatings(resourceId) {
+    try {
+        const { data } = await _supabase
+            .from('resource_ratings')
+            .select('rating')
+            .eq('resource_id', resourceId);
+
+        if (!data || !data.length) {
+            renderStarsDisplay(0, 0);
+            return;
+        }
+        const avg = data.reduce((s, r) => s + r.rating, 0) / data.length;
+        renderStarsDisplay(avg, data.length);
+
+        // Check user's existing rating
+        if (CURRENT_USER.id) {
+            const { data: myRating } = await _supabase
+                .from('resource_ratings')
+                .select('rating')
+                .eq('resource_id', resourceId)
+                .eq('user_id', CURRENT_USER.id)
+                .single();
+
+            if (myRating) {
+                currentRating = myRating.rating;
+                highlightStars(currentRating);
+                document.getElementById('rateLabel').textContent = `Your rating: ${myRating.rating}/5`;
+            }
+        }
+    } catch(e) {}
+}
+
+function renderStarsDisplay(avg, count) {
+    const display = document.getElementById('detailStarsDisplay');
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        html += `<span class="${i <= Math.round(avg) ? 'res-star-filled' : 'res-star-empty'}">★</span>`;
+    }
+    display.innerHTML = html;
+    document.getElementById('detailRatingCount').textContent =
+        count ? `${avg.toFixed(1)} (${count} rating${count !== 1 ? 's' : ''})` : 'No ratings yet';
+}
+
+function setupRatingStars(resourceId) {
+    document.querySelectorAll('.res-rate-star').forEach(star => {
+        const val = parseInt(star.dataset.v);
+        star.addEventListener('mouseenter', () => highlightStars(val));
+        star.addEventListener('mouseleave', () => highlightStars(currentRating));
+        star.addEventListener('click', () => submitRating(resourceId, val));
+    });
+}
+
+function highlightStars(val) {
+    document.querySelectorAll('.res-rate-star').forEach(s => {
+        const v = parseInt(s.dataset.v);
+        s.classList.toggle('selected', v <= val);
+        s.classList.toggle('hovered', false);
+    });
+}
+
+async function submitRating(resourceId, val) {
+    if (!CURRENT_USER.id) { alert('Please log in to rate resources.'); return; }
+    try {
+        await _supabase.from('resource_ratings').upsert({
+            resource_id: resourceId,
+            user_id:     CURRENT_USER.id,
+            rating:      val
+        }, { onConflict: 'resource_id,user_id' });
+
+        currentRating = val;
+        highlightStars(val);
+        document.getElementById('rateLabel').textContent = `Your rating: ${val}/5 ✓`;
+        loadRatings(resourceId);
+    } catch(e) { alert('Rating failed: ' + e.message); }
+}
+
+// ── COMMENTS ──────────────────────────────────────────────────
+async function loadComments(resourceId) {
+    const el = document.getElementById('commentsList');
+    el.innerHTML = '<div class="res-loading-sm">Loading comments…</div>';
+    try {
+        const { data, error } = await _supabase
+            .from('resource_comments')
+            .select('*, profiles(first_name, last_name, username)')
+            .eq('resource_id', resourceId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        document.getElementById('commentCount').textContent = data.length;
+
+        if (!data.length) {
+            el.innerHTML = '<div class="res-loading-sm">No comments yet. Be the first!</div>';
+            return;
+        }
+        el.innerHTML = data.map(c => {
+            const name = c.profiles
+                ? `${c.profiles.first_name||''} ${c.profiles.last_name||''}`.trim() || c.profiles.username
+                : 'Unknown';
+            const isOwn = c.user_id === CURRENT_USER.id;
+            return `
+                <div class="res-comment-item">
+                    <div class="res-comment-avatar" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        ${((c.profiles?.first_name||'?')[0]+(c.profiles?.last_name||'?')[0]).toUpperCase()}
+                    </div>
+                    <div class="res-comment-body">
+                        <div>
+                            <span class="res-comment-name">${escH(name)}</span>
+                            <span class="res-comment-time">${timeAgo(c.created_at)}</span>
+                            ${isOwn ? `<button class="res-comment-del" onclick="deleteComment('${c.id}')">✕</button>` : ''}
+                        </div>
+                        <div class="res-comment-text">${escH(c.comment)}</div>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        el.innerHTML = '<div class="res-loading-sm">Failed to load comments.</div>';
+    }
+}
+
+async function submitComment() {
+    if (!CURRENT_USER.id) { alert('Please log in to comment.'); return; }
+    const input = document.getElementById('commentInput');
+    const text  = input.value.trim();
+    if (!text) return;
+    if (!currentResource) return;
+
+    const btn = document.querySelector('.res-comment-submit');
+    btn.disabled = true; btn.textContent = 'Posting…';
+
+    try {
+        const { error } = await _supabase.from('resource_comments').insert({
+            resource_id: currentResource.id,
+            user_id:     CURRENT_USER.id,
+            comment:     text
+        });
+        if (error) throw error;
+        input.value = '';
+        input.style.height = '';
+        loadComments(currentResource.id);
+    } catch(e) {
+        alert('Failed to post comment: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Post';
+    }
+}
+
+async function deleteComment(commentId) {
+    if (!confirm('Delete this comment?')) return;
+    try {
+        await _supabase.from('resource_comments').delete().eq('id', commentId);
+        loadComments(currentResource.id);
+    } catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+// ── EDIT MODAL ────────────────────────────────────────────────
+function openEditModal() {
+    if (!currentResource) return;
+    const r = currentResource;
+
+    document.getElementById('editTitle').value   = r.title || '';
+    document.getElementById('editDesc').value    = r.description || '';
+    document.getElementById('editContent').value = r.content || '';
+    document.getElementById('editSubject').value = r.subject || '';
+    document.getElementById('editType').value    = r.file_type || '';
+
+    // Others fields
+    checkEditOtherSubject();
+    checkEditOtherType();
+
+    const vis = r.visibility === 'private' ? 'private' : 'public';
+    document.querySelector(`input[name="editVis"][value="${vis}"]`).checked = true;
+
+    document.getElementById('editModal').classList.add('open');
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+}
+
+function checkEditOtherSubject() {
+    const sel = document.getElementById('editSubject').value;
+    document.getElementById('editSubjectOther').style.display = sel === 'others' ? 'block' : 'none';
+}
+function checkEditOtherType() {
+    const sel = document.getElementById('editType').value;
+    document.getElementById('editTypeOther').style.display = sel === 'others' ? 'block' : 'none';
+}
+
+async function saveEdit() {
+    if (!currentResource) return;
+
+    const title   = document.getElementById('editTitle').value.trim();
+    const subject = document.getElementById('editSubject').value;
+    const subjOth = document.getElementById('editSubjectOther').value.trim();
+    const type    = document.getElementById('editType').value;
+    const typeOth = document.getElementById('editTypeOther').value.trim();
+    const desc    = document.getElementById('editDesc').value.trim();
+    const content = document.getElementById('editContent').value.trim();
+    const vis     = document.querySelector('input[name="editVis"]:checked').value;
+
+    if (!title)   { alert('Title is required.'); return; }
+    if (!subject) { alert('Please select a subject.'); return; }
+    if (subject === 'others' && !subjOth) { alert('Please specify the subject.'); return; }
+    if (!type)    { alert('Please select a type.'); return; }
+
+    const finalSubject = subject === 'others' ? subjOth : subject;
+    const finalType    = type === 'others' ? (typeOth || 'others') : type;
+
+    const btn = document.querySelector('#editModal .btn-primary');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+        const { error } = await _supabase
+            .from('resources')
+            .update({
+                title:           title,
+                description:     desc || null,
+                content:         content || null,
+                subject:         finalSubject,
+                file_type:       finalType,
+                visibility:      vis,
+                education_level: vis,
+            })
+            .eq('id', currentResource.id);
+
+        if (error) throw error;
+
+        // Update local data
+        currentResource = { ...currentResource, title, description: desc, content, subject: finalSubject, file_type: finalType, visibility: vis };
+        closeEditModal();
+
+        // Refresh detail view
+        openDetail(currentResource);
+
+        // Refresh feed
+        loadResources();
+    } catch(e) {
+        alert('Save failed: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = '💾 Save Changes';
+    }
+}
+
+// ── REPORT ────────────────────────────────────────────────────
+function openReport()  { document.getElementById('reportModal').classList.add('open'); }
+function closeReport() { document.getElementById('reportModal').classList.remove('open'); }
+
+async function submitReport() {
+    const reason = document.querySelector('input[name="reportReason"]:checked');
+    if (!reason) { alert('Please select a reason.'); return; }
+    const details = document.getElementById('reportDetails').value.trim();
+    const fullReason = details ? `${reason.value}: ${details}` : reason.value;
+
+    try {
+        const { error } = await _supabase.from('reports').insert({
+            reported_by:           CURRENT_USER.id,
+            reported_content_type: 'resource',
+            reported_content_id:   currentResource.id,
+            reason:                fullReason,
+            status:                'pending'
+        });
+        if (error) throw error;
+        closeReport();
+        alert('✅ Report submitted. Our team will review it soon.');
+    } catch(e) {
+        alert('Report failed: ' + e.message);
+    }
+}
+
+// ── UPLOAD MODAL: add text-only support ───────────────────────
+// Patch the existing uploadModal to add a content textarea in Step 2
+// This runs after DOM loads and inserts the field
+document.addEventListener('DOMContentLoaded', () => {
+    // Add "Text Content" field after description in Step 2
+    const descGroup = document.getElementById('uploadDesc')?.closest('.form-group') ||
+                      document.getElementById('uploadDesc')?.parentElement;
+    if (descGroup) {
+        const textGroup = document.createElement('div');
+        textGroup.innerHTML = `
+            <label class="res-label" style="margin-top:8px;">
+                Text Content
+                <span style="color:var(--text-light);font-weight:400;">(optional — write notes, summaries, or study material directly)</span>
+            </label>
+            <div class="res-text-area-wrap">
+                <textarea id="uploadContent" class="res-input" rows="5"
+                    style="resize:vertical;"
+                    placeholder="Write your study notes, summaries, or any text content here…"
+                    oninput="document.getElementById('contentCounter').textContent = this.value.length + ' chars'"></textarea>
+                <span class="res-text-counter" id="contentCounter">0 chars</span>
+            </div>`;
+        descGroup.parentNode.insertBefore(textGroup, descGroup.nextSibling);
+    }
+
+    // Patch submitUpload to include content
+    const origSubmit = window.submitUpload;
+    if (origSubmit) {
+        window.submitUpload = async function() {
+            // temporarily handled by overriding below
+        };
+    }
+});
+
+// ── CARD CLICK → OPEN DETAIL ──────────────────────────────────
+// Override the original cardHTML to make clicking open detail
+// We patch markViewed to also open detail
+const _origMarkViewed = window.markViewed;
+window.markViewed = function(r) {
+    if (_origMarkViewed) _origMarkViewed(r);
+    openDetail(r);
+};
+
+// ── UTILITIES ─────────────────────────────────────────────────
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight) + 'px';
+}
+
+// Escape key closes detail
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        if (document.getElementById('reportModal').classList.contains('open')) { closeReport(); return; }
+        if (document.getElementById('editModal').classList.contains('open'))   { closeEditModal(); return; }
+        if (document.getElementById('resDetailOverlay').style.display !== 'none') { closeDetail(); return; }
+    }
+});

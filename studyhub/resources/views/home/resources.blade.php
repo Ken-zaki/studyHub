@@ -158,6 +158,10 @@
                     <label class="res-label">Description <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
                     <textarea id="uploadDesc" class="res-input" rows="3" placeholder="Brief description of this resource…" style="resize:vertical;"></textarea>
                 </div>
+                <div>
+                    <label class="res-label">Text Content <span style="color:var(--text-light);font-weight:400;">(optional — write notes directly, no file needed)</span></label>
+                    <textarea id="uploadContent" class="res-input" rows="5" placeholder="Write your study notes, summaries, or any text content here…" style="resize:vertical;"></textarea>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div>
                         <label class="res-label">Subject Category <span class="req">*</span></label>
@@ -191,6 +195,7 @@
                             <option value="image">🖼️ Image</option>
                             <option value="link">🔗 Link / Reference</option>
                             <option value="reviewer">📋 Reviewer</option>
+                            <option value="text">✍️ Text Only</option>
                             <option value="others">✏️ Others…</option>
                         </select>
                         <input type="text" id="uploadTypeOther" class="res-input" placeholder="Describe the material type…" style="display:none;margin-top:8px;">
@@ -257,6 +262,221 @@
     };
 </script>
 <script src="{{ asset('js/resources.js') }}"></script>
+
+{{-- Appended to resources.blade.php BEFORE </body> --}}
+
+<!-- ══════════════════════════════════════════
+     RESOURCE DETAIL PAGE (full-screen overlay)
+══════════════════════════════════════════ -->
+<div class="res-detail-overlay" id="resDetailOverlay" style="display:none;">
+    <div class="res-detail-page">
+
+        <!-- Top bar -->
+        <div class="res-detail-topbar">
+            <button class="res-detail-back" onclick="closeDetail()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Back to Resources
+            </button>
+            <div class="res-detail-actions" id="detailActions"></div>
+        </div>
+
+        <div class="res-detail-body">
+
+            <!-- LEFT: main content -->
+            <div class="res-detail-main">
+
+                <!-- Header -->
+                <div class="res-detail-header">
+                    <div class="res-detail-icon" id="detailIcon">📄</div>
+                    <div class="res-detail-meta">
+                        <h1 class="res-detail-title" id="detailTitle">Loading…</h1>
+                        <div class="res-detail-submeta" id="detailSubmeta"></div>
+                        <!-- Star rating -->
+                        <div class="res-stars-row">
+                            <div class="res-stars-display" id="detailStarsDisplay"></div>
+                            <span class="res-rating-count" id="detailRatingCount"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description / Content -->
+                <div class="res-detail-section" id="detailDescSection" style="display:none;">
+                    <div class="res-detail-section-title">Description</div>
+                    <div class="res-detail-desc" id="detailDesc"></div>
+                </div>
+
+                <!-- Text content (for text-only resources) -->
+                <div class="res-detail-section" id="detailContentSection" style="display:none;">
+                    <div class="res-detail-section-title">Content</div>
+                    <div class="res-detail-content-body" id="detailContent"></div>
+                </div>
+
+                <!-- File -->
+                <div class="res-detail-section" id="detailFileSection" style="display:none;">
+                    <div class="res-detail-section-title">File</div>
+                    <a class="res-detail-file-btn" id="detailFileBtn" href="#" target="_blank" download>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download File
+                    </a>
+                </div>
+
+                <!-- Link -->
+                <div class="res-detail-section" id="detailLinkSection" style="display:none;">
+                    <div class="res-detail-section-title">Reference Link</div>
+                    <a class="res-detail-link-btn" id="detailLinkBtn" href="#" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        Open Link
+                    </a>
+                </div>
+
+                <!-- Rate this resource -->
+                <div class="res-detail-section" id="rateSection">
+                    <div class="res-detail-section-title">Rate this resource</div>
+                    <div class="res-rate-row">
+                        <div class="res-rate-stars" id="rateStars">
+                            <span class="res-rate-star" data-v="1">★</span>
+                            <span class="res-rate-star" data-v="2">★</span>
+                            <span class="res-rate-star" data-v="3">★</span>
+                            <span class="res-rate-star" data-v="4">★</span>
+                            <span class="res-rate-star" data-v="5">★</span>
+                        </div>
+                        <span class="res-rate-label" id="rateLabel">Click to rate</span>
+                    </div>
+                </div>
+
+                <!-- Comments -->
+                <div class="res-detail-section">
+                    <div class="res-detail-section-title">Comments <span class="res-comment-count" id="commentCount">0</span></div>
+
+                    <div class="res-comment-form">
+                        <div class="res-comment-avatar" id="commentAvatar">{{ strtoupper(substr(session('user_first_name','U'),0,1).substr(session('user_last_name','U'),0,1)) }}</div>
+                        <div class="res-comment-input-wrap">
+                            <textarea id="commentInput" class="res-comment-input" placeholder="Write a comment…" rows="2" oninput="autoResize(this)"></textarea>
+                            <button class="res-comment-submit" onclick="submitComment()">Post</button>
+                        </div>
+                    </div>
+
+                    <div class="res-comments-list" id="commentsList">
+                        <div class="res-loading-sm">Loading comments…</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT: sidebar -->
+            <aside class="res-detail-sidebar">
+                <div class="res-detail-info-card">
+                    <div class="res-info-row"><span class="res-info-label">Subject</span><span class="res-info-val" id="infoSubject">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Type</span><span class="res-info-val" id="infoType">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Visibility</span><span class="res-info-val" id="infoVis">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Uploaded by</span><span class="res-info-val" id="infoUploader">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Date</span><span class="res-info-val" id="infoDate">—</span></div>
+                    <div class="res-info-row" id="infoViewsRow" style="display:none;"><span class="res-info-label">Views</span><span class="res-info-val" id="infoViews">—</span></div>
+                </div>
+
+                <button class="res-report-btn" id="reportBtn" onclick="openReport()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Flag / Report
+                </button>
+            </aside>
+        </div>
+    </div>
+</div>
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal" style="max-width:620px;">
+        <div class="modal-header">
+            <span class="modal-title">Edit Resource</span>
+            <button class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+                <label class="res-label">Title <span class="req">*</span></label>
+                <input type="text" id="editTitle" class="res-input" placeholder="Resource title">
+            </div>
+            <div>
+                <label class="res-label">Description <span style="color:var(--text-light);font-weight:400;">(optional)</span></label>
+                <textarea id="editDesc" class="res-input" rows="3" style="resize:vertical;" placeholder="Brief description…"></textarea>
+            </div>
+            <div>
+                <label class="res-label">Text Content <span style="color:var(--text-light);font-weight:400;">(optional — for text-only resources)</span></label>
+                <textarea id="editContent" class="res-input" rows="6" style="resize:vertical;" placeholder="Write your notes, summaries, or study material here…"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label class="res-label">Subject <span class="req">*</span></label>
+                    <select id="editSubject" class="res-input" onchange="checkEditOtherSubject()">
+                        <option value="">Select subject…</option>
+                        <option>Mathematics</option><option>Science</option><option>Filipino</option>
+                        <option>English</option><option>PE</option><option>Health</option>
+                        <option>Music</option><option>Arts</option><option>Social Studies</option>
+                        <option>Computer Science</option><option>Values Education</option><option>MAPEH</option>
+                        <option>History</option><option>Chemistry</option><option>Physics</option>
+                        <option>Biology</option><option>Economics</option><option value="others">Others…</option>
+                    </select>
+                    <input type="text" id="editSubjectOther" class="res-input" placeholder="Enter subject name…" style="display:none;margin-top:8px;">
+                </div>
+                <div>
+                    <label class="res-label">Type <span class="req">*</span></label>
+                    <select id="editType" class="res-input" onchange="checkEditOtherType()">
+                        <option value="">Select type…</option>
+                        <option value="notes">📄 Notes</option>
+                        <option value="exercise">📝 Exercise</option>
+                        <option value="slides">📊 Slides</option>
+                        <option value="video">🎬 Video</option>
+                        <option value="image">🖼️ Image</option>
+                        <option value="link">🔗 Link</option>
+                        <option value="reviewer">📋 Reviewer</option>
+                        <option value="text">✍️ Text only</option>
+                        <option value="others">✏️ Others…</option>
+                    </select>
+                    <input type="text" id="editTypeOther" class="res-input" placeholder="Describe the type…" style="display:none;margin-top:8px;">
+                </div>
+            </div>
+            <div>
+                <label class="res-label">Visibility</label>
+                <div style="display:flex;gap:10px;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                        <input type="radio" name="editVis" value="public" checked> 🌐 Public
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                        <input type="radio" name="editVis" value="private"> 🔒 Friends only
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions" style="margin-top:20px;">
+            <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+            <button class="btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ REPORT MODAL ══ -->
+<div class="modal-overlay" id="reportModal">
+    <div class="modal" style="max-width:460px;">
+        <div class="modal-header">
+            <span class="modal-title">Report Resource</span>
+            <button class="modal-close" onclick="closeReport()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+            Help us keep StudyHub safe. Tell us what's wrong with this resource.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+            <label class="res-report-option"><input type="radio" name="reportReason" value="Inappropriate content"> Inappropriate content</label>
+            <label class="res-report-option"><input type="radio" name="reportReason" value="Spam or misleading"> Spam or misleading</label>
+            <label class="res-report-option"><input type="radio" name="reportReason" value="Copyright violation"> Copyright violation</label>
+            <label class="res-report-option"><input type="radio" name="reportReason" value="Low quality content"> Low quality content</label>
+            <label class="res-report-option"><input type="radio" name="reportReason" value="Other"> Other (describe below)</label>
+        </div>
+        <textarea id="reportDetails" class="res-input" rows="3" style="resize:vertical;" placeholder="Additional details (optional)…"></textarea>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button class="btn-secondary" onclick="closeReport()">Cancel</button>
+            <button class="btn-primary" style="background:var(--accent);border-color:var(--accent);" onclick="submitReport()">Submit Report</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

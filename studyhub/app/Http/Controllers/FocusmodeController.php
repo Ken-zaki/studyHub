@@ -1,4 +1,8 @@
 <?php
+// ─────────────────────────────────────────────────────────────
+//  FocusModeController.php
+//  Place at: app/Http/Controllers/FocusModeController.php
+// ─────────────────────────────────────────────────────────────
 
 namespace App\Http\Controllers;
 
@@ -14,14 +18,14 @@ class FocusModeController extends Controller
     public function index()
     {
         return view('home.focus-mode', [
-            'activeNav'  => 'focus-mode',          // ← for shared sidebar highlight
-            'materials'  => session('focus_materials',  []),
+            'materials' => session('focus_materials', []),
             'flashcards' => session('focus_flashcards', []),
         ]);
     }
 
     /**
-     * Save a completed focus session (AJAX).
+     * Save a completed focus session (called via AJAX when
+     * the user turns off Focus Mode or leaves the page).
      */
     public function storeSession(Request $request)
     {
@@ -30,61 +34,56 @@ class FocusModeController extends Controller
         ]);
 
         $userId = session('user_id');
+
         if (!$userId) {
-            return response()->json(['message' => 'Not authenticated.'], 422);
+            return response()->json(['message' => 'Missing session user id.'], 422);
         }
 
-        // Insert directly via Supabase REST API (no Laravel model needed)
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'apikey'        => env('SUPABASE_SERVICE_KEY'),
-            'Authorization' => 'Bearer ' . env('SUPABASE_SERVICE_KEY'),
-            'Content-Type'  => 'application/json',
-        ])->post(env('SUPABASE_URL') . '/rest/v1/focus_sessions', [
-            'user_id'          => $userId,
-            'duration_minutes' => (int) round($validated['duration'] / 60),
-            'session_type'     => 'pomodoro',
+        session([
+            'focus_session_count' => (int) session('focus_session_count', 0) + 1,
+            'focus_total_seconds' => (int) session('focus_total_seconds', 0) + (int) $validated['duration'],
         ]);
 
-        return response()->json(['status' => $response->successful() ? 'ok' : 'error']);
+        return response()->json(['status' => 'ok']);
     }
 
     /**
-     * Upload a study material file.
+     * Upload a study material file for the active focus session.
      */
     public function storeMaterial(Request $request)
     {
         $validated = $request->validate([
             'material' => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:20480',
-            'screen'   => 'required|string|in:screenReview,screenFlashcard,screenQuiz',
+            'screen' => 'required|string|in:screenReview,screenFlashcard,screenQuiz',
         ]);
 
-        $userId    = session('user_id') ?: 'guest';
-        $file      = $request->file('material');
-        $origName  = $file->getClientOriginalName();
-        $safeName  = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
-        $ext       = strtolower($file->getClientOriginalExtension());
-        $fileName  = now()->format('YmdHis') . '_' . $safeName . '_' . Str::random(6) . '.' . $ext;
-        $dir       = public_path('uploads/focus-mode/' . $userId);
+        $userId = session('user_id') ?: 'guest';
+        $file = $request->file('material');
+        $originalName = $file->getClientOriginalName();
+        $safeName = Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
+        $extension = strtolower($file->getClientOriginalExtension());
+        $fileName = now()->format('YmdHis') . '_' . $safeName . '_' . Str::random(8) . '.' . $extension;
 
-        File::ensureDirectoryExists($dir);
-        $file->move($dir, $fileName);
+        $directory = public_path('uploads/focus-mode/' . $userId);
+        File::ensureDirectoryExists($directory);
+        $file->move($directory, $fileName);
 
         $material = [
-            'id'          => (string) Str::uuid(),
-            'screen'      => $validated['screen'],
-            'name'        => $origName,
-            'url'         => asset('uploads/focus-mode/' . $userId . '/' . $fileName),
-            'type'        => $ext,
+            'id' => (string) Str::uuid(),
+            'screen' => $validated['screen'],
+            'name' => $originalName,
+            'url' => asset('uploads/focus-mode/' . $userId . '/' . $fileName),
+            'type' => $extension,
             'uploaded_at' => now()->toDateTimeString(),
         ];
 
-        $materials   = session('focus_materials', []);
+        $materials = session('focus_materials', []);
         $materials[] = $material;
         session(['focus_materials' => array_slice($materials, -20)]);
 
         return response()->json([
-            'status'    => 'ok',
-            'material'  => $material,
+            'status' => 'ok',
+            'material' => $material,
             'materials' => session('focus_materials', []),
         ]);
     }
@@ -96,23 +95,23 @@ class FocusModeController extends Controller
     {
         $validated = $request->validate([
             'question' => 'required|string|min:1|max:400',
-            'answer'   => 'required|string|min:1|max:1000',
+            'answer' => 'required|string|min:1|max:1000',
         ]);
 
         $flashcard = [
-            'id'         => (string) Str::uuid(),
-            'question'   => trim($validated['question']),
-            'answer'     => trim($validated['answer']),
+            'id' => (string) Str::uuid(),
+            'question' => trim($validated['question']),
+            'answer' => trim($validated['answer']),
             'created_at' => now()->toDateTimeString(),
         ];
 
-        $flashcards   = session('focus_flashcards', []);
+        $flashcards = session('focus_flashcards', []);
         $flashcards[] = $flashcard;
         session(['focus_flashcards' => array_slice($flashcards, -200)]);
 
         return response()->json([
-            'status'     => 'ok',
-            'flashcard'  => $flashcard,
+            'status' => 'ok',
+            'flashcard' => $flashcard,
             'flashcards' => session('focus_flashcards', []),
         ]);
     }
