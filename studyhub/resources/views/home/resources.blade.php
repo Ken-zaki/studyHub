@@ -140,6 +140,15 @@
             <div id="filePreviewList" class="file-preview-list"></div>
             <div class="upload-divider"><span>or paste a link instead</span></div>
             <input type="url" id="uploadLink" class="res-input" placeholder="https://…">
+
+            <div class="upload-divider"><span>or write text content</span></div>
+            <label class="res-label">Text Content
+                <span style="color:var(--text-light);font-weight:400;">(optional — notes, summaries, study material)</span>
+            </label>
+            <textarea id="uploadContent" class="res-input" rows="5"
+                style="resize:vertical;"
+                placeholder="Write your study notes, summaries, or any text content directly here…"></textarea>
+
             <div class="modal-actions" style="margin-top:16px;">
                 <button class="btn-secondary" onclick="closeUploadModal()">Cancel</button>
                 <button class="btn-primary" onclick="goStep(2)">Next →</button>
@@ -329,33 +338,52 @@
                     </a>
                 </div>
 
-                <!-- Rate this resource -->
-                <div class="res-detail-section" id="rateSection">
-                    <div class="res-detail-section-title">Rate this resource</div>
-                    <div class="res-rate-row">
+                <!-- Rating + Comment combined -->
+                <div class="res-detail-section" id="reviewSection">
+                    <div class="res-detail-section-title">
+                        Rate &amp; Comment
+                        <span class="res-comment-count" id="commentCount">0</span>
+                    </div>
+
+                    <!-- Star rating row -->
+                    <div class="res-rate-row" style="margin-bottom:14px;">
                         <div class="res-rate-stars" id="rateStars">
-                            <span class="res-rate-star" data-v="1">★</span>
-                            <span class="res-rate-star" data-v="2">★</span>
-                            <span class="res-rate-star" data-v="3">★</span>
-                            <span class="res-rate-star" data-v="4">★</span>
-                            <span class="res-rate-star" data-v="5">★</span>
+                            <span class="res-rate-star" data-v="1"
+                                onmouseenter="starHover(1)" onmouseleave="starOut()" onclick="starClick(1)">★</span>
+                            <span class="res-rate-star" data-v="2"
+                                onmouseenter="starHover(2)" onmouseleave="starOut()" onclick="starClick(2)">★</span>
+                            <span class="res-rate-star" data-v="3"
+                                onmouseenter="starHover(3)" onmouseleave="starOut()" onclick="starClick(3)">★</span>
+                            <span class="res-rate-star" data-v="4"
+                                onmouseenter="starHover(4)" onmouseleave="starOut()" onclick="starClick(4)">★</span>
+                            <span class="res-rate-star" data-v="5"
+                                onmouseenter="starHover(5)" onmouseleave="starOut()" onclick="starClick(5)">★</span>
                         </div>
-                        <span class="res-rate-label" id="rateLabel">Click to rate</span>
+                        <span class="res-rate-label" id="rateLabel">Click a star to rate</span>
                     </div>
-                </div>
 
-                <!-- Comments -->
-                <div class="res-detail-section">
-                    <div class="res-detail-section-title">Comments <span class="res-comment-count" id="commentCount">0</span></div>
-
+                    <!-- Comment input + submit button -->
                     <div class="res-comment-form">
-                        <div class="res-comment-avatar" id="commentAvatar">{{ strtoupper(substr(session('user_first_name','U'),0,1).substr(session('user_last_name','U'),0,1)) }}</div>
+                        <div class="res-comment-avatar">{{ strtoupper(substr(session('user_first_name','U'),0,1).substr(session('user_last_name','U'),0,1)) }}</div>
                         <div class="res-comment-input-wrap">
-                            <textarea id="commentInput" class="res-comment-input" placeholder="Write a comment…" rows="2" oninput="autoResize(this)"></textarea>
-                            <button class="res-comment-submit" onclick="submitComment()">Post</button>
+                            <textarea id="commentInput" class="res-comment-input"
+                                placeholder="Write a comment… (optional)"
+                                rows="2" oninput="autoResize(this)"></textarea>
+                            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+                                <button class="res-comment-submit"
+                                    style="background:#f3f4f6;color:var(--text-secondary);"
+                                    onclick="submitRatingOnly()"
+                                    title="Submit rating without a comment">
+                                    ⭐ Rate Only
+                                </button>
+                                <button id="submitReviewBtn" class="res-comment-submit" onclick="submitComment()">
+                                    💬 Post Comment
+                                </button>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- Existing comments list -->
                     <div class="res-comments-list" id="commentsList">
                         <div class="res-loading-sm">Loading comments…</div>
                     </div>
@@ -443,6 +471,19 @@
                     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
                         <input type="radio" name="editVis" value="private"> 🔒 Friends only
                     </label>
+                </div>
+            </div>
+             <div>
+                <label class="res-label">
+                    Files
+                    <span style="color:var(--text-light);font-weight:400;">
+                        (rename, remove, or add new files)
+                    </span>
+                </label>
+                <div id="editFileManager">
+                    <div style="padding:12px;color:var(--text-light);font-size:13px;">
+                        Loading files…
+                    </div>
                 </div>
             </div>
         </div>
