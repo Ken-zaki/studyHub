@@ -6,7 +6,7 @@
 @php $activeNav = 'dashboard'; @endphp
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
 @endpush
 
 @section('content')
@@ -259,5 +259,5 @@
         userId:          @json($userId),
     };
 </script>
-<script src="{{ asset('js/dashboard.js') }}"></script>
+<script src="{{ asset('js/user_dashboard.js') }}"></script>
 @endpush
