@@ -135,9 +135,14 @@
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
-const SUPABASE_URL         = '{{ env("SUPABASE_URL") }}';
-const SUPABASE_ANON_KEY    = '{{ env("SUPABASE_ANON_KEY") }}';
-const SUPABASE_SERVICE_KEY = '{{ env("SUPABASE_SERVICE_KEY") }}';
+const SB_URL  = '{{ env("SUPABASE_URL") }}';
+const SB_ANON = '{{ env("SUPABASE_ANON_KEY") }}';
+const SB_SVC  = '{{ env("SUPABASE_SERVICE_KEY") }}';
+const UID     = '{{ session("user_id") }}';
+
+const SUPABASE_URL         = SB_URL;
+const SUPABASE_ANON_KEY    = SB_ANON;
+const SUPABASE_SERVICE_KEY = SB_SVC;
 
 // ── CURRENT USER (from Laravel session / auth) ───────────────────────────────
 // ✅ FIX: Use the authenticated user's real UUID from your auth system.
@@ -649,5 +654,8 @@ function escapeHTML(text) {
     return d.innerHTML;
 }
 </script>
+
+<script src="{{ asset('js/user_dashboard.js') }}"></script>
+
 </body>
 </html>
