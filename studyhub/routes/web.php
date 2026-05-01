@@ -3,7 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\FocusModeController;
+use App\Http\Controllers\FriendRequestController;
 use App\Http\Controllers\SearchController;
+use App\Models\FriendRequest;
+use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
 
 // ──────────────────────────────────────────────────────────────
@@ -155,13 +158,59 @@ Route::get('/settings', function () {
 // ── FRIENDS (from GitHub version) ────────────────────────────
 Route::get('/friends', function () {
     if ($r = requireAuth()) return $r;
-    return view('home.dashboard', ['activeNav' => 'dashboard']);
+
+    $currentUserId = (string) session('user_id', '');
+    $provider = new SupabaseServiceProvider();
+    $friendRows = Friendship::query()
+        ->where('user_id', $currentUserId)
+        ->orWhere('friend_id', $currentUserId)
+        ->get(['user_id', 'friend_id']);
+
+    $friendIds = [];
+    foreach ($friendRows as $row) {
+        $candidate = (string) ($row->user_id === $currentUserId ? $row->friend_id : $row->user_id);
+        if ($candidate !== '' && $candidate !== $currentUserId) {
+            $friendIds[$candidate] = true;
+        }
+    }
+
+    $friends = [];
+    if (!empty($friendIds)) {
+        foreach ($provider->getAllProfiles() as $profile) {
+            $pid = (string) ($profile['id'] ?? '');
+            if (!isset($friendIds[$pid])) {
+                continue;
+            }
+
+            $friendFirst = trim((string) ($profile['first_name'] ?? ''));
+            $friendLast  = trim((string) ($profile['last_name'] ?? ''));
+            $friendName  = trim($friendFirst . ' ' . $friendLast);
+            if ($friendName === '') {
+                $friendName = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
+            }
+
+            $status = strtolower((string) ($profile['status'] ?? ''));
+            $isActive = (bool) ($profile['is_online'] ?? false)
+                || (bool) ($profile['is_active'] ?? false)
+                || in_array($status, ['online', 'active'], true);
+
+            $friends[] = [
+                'id' => $pid,
+                'name' => $friendName,
+                'photo' => (string) ($profile['profile_photo_url'] ?? ''),
+                'initials' => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
+                'is_active' => $isActive,
+            ];
+        }
+    }
+
+    return view('home.friends', ['activeNav' => 'friends', 'friends' => $friends]);
 })->name('friends');
 
-Route::get('/friend-requests', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.dashboard', ['activeNav' => 'dashboard']);
-})->name('friend-requests');
+Route::get('/friend-requests', [FriendRequestController::class, 'index'])->name('friend-requests');
+Route::post('/friend-requests/{receiverId}', [FriendRequestController::class, 'send'])->name('friend-requests.send');
+Route::post('/friend-requests/{friendRequest}/accept', [FriendRequestController::class, 'accept'])->name('friend-requests.accept');
+Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
 
 // ── SEARCH (from GitHub version) ─────────────────────────────
 // Route::get('/search/universal', [SearchController::class, 'universal'])
@@ -343,6 +392,94 @@ Route::get('/profile', function () {
         ],
     ]);
 })->name('profile');
+
+// ── PROFILE VIEW (View other users' profiles) ──────────────────
+Route::get('/profile/{userId}', function ($userId) {
+    if ($r = requireAuth()) return $r;
+
+    // Validate that userId is a non-empty string
+    $userId = (string) trim($userId);
+    if ($userId === '' || $userId === session('user_id')) {
+        return redirect(route('profile'));
+    }
+
+    $currentUserId = (string) session('user_id', '');
+    $provider = new SupabaseServiceProvider();
+    $viewedProfile = $provider->getProfileById($userId);
+
+    $relationshipState = 'none';
+    $pendingRequestId = null;
+
+    if (Friendship::areFriends($currentUserId, $userId)) {
+        $relationshipState = 'friends';
+    } else {
+        $pendingRequest = FriendRequest::query()
+            ->between($currentUserId, $userId)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($pendingRequest) {
+            $pendingRequestId = $pendingRequest->id;
+            $relationshipState = $pendingRequest->sender_id === $currentUserId
+                ? 'pending_outgoing'
+                : 'pending_incoming';
+        }
+    }
+
+    $friendRows = Friendship::query()
+        ->where('user_id', $userId)
+        ->orWhere('friend_id', $userId)
+        ->get(['user_id', 'friend_id']);
+
+    $friendIds = [];
+    foreach ($friendRows as $row) {
+        $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
+        if ($candidate !== '' && $candidate !== $userId) {
+            $friendIds[$candidate] = true;
+        }
+    }
+
+    $friendProfiles = [];
+    if (!empty($friendIds)) {
+        foreach ($provider->getAllProfiles() as $profile) {
+            $pid = (string) ($profile['id'] ?? '');
+            if (!isset($friendIds[$pid])) {
+                continue;
+            }
+
+            $friendFirst = trim((string) ($profile['first_name'] ?? ''));
+            $friendLast  = trim((string) ($profile['last_name'] ?? ''));
+            $friendName  = trim($friendFirst . ' ' . $friendLast);
+            if ($friendName === '') {
+                $friendName = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
+            }
+
+            $status = strtolower((string) ($profile['status'] ?? ''));
+            $isActive = (bool) ($profile['is_online'] ?? false)
+                || (bool) ($profile['is_active'] ?? false)
+                || in_array($status, ['online', 'active'], true);
+
+            $friendProfiles[] = [
+                'id' => $pid,
+                'name' => $friendName,
+                'photo' => (string) ($profile['profile_photo_url'] ?? ''),
+                'initials' => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
+                'is_active' => $isActive,
+            ];
+        }
+    }
+
+    return view('home.profile-view', [
+        'userId' => $userId,
+        'profileData' => [
+            'friends' => $friendProfiles,
+            'profile' => $viewedProfile,
+        ],
+        'relationshipState' => $relationshipState,
+        'pendingRequestId' => $pendingRequestId,
+        'activeNav' => 'profile',
+    ]);
+})->name('profile.view');
 
 // ── FOCUS MODE ────────────────────────────────────────────────
 Route::get('/focus-mode',             [FocusModeController::class, 'index'])->name('focus-mode');

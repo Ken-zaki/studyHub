@@ -132,6 +132,7 @@ function createPostHTML(post) {
     const initials = avatarInitials(author.first_name || 'U', author.last_name || 'U');
     const timeAgo  = formatTimeAgo(post.created_at);
     const isOwn    = post.user_id === currentUser.id;
+    const profileUrl = `/profile/${encodeURIComponent(post.user_id || '')}?name=${encodeURIComponent(fullName)}&photo=${encodeURIComponent(author.profile_photo_url || '')}&username=${encodeURIComponent(author.username || '')}`;
 
     const avatarHTML = author.profile_photo_url
         ? `<img src="${author.profile_photo_url}" alt="${escapeHTML(fullName)}">`
@@ -189,9 +190,9 @@ function createPostHTML(post) {
     return `
         <div class="post-card" id="post-${post.id}">
             <div class="post-header">
-                <div class="post-avatar">${avatarHTML}</div>
+                <a class="post-avatar-link" href="${profileUrl}" aria-label="View ${escapeHTML(fullName)} profile">${avatarHTML}</a>
                 <div class="post-info">
-                    <div class="post-author">${escapeHTML(fullName)}</div>
+                    <div class="post-author"><a href="${profileUrl}" class="post-author-link">${escapeHTML(fullName)}</a></div>
                     <div class="post-time">${timeAgo}</div>
                 </div>
                 ${menuHTML}

@@ -6,17 +6,16 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="data-supabase-url" content="{{ env('SUPABASE_URL') }}">
     <meta name="data-supabase-key" content="{{ env('SUPABASE_ANON_KEY') }}">
-    <meta name="data-supabase-service-key" content="{{ env('SUPABASE_SERVICE_KEY') }}">
-    <meta name="data-user-id" content="{{ session('user_id') }}">
-    <meta name="data-user-first-name" content="{{ session('user_first_name') }}">
-    <meta name="data-user-last-name" content="{{ session('user_last_name') }}">
-    <meta name="data-user-username" content="{{ session('user_username') }}">
-    <meta name="data-user-photo" content="{{ session('user_profile_photo') }}">
+    <meta name="data-viewed-user-id" content="{{ $userId ?? '' }}">
+    <meta name="data-viewed-user-name" content="{{ request('name', '') }}">
+    <meta name="data-viewed-user-photo" content="{{ request('photo', '') }}">
+    <meta name="data-viewed-user-username" content="{{ request('username', '') }}">
+    <meta name="data-current-user-id" content="{{ session('user_id') }}">
     <title>Profile - StudyHub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/profile.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/profileview.css') }}">
 </head>
 <body>
 
@@ -36,11 +35,30 @@
                     <div class="profile-avatar-wrap">
                         <div class="profile-avatar-large" id="profileAvatarLarge"></div>
                     </div>
-                    <div>
-                        <button class="profile-upload-btn" type="button" id="profilePhotoButton">
-                            Change photo
-                        </button>
-                        <input type="file" class="profile-photo-input" id="profilePhotoInput" accept="image/*">
+                    <div id="profileActions">
+                        @if(($userId ?? '') !== session('user_id'))
+                            @if(($relationshipState ?? 'none') === 'friends')
+                                <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Friends</button>
+                            @elseif(($relationshipState ?? 'none') === 'pending_outgoing')
+                                <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Request Sent</button>
+                            @elseif(($relationshipState ?? 'none') === 'pending_incoming' && !empty($pendingRequestId))
+                                <div class="profile-action-form" style="display:flex; gap:10px; flex-wrap:wrap;">
+                                    <form method="POST" action="{{ route('friend-requests.accept', ['friendRequest' => $pendingRequestId]) }}">
+                                        @csrf
+                                        <button type="submit" class="profile-upload-btn profile-add-friend-btn">Accept</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('friend-requests.decline', ['friendRequest' => $pendingRequestId]) }}">
+                                        @csrf
+                                        <button type="submit" class="profile-upload-btn profile-add-friend-btn" style="background:#f3f4f6;color:#374151;">Decline</button>
+                                    </form>
+                                </div>
+                            @else
+                                <form method="POST" action="{{ route('friend-requests.send', ['receiverId' => $userId ?? '']) }}" class="profile-action-form">
+                                    @csrf
+                                    <button type="submit" class="profile-upload-btn profile-add-friend-btn">Add Friend</button>
+                                </form>
+                            @endif
+                        @endif
                     </div>
                 </div>
                 <div class="profile-meta">
@@ -76,7 +94,7 @@
 
                     <div class="profile-friends-card">
                         <div class="profile-friends-header">Friends</div>
-                        <div class="profile-friends-scroll">
+                        <div class="profile-friends-scroll" id="friendsList">
                             @php
                                 $friendList = is_array($profileData['friends'] ?? null) ? $profileData['friends'] : [];
                             @endphp
@@ -118,52 +136,31 @@
             </div>
         </div>
 
-        <!-- MY POSTS -->
+        <!-- THEIR POSTS -->
         <div class="section-header">
-            <span class="section-title">My Posts</span>
+            <span class="section-title" id="postsTitle">Posts</span>
             <span class="post-count-badge" id="postCountBadge">Loading…</span>
         </div>
 
         <div id="profileFeed" class="feed">
             <div class="loading">
                 <div class="loading-spinner"></div>
-                Loading your posts…
+                Loading posts…
             </div>
-        </div>
-
-        <div class="profile-account-actions">
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="profile-account-btn">Change Account</button>
-            </form>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="profile-account-btn danger">Logout</button>
-            </form>
         </div>
 
     </div>
 </main>
 
-<!-- EDIT POST MODAL -->
-<div class="modal-overlay" id="editModal">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title">Edit Post</span>
-            <button class="modal-close" type="button" onclick="closeEditModal()">✕</button>
-        </div>
-        <textarea class="modal-textarea" id="editContent" placeholder="Edit your post…"></textarea>
-        <div class="modal-actions">
-            <button class="btn-cancel" type="button" onclick="closeEditModal()">Cancel</button>
-            <button class="btn-save" type="button" onclick="saveEdit()">Save Changes</button>
-        </div>
-    </div>
-</div>
-
 <script>
-    // Pass profile data to JavaScript
-    window.profileData = @json($profileData ?? []);
+    // Configuration from meta tags
+    const config = {
+        supabaseUrl: document.querySelector('meta[name="data-supabase-url"]')?.content,
+        supabaseKey: document.querySelector('meta[name="data-supabase-key"]')?.content,
+        viewedUserId: document.querySelector('meta[name="data-viewed-user-id"]')?.content,
+        currentUserId: document.querySelector('meta[name="data-current-user-id"]')?.content
+    };
 </script>
-<script src="{{ asset('js/profile.js') }}"></script>
+<script src="{{ asset('js/profileview.js') }}"></script>
 </body>
 </html>

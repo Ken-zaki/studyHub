@@ -5,11 +5,16 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
+class AlignFocusSessionsUserIdWithSessionIdentifier extends Migration
 {
     public function up(): void
     {
         if (!Schema::hasTable('focus_sessions')) {
+            return;
+        }
+
+        // Skip this migration for SQLite - it uses VARCHAR already
+        if (\DB::getDriverName() === 'sqlite') {
             return;
         }
 
@@ -68,4 +73,4 @@ return new class extends Migration
             . 'FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE'
         );
     }
-};
+}

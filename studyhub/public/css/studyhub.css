@@ -263,6 +263,88 @@ body {
     display: flex; align-items: center; gap: 8px;
 }
 
+.friends-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    padding: 10px 12px;
+    border-radius: 14px;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.friend-item:hover {
+    background: var(--bg-main);
+    transform: translateY(-1px);
+}
+
+.friend-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.friend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.friend-meta {
+    min-width: 0;
+    flex: 1;
+}
+
+.friend-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.friend-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--text-light);
+    font-size: 12px;
+}
+
+.friend-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #9ca3af;
+    flex-shrink: 0;
+}
+
+.friend-status-dot.online { background: #22c55e; }
+.friend-status-dot.offline { background: #9ca3af; }
+
+.friends-empty {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 /* Page Header */
 .page-header { margin-bottom: 24px; }
 .page-title {

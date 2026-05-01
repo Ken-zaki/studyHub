@@ -3,11 +3,65 @@
     $sessionLastName     = session('user_last_name', '');
     $sessionUsername     = session('user_username', '');
     $sessionProfilePhoto = session('user_profile_photo', '');
+    $sessionUserId       = session('user_id', '');
     $sessionInitials     = strtoupper(substr($sessionFirstName, 0, 1) . substr($sessionLastName, 0, 1));
     $sessionFullName     = trim($sessionFirstName . ' ' . $sessionLastName) ?: $sessionUsername ?: 'You';
 
     // $activeNav is passed from each page controller
     $activeNav = $activeNav ?? '';
+
+    $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
+    $showFriendRail = in_array($currentRoute, [
+        'dashboard', 'newsfeed', 'calendar', 'study-groups', 'resources',
+        'notifications', 'messages', 'friends', 'settings', 'focus-mode'
+    ], true);
+
+    $sidebarFriends = [];
+    if ($showFriendRail && $sessionUserId !== '') {
+        try {
+            $provider = new \App\Providers\SupabaseServiceProvider();
+            $friendIds = [];
+
+            $friendRows = \App\Models\Friendship::query()
+                ->where('user_id', $sessionUserId)
+                ->orWhere('friend_id', $sessionUserId)
+                ->get(['user_id', 'friend_id']);
+
+            foreach ($friendRows as $row) {
+                $candidate = (string) (
+                    $row->user_id === $sessionUserId ? $row->friend_id : $row->user_id
+                );
+                if ($candidate !== '' && $candidate !== $sessionUserId) {
+                    $friendIds[$candidate] = true;
+                }
+            }
+
+            if (!empty($friendIds)) {
+                foreach ($provider->getAllProfiles() as $profile) {
+                    $pid = (string) ($profile['id'] ?? '');
+                    if (!isset($friendIds[$pid])) continue;
+
+                    $friendFirst = trim((string) ($profile['first_name'] ?? ''));
+                    $friendLast  = trim((string) ($profile['last_name'] ?? ''));
+                    $friendName  = trim($friendFirst . ' ' . $friendLast) ?: trim((string) ($profile['username'] ?? '')) ?: 'Friend';
+                    $status      = strtolower((string) ($profile['status'] ?? ''));
+                    $isActive    = (bool) ($profile['is_online'] ?? false)
+                        || (bool) ($profile['is_active'] ?? false)
+                        || in_array($status, ['online', 'active'], true);
+
+                    $sidebarFriends[] = [
+                        'id'        => $pid,
+                        'name'      => $friendName,
+                        'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
+                        'initials'  => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
+                        'is_active' => $isActive,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            $sidebarFriends = [];
+        }
+    }
 @endphp
 
 <aside class="sidebar">
@@ -76,7 +130,28 @@
             <span class="nav-text">Messages</span>
         </a>
 
-        {{-- 7. Settings --}}
+        {{-- 7. Friends --}}
+        <a href="{{ route('friends') }}" class="nav-item {{ $activeNav === 'friends' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/>
+            </svg>
+            <span class="nav-text">Friends</span>
+        </a>
+
+        {{-- 8. Friend Requests --}}
+        <a href="{{ route('friend-requests') }}" class="nav-item {{ $activeNav === 'friend-requests' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+                <path d="M22 16s-1-1-2-1"/>
+                <path d="M22 19s-1 1-2 1"/>
+            </svg>
+            <span class="nav-text">Friend Requests</span>
+        </a>
+
+        {{-- 9. Settings --}}
         <a href="{{ route('settings') }}" class="nav-item {{ $activeNav === 'settings' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"/>
@@ -120,3 +195,36 @@
         @endif
     </a>
 </div>
+
+@if($showFriendRail)
+    <aside class="right-sidebar">
+        <div class="widget-card friends-widget-card">
+            <div class="widget-title">👥 Friends</div>
+
+            @if(empty($sidebarFriends))
+                <div class="friends-empty">No friends available.</div>
+            @else
+                <div class="friends-list">
+                    @foreach($sidebarFriends as $friend)
+                        <a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}" class="friend-item">
+                            <div class="friend-avatar">
+                                @if($friend['photo'])
+                                    <img src="{{ $friend['photo'] }}" alt="{{ $friend['name'] }}">
+                                @else
+                                    {{ $friend['initials'] }}
+                                @endif
+                            </div>
+                            <div class="friend-meta">
+                                <div class="friend-name">{{ $friend['name'] }}</div>
+                                <div class="friend-status-row">
+                                    <span class="friend-status-dot {{ $friend['is_active'] ? 'online' : 'offline' }}"></span>
+                                    <span class="friend-status-text">{{ $friend['is_active'] ? 'Online' : 'Offline' }}</span>
+                                </div>
+                            </div>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </aside>
+@endif
