@@ -1,57 +1,33 @@
-@extends('layouts.app')
- 
-@section('title', 'StudyHub - Focus Mode')
- 
-@push('styles')
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Mode - StudyHub</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
     <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}">
-@endpush
- 
-@section('content')
-<div class="studyhub-wrapper" id="focusModeApp">
- 
-    {{-- Header --}}
-    <header class="sh-header">
-        <button class="hamburger-btn" id="sidebarToggle" aria-label="Toggle menu">
-            <span></span><span></span><span></span>
-        </button>
-        <div class="sh-logo">
-            <span class="logo-study">Study</span><span class="logo-hub">Hub</span>
-        </div>
-    </header>
- 
-    {{-- Sidebar --}}
-    <aside class="sh-sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">
-                <div class="logo-icon">S</div>
-                <span class="logo-text">StudyHub</span>
-            </div>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'sidebar-link active' : 'sidebar-link' }}">Newsfeed</a>
-            <a href="{{ route('calendar') }}" class="{{ request()->routeIs('calendar') ? 'sidebar-link active' : 'sidebar-link' }}">Calendar</a>
-            <a href="{{ route('study-groups') }}" class="{{ request()->routeIs('study-groups') ? 'sidebar-link active' : 'sidebar-link' }}">Study Groups</a>
-            <a href="{{ route('resources') }}" class="{{ request()->routeIs('resources') ? 'sidebar-link active' : 'sidebar-link' }}">Resources</a>
-            <a href="{{ route('notifications') }}" class="{{ request()->routeIs('notifications') ? 'sidebar-link active' : 'sidebar-link' }}">Notifications</a>
-            <a href="{{ route('messages') }}" class="{{ request()->routeIs('messages') ? 'sidebar-link active' : 'sidebar-link' }}">Messages</a>
-            <a href="{{ route('focus-mode') }}" class="{{ request()->routeIs('focus-mode') ? 'sidebar-link active' : 'sidebar-link' }}">Focus Mode</a>
-            <a href="{{ route('profile') }}" class="{{ request()->routeIs('profile') ? 'sidebar-link active' : 'sidebar-link' }}">Profile</a>
-            <a href="{{ route('settings') }}" class="{{ request()->routeIs('settings') ? 'sidebar-link active' : 'sidebar-link' }}">Settings</a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="{{ route('profile') }}" class="user-profile" id="focusSidebarProfile">
-                <div class="user-avatar" id="sidebarAvatar">{{ strtoupper(substr(session('user_first_name', 'U'), 0, 1) . substr(session('user_last_name', 'U'), 0, 1)) }}</div>
-                <div class="user-info">
-                    <div class="user-name" id="sidebarUserName">{{ trim((session('user_first_name') ?? '') . ' ' . (session('user_last_name') ?? '')) ?: (session('user_username') ?? 'You') }}</div>
-                    <div class="user-status">Online</div>
-                </div>
-            </a>
-        </div>
-    </aside>
- 
-    {{-- Main content area --}}
-    <main class="sh-main" id="mainContent">
+</head>
+<body>
 
+{{-- ══════════════════════════════════════════
+     SHARED SIDEBAR + TOP BAR
+══════════════════════════════════════════ --}}
+@php $activeNav = 'focus-mode'; @endphp
+@include('layouts.sidebar')
+
+{{-- ══════════════════════════════════════════
+     FOCUS MODE MAIN CONTENT
+     margin-left handled by studyhub.css .main-content
+══════════════════════════════════════════ --}}
+<div class="fm-wrapper" id="focusModeApp">
+
+    <main class="fm-main" id="mainContent">
+
+        {{-- Materials Panel (shown when inside a study screen) --}}
         <section class="materials-panel hidden" id="materialsPanel">
             <div class="materials-panel-header">
                 <div>
@@ -59,76 +35,86 @@
                     <h2 class="materials-title">Upload PDF, Word, or PowerPoint files</h2>
                 </div>
                 <button class="materials-upload-btn" id="materialsUploadBtn" type="button">Upload Material</button>
-                <input type="file" id="materialsInput" class="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+                <input type="file" id="materialsInput" class="hidden"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
+                    application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                    application/vnd.ms-powerpoint,
+                    application/vnd.openxmlformats-officedocument.presentationml.presentation">
             </div>
             <p class="materials-help" id="materialsHelp">Attach materials to the study mode you are currently using.</p>
             <div class="materials-status" id="materialsStatus"></div>
             <div class="materials-list" id="materialsList"></div>
         </section>
- 
-        {{-- === SCREEN: MAIN MENU === --}}
+
+        {{-- ══ SCREEN: MAIN MENU ══ --}}
         <div class="screen screen-menu" id="screenMenu">
+            <div class="menu-intro">
+                <h1 class="menu-heading">What would you like to do?</h1>
+                <p class="menu-sub">Choose a study mode to begin your session</p>
+            </div>
             <div class="menu-buttons">
                 <button class="menu-btn" data-target="screenReview">
-                    Review material
+                    <span class="menu-btn-icon">📖</span>
+                    <span class="menu-btn-label">Review Material</span>
+                    <span class="menu-btn-desc">Read and annotate your uploaded files</span>
                 </button>
                 <button class="menu-btn" data-target="screenFlashcard">
-                    FLASHCARD
+                    <span class="menu-btn-icon">🃏</span>
+                    <span class="menu-btn-label">Flashcards</span>
+                    <span class="menu-btn-desc">Create and study with flashcards</span>
                 </button>
                 <button class="menu-btn" data-target="screenQuiz">
-                    Quiz
+                    <span class="menu-btn-icon">📝</span>
+                    <span class="menu-btn-label">Quiz</span>
+                    <span class="menu-btn-desc">Test your knowledge with a quiz</span>
                 </button>
             </div>
         </div>
- 
-        {{-- === SCREEN: REVIEW MATERIAL === --}}
+
+        {{-- ══ SCREEN: REVIEW MATERIAL ══ --}}
         <div class="screen screen-content hidden" id="screenReview">
             <div class="content-area" id="reviewContent">
-                <p class="placeholder-text">Review material / Content</p>
+                <p class="placeholder-text">📖 Review Material — upload a file above to get started</p>
             </div>
-            <button class="back-btn" data-target="screenMenu">← Back</button>
+            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
         </div>
- 
-        {{-- === SCREEN: FLASHCARD === --}}
+
+        {{-- ══ SCREEN: FLASHCARD ══ --}}
         <div class="screen screen-content hidden" id="screenFlashcard">
             <div class="content-area flashcard-area" id="flashcardContent">
                 <div class="flashcard-builder" id="flashcardBuilder">
                     <div class="flashcard-builder-header">
                         <h3 class="flashcard-builder-title">Manual Flashcard Creator</h3>
-                        <button class="flashcard-create-btn" id="flashcardCreateBtn" type="button">Create Flashcard</button>
+                        <button class="flashcard-create-btn" id="flashcardCreateBtn" type="button">+ Create Flashcard</button>
                     </div>
-
                     <form class="flashcard-form hidden" id="flashcardForm">
                         <label class="flashcard-label" for="flashcardQuestion">Question / Front</label>
                         <input class="flashcard-input" id="flashcardQuestion" type="text" maxlength="400" placeholder="Type the question here" required>
-
                         <label class="flashcard-label" for="flashcardAnswer">Answer / Back</label>
                         <textarea class="flashcard-textarea" id="flashcardAnswer" maxlength="1000" placeholder="Type the answer here" required></textarea>
-
                         <div class="flashcard-form-actions">
                             <button class="flashcard-cancel-btn" id="flashcardCancelBtn" type="button">Cancel</button>
                             <button class="flashcard-save-btn" id="flashcardSaveBtn" type="submit">Save Flashcard</button>
                         </div>
                     </form>
-
                     <div class="flashcard-status" id="flashcardStatus"></div>
                     <div class="flashcard-list" id="flashcardList"></div>
                 </div>
             </div>
-            <button class="back-btn" data-target="screenMenu">← Back</button>
+            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
         </div>
- 
-        {{-- === SCREEN: QUIZ === --}}
+
+        {{-- ══ SCREEN: QUIZ ══ --}}
         <div class="screen screen-content hidden" id="screenQuiz">
             <div class="content-area" id="quizContent">
-                <p class="placeholder-text">Quiz / Content</p>
+                <p class="placeholder-text">📝 Quiz — coming soon!</p>
             </div>
-            <button class="back-btn" data-target="screenMenu">← Back</button>
+            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
         </div>
- 
+
     </main>
 
-    {{-- Music Launcher + Player (available in every study mode) --}}
+    {{-- Music FAB --}}
     <button class="music-toggle-fab hidden" id="musicToggleBtn" title="Open Music" aria-label="Open Music">
         <span class="music-note music-note-1" aria-hidden="true">♪</span>
         <span class="music-note music-note-2" aria-hidden="true">♫</span>
@@ -138,10 +124,11 @@
         </svg>
     </button>
 
+    {{-- Music Player Widget --}}
     <div class="music-player-widget hidden" id="musicWidget">
         <button class="music-hide-btn" id="musicHideBtn" title="Hide Music" aria-label="Hide Music">×</button>
         <div class="music-album-art">
-           <img src="{{ asset('images/album-placeholder.png') }}" alt="Album Art" id="albumArt">
+            <div class="music-album-placeholder">🎵</div>
         </div>
         <div class="music-status">MUSIC PLAYING...</div>
         <div class="music-progress">
@@ -156,7 +143,7 @@
             <button class="ctrl-btn" id="prevBtn" title="Previous">
                 <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
             </button>
-            <button class="ctrl-btn ctrl-play" id="playPauseBtn" title="Pause">
+            <button class="ctrl-btn ctrl-play" id="playPauseBtn" title="Play/Pause">
                 <svg viewBox="0 0 24 24" id="playIcon" class="hidden"><path d="M8 5v14l11-7z"/></svg>
                 <svg viewBox="0 0 24 24" id="pauseIcon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
             </button>
@@ -168,13 +155,13 @@
             </button>
         </div>
     </div>
- 
-    {{-- Footer bar (visible when Focus Mode is ON) --}}
+
+    {{-- Focus Footer --}}
     <footer class="sh-footer" id="focusFooter">
         <span class="focus-label" id="focusModeLabel">Focus Mode : ON</span>
     </footer>
- 
-    {{-- Focus Mode FAB Lock Button --}}
+
+    {{-- Focus FAB --}}
     <button class="focus-fab" id="focusToggleBtn" title="Toggle Focus Mode" aria-pressed="false">
         <svg class="lock-icon lock-open" viewBox="0 0 24 24" id="lockOpen">
             <path d="M12 1C9.24 1 7 3.24 7 6v1H5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2h-2V6c0-2.76-2.24-5-5-5zm0 2c1.66 0 3 1.34 3 3v1H9V6c0-1.66 1.34-3 3-3zm0 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
@@ -183,14 +170,14 @@
             <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
         </svg>
     </button>
- 
+
 </div>
-@endsection
- 
-@push('scripts')
-    <script>
-        window.__focusMaterials = @json($materials ?? []);
-        window.__focusFlashcards = @json($flashcards ?? []);
-    </script>
-    <script src="{{ asset('js/focus-mode.js') }}"></script>
-@endpush
+
+<script>
+    window.__focusMaterials  = @json($materials  ?? []);
+    window.__focusFlashcards = @json($flashcards ?? []);
+</script>
+<script src="{{ asset('js/focus-mode.js') }}"></script>
+
+</body>
+</html>
