@@ -2,6 +2,7 @@
 // CONFIG  (injected from blade via dashboard.blade.php inline script)
 // SB_URL, SB_ANON, SB_SVC, UID are set as globals before this file loads
 // ═══════════════════════════════════════════════════════════════════
+// user_dashboard.js
 const TABLE = "calendar_events";
 
 // ═══════════════════════════════════════════════════════════════════
