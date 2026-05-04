@@ -11,30 +11,7 @@
 
 @section('content')
 
-{{-- ── SHARED SIDEBAR + TOP BAR ──────────────────────────────────────────── --}}
 @include('layouts.sidebar')
-
-{{-- ── CALENDAR TOP BAR ACTIONS ─────────────────────────────────────────── --}}
-<div class="top-bar-left" id="calTopBarLeft">
-    <button class="btn-add-event" id="btnAdd">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Add Event
-    </button>
-    <button class="btn-select-mode" id="btnSelectMode">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-        Select
-    </button>
-    <div class="bulk-bar" id="bulkBar">
-        <span class="bulk-bar-count" id="bulkCount">0 selected</span>
-        <button class="btn-bulk-cancel" id="btnBulkCancel">Cancel</button>
-        <button class="btn-bulk-delete" id="btnBulkDelete">🗑 Delete Selected</button>
-    </div>
-</div>
 
 {{-- ── MAIN ──────────────────────────────────────────────────────────────── --}}
 <main class="main-content">
@@ -55,7 +32,8 @@
                 </div>
                 <div class="cal-view-toggle">
                     <button class="view-btn active" data-view="month">Month</button>
-                    <button class="view-btn"        data-view="week">Week</button>
+                    <button class="view-btn" data-view="week">Week</button>
+                    <button class="view-btn" data-view="day">Day</button>
                 </div>
             </div>
 
@@ -75,13 +53,16 @@
             {{-- Week view --}}
             <div id="weekView" style="display:none;">
                 <div id="weekSummaryBar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
-                <div style="border:1px solid var(--border);border-radius:16px;overflow:hidden;">
-                    <div id="weekGrid"></div>
-                </div>
+                <div id="weekGrid"></div>
             </div>
-        </div>{{-- /.calendar-card --}}
 
-        {{-- Upcoming --}}
+            {{-- Day view --}}
+            <div id="dayView" style="display:none;">
+                <div id="dayGrid"></div>
+            </div>
+        </div>
+
+        {{-- Upcoming this week --}}
         <div class="upcoming-card">
             <div class="section-title">📅 Upcoming This Week</div>
             <div class="upcoming-list" id="upcomingList">
@@ -89,9 +70,58 @@
             </div>
         </div>
 
+        {{-- ── TASK MANAGER ─────────────────────────────────────────────────── --}}
+        <div class="calendar-card" id="taskManagerCard">
+            <div class="cal-header" style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:18px;">✅</span>
+                    <h2 style="font-size:17px;font-weight:600;margin:0;color:var(--text-primary)">Task Manager</h2>
+                    <span class="task-count-badge" id="taskCountBadge">0</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <select class="task-filter-select" id="taskSort">
+                        <option value="due">Sort: Due Date</option>
+                        <option value="priority">Sort: Priority</option>
+                        <option value="label">Sort: Label</option>
+                        <option value="created">Sort: Created</option>
+                    </select>
+                    <select class="task-filter-select" id="taskFilterPriority">
+                        <option value="all">All Priorities</option>
+                        <option value="high">🔴 High</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                    </select>
+                    <select class="task-filter-select" id="taskFilterStatus">
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="all">All Tasks</option>
+                    </select>
+                </div>
+            </div>
+
+            {{-- Progress bar --}}
+            <div id="taskProgress" style="margin-bottom:16px;display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:12px;color:var(--text-secondary);">Progress</span>
+                    <span style="font-size:12px;font-weight:600;color:var(--text-primary);" id="taskProgressLabel">0 / 0 done</span>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
+                    <div id="taskProgressBar" style="height:100%;background:#0f766e;border-radius:99px;width:0%;transition:width .4s ease;"></div>
+                </div>
+            </div>
+
+            {{-- Label filter chips --}}
+            <div id="taskLabelChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+
+            {{-- Task list --}}
+            <div id="taskList">
+                <div class="state-box"><div class="spinner"></div>Loading…</div>
+            </div>
+        </div>
+
     </div>{{-- /.center-column --}}
 
-    {{-- Right sidebar --}}
+    {{-- Right sidebar (dashboard widgets only) --}}
     <aside class="right-sidebar">
         <div class="widget-card">
             <div class="widget-title">⏰ Deadlines</div>
@@ -116,7 +146,7 @@
     <div class="popover-header">
         <div class="popover-date" id="popDate"></div>
         <div style="display:flex;gap:6px;align-items:center;">
-            <button class="popover-add-btn" id="btnPopAdd">+ Add</button>
+            <button class="popover-add-btn" id="btnPopAdd" style="margin-top:0;width:auto;padding:6px 12px;">+ Add</button>
             <button class="popover-close-btn" id="btnPopClose">✕</button>
         </div>
     </div>
@@ -132,32 +162,23 @@
             <span class="modal-title" id="modalTitle">Add Event</span>
             <button class="modal-close" id="btnModalClose">✕</button>
         </div>
-
         <div class="modal-body">
-            {{-- Title --}}
             <div class="form-group">
                 <label class="form-label">Title <span style="color:#dc2626">*</span></label>
                 <input type="text" class="form-input" id="evTitle" placeholder="Event title…">
             </div>
-
-            {{-- Category --}}
             <div class="form-group">
                 <label class="form-label">Category</label>
                 <select class="form-input" id="evCat" onchange="updateModalFields()">
-                    <option value="todo">📌 To Do</option>
                     <option value="class">📗 Class</option>
                     <option value="group">👥 Study Group</option>
                     <option value="event">📅 Event</option>
                 </select>
             </div>
-
-            {{-- Date --}}
             <div class="form-group">
                 <label class="form-label">Date <span style="color:#dc2626">*</span></label>
                 <input type="date" class="form-input" id="evDate">
             </div>
-
-            {{-- Time fields (shown per category) --}}
             <div id="timeFieldTodo" class="form-group">
                 <label class="form-label">Due Time (optional)</label>
                 <input type="time" class="form-input" id="evTimeTodo">
@@ -180,14 +201,10 @@
                 <label class="form-label" style="margin-top:8px;">End Time (optional)</label>
                 <input type="time" class="form-input" id="evTimeEndEvent">
             </div>
-
-            {{-- Description --}}
             <div class="form-group">
                 <label class="form-label">Description (optional)</label>
                 <textarea class="form-input" id="evDesc" rows="2" placeholder="Notes…" style="resize:vertical;"></textarea>
             </div>
-
-            {{-- Recurring --}}
             <div class="form-group" style="display:flex;align-items:center;gap:8px;">
                 <input type="checkbox" id="evRecur" style="width:16px;height:16px;cursor:pointer;">
                 <label for="evRecur" class="form-label" style="margin:0;cursor:pointer;">Repeat / Recurring</label>
@@ -203,7 +220,6 @@
                 <input type="date" class="form-input" id="evRecurEnd" style="margin-top:4px;">
             </div>
         </div>
-
         <div class="modal-actions">
             <button class="btn-del-ev" id="btnDelEv" style="display:none;">🗑 Delete</button>
             <div style="display:flex;gap:8px;margin-left:auto;">
@@ -215,16 +231,74 @@
 </div>
 
 {{-- ═══════════════════════════════════════════════════════════
+     TASK MODAL (Add / Edit Task)
+═══════════════════════════════════════════════════════════ --}}
+<div class="modal-overlay" id="taskModal">
+    <div class="modal ev-modal">
+        <div class="modal-header">
+            <span class="modal-title" id="taskModalTitle">Add Task</span>
+            <button class="modal-close" id="btnTaskModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Task Title <span style="color:#dc2626">*</span></label>
+                <input type="text" class="form-input" id="taskTitle" placeholder="What needs to be done?">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <div style="display:flex;gap:8px;margin-top:4px;">
+                    <label class="priority-option" data-p="low">
+                        <input type="radio" name="taskPriority" value="low" checked style="display:none;">
+                        <span>🟢 Low</span>
+                    </label>
+                    <label class="priority-option sel" data-p="medium">
+                        <input type="radio" name="taskPriority" value="medium" style="display:none;">
+                        <span>🟡 Medium</span>
+                    </label>
+                    <label class="priority-option" data-p="high">
+                        <input type="radio" name="taskPriority" value="high" style="display:none;">
+                        <span>🔴 High</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Due Date (optional)</label>
+                <input type="date" class="form-input" id="taskDueDate">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Due Time (optional)</label>
+                <input type="time" class="form-input" id="taskDueTime">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Label / Tag (optional)</label>
+                <input type="text" class="form-input" id="taskLabel" placeholder="e.g. Math, Project, Reading…">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Notes (optional)</label>
+                <textarea class="form-input" id="taskNotes" rows="2" placeholder="Additional details…" style="resize:vertical;"></textarea>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-del-ev" id="btnDelTask" style="display:none;">🗑 Delete</button>
+            <div style="display:flex;gap:8px;margin-left:auto;">
+                <button class="btn-cancel" id="btnTaskModalCancel">Cancel</button>
+                <button class="btn-save" id="btnSaveTask">Save Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════════════════════════
      CONFIRM DELETE MODAL
 ═══════════════════════════════════════════════════════════ --}}
 <div class="modal-overlay" id="confirmModal">
     <div class="modal confirm-modal">
         <div class="modal-header">
-            <span class="modal-title" id="confirmTitle">Delete Event</span>
+            <span class="modal-title" id="confirmTitle">Delete</span>
             <button class="modal-close" id="btnConfirmClose">✕</button>
         </div>
         <div class="modal-body">
-            <p id="confirmBody"></p>
+            <p id="confirmBody" style="color:var(--text-secondary);line-height:1.6;"></p>
         </div>
         <div class="modal-actions">
             <button class="btn-cancel" id="btnConfirmCancel">Cancel</button>
@@ -233,14 +307,64 @@
     </div>
 </div>
 
-{{-- ── CONFIG (must come before user_dashboard.js) ──────────────────────── --}}
+{{-- ── CONFIG ────────────────────────────────────────────────────────────── --}}
 <script>
     const SB_URL  = '{{ env("SUPABASE_URL") }}';
     const SB_ANON = '{{ env("SUPABASE_ANON_KEY") }}';
     const SB_SVC  = '{{ env("SUPABASE_SERVICE_KEY") }}';
     const UID     = '{{ session("user_id") }}';
 </script>
-
 <script src="{{ asset('js/user_dashboard.js') }}"></script>
+
+{{-- ── INJECT CALENDAR ACTIONS INTO THE SIDEBAR TOP-BAR ───────────────────
+     The sidebar partial always renders .top-bar with notification + avatar
+     on the right. We move our calendar action buttons INTO the left side
+     of that same top-bar so there's only ever ONE top-bar on the page.
+──────────────────────────────────────────────────────────────────────────── --}}
+<script>
+(function() {
+    const topBar = document.querySelector('.top-bar');
+    if (!topBar) return;
+
+    // Build the actions container
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'top-bar-left';
+    actionsEl.id = 'calTopBarLeft';
+    actionsEl.innerHTML = `
+        <button class="btn-add-event" id="btnAdd">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Event
+        </button>
+        <button class="btn-add-event" id="btnAddTask" style="background:var(--accent,#dc2626);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Task
+        </button>
+        <button class="btn-select-mode" id="btnSelectMode">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Select
+        </button>
+        <div class="bulk-bar" id="bulkBar">
+            <span class="bulk-bar-count" id="bulkCount">0 selected</span>
+            <button class="btn-bulk-cancel" id="btnBulkCancel">Cancel</button>
+            <button class="btn-bulk-delete" id="btnBulkDelete">🗑 Delete Selected</button>
+        </div>
+    `;
+
+    // Insert before the right-side items (notification bell etc.)
+    const topBarRight = topBar.querySelector('.top-bar-right');
+    if (topBarRight) {
+        topBar.insertBefore(actionsEl, topBarRight);
+    } else {
+        topBar.insertBefore(actionsEl, topBar.firstChild);
+    }
+})();
+</script>
 
 @endsection

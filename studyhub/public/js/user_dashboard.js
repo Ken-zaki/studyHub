@@ -1,9 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════
-// CONFIG  (injected from blade via dashboard.blade.php inline script)
-// SB_URL, SB_ANON, SB_SVC, UID are set as globals before this file loads
+// CONFIG  — SB_URL, SB_ANON, SB_SVC, UID injected from blade
 // ═══════════════════════════════════════════════════════════════════
-// user_dashboard.js
 const TABLE = "calendar_events";
+const TASK_TABLE = "tasks";
 
 // ═══════════════════════════════════════════════════════════════════
 // STATE
@@ -11,12 +10,20 @@ const TABLE = "calendar_events";
 let curDate = new Date();
 let allEvents = [];
 let expanded = [];
-let filters = { todo: true, class: true, group: true, event: true };
+let filters = { class: true, group: true, event: true };
 let selectMode = false;
 let selIds = new Set();
 let editId = null;
 let pendDel = null;
-let curView = "month"; // 'month' | 'week'
+let curView = "month"; // 'month' | 'week' | 'day'
+
+// Task state
+let allTasks = [];
+let editTaskId = null;
+let taskFilterPri = "all";
+let taskFilterStatus = "active";
+let taskSort = "due";
+let taskLabelFilter = null;
 
 // ═══════════════════════════════════════════════════════════════════
 // SUPABASE HELPERS
@@ -71,6 +78,41 @@ async function dbDelete(ids) {
     });
 }
 
+// ── Task DB helpers ──────────────────────────────────────────────
+async function taskLoad() {
+    allTasks = await sbReq(
+        `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
+        { headers: hdrs() },
+    );
+    // Guarantee allTasks is always an array even if Supabase returns null
+    if (!Array.isArray(allTasks)) allTasks = [];
+}
+
+async function taskInsert(data) {
+    const [row] = await sbReq(TASK_TABLE, {
+        method: "POST",
+        headers: { ...hdrs(true), Prefer: "return=representation" },
+        body: JSON.stringify({ ...data, user_id: UID }),
+    });
+    return row;
+}
+
+async function taskUpdate(id, data) {
+    const [row] = await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { ...hdrs(true), Prefer: "return=representation" },
+        body: JSON.stringify(data),
+    });
+    return row;
+}
+
+async function taskDelete(id) {
+    await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
+        method: "DELETE",
+        headers: hdrs(true),
+    });
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // RECURRING EXPANSION
 // ═══════════════════════════════════════════════════════════════════
@@ -99,52 +141,68 @@ function expandAll() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CONSTANTS
+// COLOUR CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
 const CC = {
-    todo: "#dc2626",
     class: "#0f766e",
     group: "#7c3aed",
     event: "#1a5f7a",
 };
 const CB = {
-    todo: "rgba(255,107,107,.13)",
     class: "rgba(42,157,143,.13)",
     group: "rgba(124,77,202,.13)",
     event: "rgba(26,95,122,.11)",
 };
-const CI = { todo: "📌", class: "📗", group: "👥", event: "📅" };
+const CI = { class: "📗", group: "👥", event: "📅" };
 const CL = {
-    todo: "To Do",
     class: "Class",
     group: "Study Group",
     event: "Event",
 };
 
+const PRI_COLOR = { high: "#dc2626", medium: "#d97706", low: "#16a34a" };
+const PRI_BG = {
+    high: "rgba(220,38,38,.1)",
+    medium: "rgba(217,119,6,.1)",
+    low: "rgba(22,163,74,.1)",
+};
+const PRI_ICON = { high: "🔴", medium: "🟡", low: "🟢" };
+
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
-    wireUI();
+    // Wire static UI elements immediately
+    wireStaticUI();
+
+    // The top-bar buttons are injected by an inline <script> in the blade
+    // AFTER this file loads, so we wait one tick for them to exist.
+    setTimeout(wireInjectedButtons, 0);
+
+    // Load data
     try {
-        await dbLoad();
+        await Promise.all([dbLoad(), taskLoad()]);
         expandAll();
     } catch (err) {
-        document.getElementById("calDays").innerHTML =
-            `<div class="state-box err" style="grid-column:1/-1">⚠️ ${esc(err.message)}</div>`;
+        const el = document.getElementById("calDays");
+        if (el)
+            el.innerHTML = `<div class="state-box err" style="grid-column:1/-1">⚠️ ${esc(err.message)}</div>`;
+        const tl = document.getElementById("taskList");
+        if (tl)
+            tl.innerHTML = `<div class="state-box err">⚠️ Could not load tasks: ${esc(err.message)}</div>`;
         return;
     }
     redraw();
+    renderTaskManager();
 });
 
-function wireUI() {
+// ═══════════════════════════════════════════════════════════════════
+// WIRE UI — split into static (always in DOM) and injected (top-bar)
+// ═══════════════════════════════════════════════════════════════════
+function wireStaticUI() {
     // Navigation
-    document.getElementById("btnPrev").onclick = () => {
-        navigate(-1);
-    };
-    document.getElementById("btnNext").onclick = () => {
-        navigate(+1);
-    };
+    document.getElementById("btnPrev").onclick = () => navigate(-1);
+    document.getElementById("btnNext").onclick = () => navigate(+1);
     document.getElementById("btnToday").onclick = () => {
         curDate = new Date();
         expandAll();
@@ -163,9 +221,6 @@ function wireUI() {
         });
     });
 
-    // Add event
-    document.getElementById("btnAdd").onclick = () => openEvModal();
-
     // Popover
     document.getElementById("btnPopClose").addEventListener("click", (e) => {
         e.stopPropagation();
@@ -176,11 +231,6 @@ function wireUI() {
         closePopover();
         openEvModal(null, d);
     };
-
-    // Select mode
-    document.getElementById("btnSelectMode").onclick = toggleSelectMode;
-    document.getElementById("btnBulkCancel").onclick = exitSelectMode;
-    document.getElementById("btnBulkDelete").onclick = promptBulkDelete;
 
     // Event modal
     document.getElementById("btnModalClose").onclick = closeEvModal;
@@ -197,6 +247,38 @@ function wireUI() {
         .querySelectorAll(".rday")
         .forEach((b) => (b.onclick = () => b.classList.toggle("sel")));
 
+    // Task modal
+    document.getElementById("btnTaskModalClose").onclick = closeTaskModal;
+    document.getElementById("btnTaskModalCancel").onclick = closeTaskModal;
+    document.getElementById("btnSaveTask").onclick = saveTask;
+    document.getElementById("btnDelTask").onclick = () =>
+        promptDeleteTask(editTaskId);
+
+    // Priority radio styling
+    document.querySelectorAll(".priority-option").forEach((lbl) => {
+        lbl.addEventListener("click", () => {
+            document
+                .querySelectorAll(".priority-option")
+                .forEach((l) => l.classList.remove("sel"));
+            lbl.classList.add("sel");
+            lbl.querySelector("input").checked = true;
+        });
+    });
+
+    // Task filters / sort
+    document.getElementById("taskSort").onchange = (e) => {
+        taskSort = e.target.value;
+        renderTaskManager();
+    };
+    document.getElementById("taskFilterPriority").onchange = (e) => {
+        taskFilterPri = e.target.value;
+        renderTaskManager();
+    };
+    document.getElementById("taskFilterStatus").onchange = (e) => {
+        taskFilterStatus = e.target.value;
+        renderTaskManager();
+    };
+
     // Confirm modal
     document.getElementById("btnConfirmClose").onclick = closeConfirm;
     document.getElementById("btnConfirmCancel").onclick = closeConfirm;
@@ -206,9 +288,8 @@ function wireUI() {
     document.addEventListener("click", (e) => {
         if (!document.getElementById("dayPopover").classList.contains("open"))
             return;
-        if (!e.target.closest(".cal-day") && !e.target.closest("#dayPopover")) {
+        if (!e.target.closest(".cal-day") && !e.target.closest("#dayPopover"))
             closePopover();
-        }
     });
 
     // All events search
@@ -219,12 +300,37 @@ function wireUI() {
         });
 }
 
-// Navigate: month → shift month; week → shift week
+function wireInjectedButtons() {
+    // These buttons are injected into the top-bar by the blade inline script
+    const btnAdd = document.getElementById("btnAdd");
+    const btnAddTask = document.getElementById("btnAddTask");
+    const btnSelectMode = document.getElementById("btnSelectMode");
+    const btnBulkCancel = document.getElementById("btnBulkCancel");
+    const btnBulkDelete = document.getElementById("btnBulkDelete");
+
+    if (btnAdd) btnAdd.onclick = () => openEvModal();
+    if (btnAddTask) btnAddTask.onclick = () => openTaskModal();
+    if (btnSelectMode) btnSelectMode.onclick = toggleSelectMode;
+    if (btnBulkCancel) btnBulkCancel.onclick = exitSelectMode;
+    if (btnBulkDelete) btnBulkDelete.onclick = promptBulkDelete;
+}
+
+// Legacy alias kept for safety
+function wireUI() {
+    wireStaticUI();
+    wireInjectedButtons();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATE & REDRAW
+// ═══════════════════════════════════════════════════════════════════
 function navigate(dir) {
     if (curView === "month") {
         curDate.setMonth(curDate.getMonth() + dir);
-    } else {
+    } else if (curView === "week") {
         curDate.setDate(curDate.getDate() + dir * 7);
+    } else {
+        curDate.setDate(curDate.getDate() + dir);
     }
     expandAll();
     redraw();
@@ -232,15 +338,17 @@ function navigate(dir) {
 
 function redraw() {
     updateTitle();
-    if (curView === "month") {
-        document.getElementById("monthView").style.display = "";
-        document.getElementById("weekView").style.display = "none";
-        renderCal();
-    } else {
-        document.getElementById("monthView").style.display = "none";
-        document.getElementById("weekView").style.display = "block";
-        renderWeek();
-    }
+    document.getElementById("monthView").style.display =
+        curView === "month" ? "" : "none";
+    document.getElementById("weekView").style.display =
+        curView === "week" ? "block" : "none";
+    document.getElementById("dayView").style.display =
+        curView === "day" ? "block" : "none";
+
+    if (curView === "month") renderCal();
+    else if (curView === "week") renderWeek();
+    else renderDay();
+
     renderDeadlines();
     renderMyCalendars();
     renderUpcoming();
@@ -254,16 +362,24 @@ function updateTitle() {
             curDate.getMonth(),
             1,
         ).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    } else {
+    } else if (curView === "week") {
         const { start, end } = weekRange(curDate);
-        const opts = { month: "short", day: "numeric" };
+        const o = { month: "short", day: "numeric" };
         document.getElementById("calTitle").textContent =
-            `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`;
+            `${start.toLocaleDateString("en-US", o)} – ${end.toLocaleDateString("en-US", { ...o, year: "numeric" })}`;
+    } else {
+        document.getElementById("calTitle").textContent =
+            curDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+            });
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// MONTH CALENDAR
+// MONTH VIEW
 // ═══════════════════════════════════════════════════════════════════
 function renderCal() {
     const y = curDate.getFullYear(),
@@ -316,9 +432,21 @@ function renderCal() {
                 ? `<div class="day-event-chip chip-event">+${vis.length - 3} more</div>`
                 : "";
 
+        // Task dots for this day
+        const dayTasks = tasksForDate(ds).filter((t) => !t.completed_at);
+        const taskDots = dayTasks.length
+            ? `<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px;">${dayTasks
+                  .slice(0, 4)
+                  .map(
+                      (t) =>
+                          `<div style="width:6px;height:6px;border-radius:50%;background:${PRI_COLOR[t.priority || "low"]}" title="${esc(t.title)}"></div>`,
+                  )
+                  .join("")}</div>`
+            : "";
+
         div.innerHTML = `<div class="day-check"></div>
-             <div class="day-num">${dn}</div>
-             <div class="day-events">${chips}${more}</div>`;
+            <div class="day-num">${dn}</div>
+            <div class="day-events">${chips}${more}${taskDots}</div>`;
 
         if (!isOther) {
             div.addEventListener("click", (e) => {
@@ -346,8 +474,8 @@ function isDaySel(ds) {
 // WEEK VIEW
 // ═══════════════════════════════════════════════════════════════════
 function weekRange(ref) {
-    const d = new Date(ref);
-    const day = d.getDay();
+    const d = new Date(ref),
+        day = d.getDay();
     const start = new Date(d);
     start.setDate(d.getDate() - day);
     start.setHours(0, 0, 0, 0);
@@ -357,12 +485,12 @@ function weekRange(ref) {
 }
 
 function renderWeek() {
-    const today = new Date();
-    const now = new Date();
+    const today = new Date(),
+        now = new Date();
     const { start } = weekRange(curDate);
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const HOUR_H = 64;
-    const TOTAL_H = 24 * HOUR_H;
+    const HOUR_H = 64,
+        TOTAL_H = 24 * HOUR_H;
 
     const days = [];
     for (let i = 0; i < 7; i++) {
@@ -372,20 +500,13 @@ function renderWeek() {
     }
 
     // Summary bar
-    const counts = { todo: 0, class: 0, group: 0, event: 0 };
+    const counts = { class: 0, group: 0, event: 0 };
     days.forEach((d) =>
         evForDate(fd(d))
             .filter((e) => filters[e.category])
             .forEach((e) => counts[e.category]++),
     );
-    const sumColors = {
-        todo: "#dc2626",
-        class: "#0f766e",
-        group: "#7c3aed",
-        event: "#1a5f7a",
-    };
     const sumLabels = {
-        todo: "to do",
         class: "class",
         group: "study group",
         event: "event",
@@ -393,20 +514,17 @@ function renderWeek() {
     document.getElementById("weekSummaryBar").innerHTML = Object.entries(counts)
         .filter(([, n]) => n > 0)
         .map(
-            ([cat, n]) => `
-            <div style="display:flex;align-items:center;gap:5px;padding:5px 12px;
-                        border-radius:20px;font-size:13px;font-weight:500;
-                        border:1px solid var(--border);background:white;color:var(--text-secondary)">
-                <div style="width:8px;height:8px;border-radius:50%;background:${sumColors[cat]}"></div>
-                ${n} ${sumLabels[cat]}${n !== 1 ? "s" : ""}
-            </div>`,
+            ([
+                cat,
+                n,
+            ]) => `<div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border);background:white;color:var(--text-secondary)">
+            <div style="width:8px;height:8px;border-radius:50%;background:${CC[cat]}"></div>${n} ${sumLabels[cat]}${n !== 1 ? "s" : ""}</div>`,
         )
         .join("");
 
     const scrollToHour = sameDay(now, today)
         ? Math.max(0, now.getHours() - 1)
         : 7;
-
     const hasUntimed = days.some(
         (d) =>
             evForDate(fd(d)).filter((e) => filters[e.category] && !e.event_time)
@@ -414,120 +532,85 @@ function renderWeek() {
     );
 
     let html = `<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:16px;overflow:hidden;">`;
-
-    // Sticky header
-    html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);
-                          border-bottom:2px solid var(--border);background:var(--bg-main);
-                          position:sticky;top:0;z-index:10;">
-                <div style="border-right:1px solid var(--border);"></div>`;
+    // Header
+    html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);border-bottom:2px solid var(--border);background:var(--bg-main);position:sticky;top:0;z-index:10;"><div style="border-right:1px solid var(--border);"></div>`;
     days.forEach((d) => {
         const isTod = sameDay(d, today);
-        html += `<div style="padding:10px 6px;text-align:center;
-                              border-right:1px solid var(--border);
-                              background:${isTod ? "rgba(26,95,122,0.06)" : "transparent"};">
-            <div style="font-size:11px;font-weight:600;color:var(--text-light);
-                        text-transform:uppercase;letter-spacing:.04em;">
-                ${dayNames[d.getDay()]}
-            </div>
-            <div style="font-size:20px;font-weight:600;margin-top:2px;
-                        color:${isTod ? "var(--primary)" : "var(--text-primary)"};">
-                ${d.getDate()}
-            </div>
-        </div>`;
+        html += `<div style="padding:10px 6px;text-align:center;border-right:1px solid var(--border);background:${isTod ? "rgba(26,95,122,0.06)" : "transparent"};">
+            <div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.04em;">${dayNames[d.getDay()]}</div>
+            <div style="font-size:20px;font-weight:600;margin-top:2px;color:${isTod ? "var(--primary)" : "var(--text-primary)"};">${d.getDate()}</div></div>`;
     });
     html += `</div>`;
 
-    // All-day row
-    if (hasUntimed) {
-        html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);
-                              border-bottom:1px solid var(--border);background:var(--bg-main);min-height:32px;">
-            <div style="border-right:1px solid var(--border);padding:6px 4px;
-                        font-size:10px;color:var(--text-light);text-align:right;
-                        white-space:nowrap;">all day</div>`;
+    // All-day row (untimed events + tasks)
+    const hasUntimedTasks = days.some((d) => tasksForDate(fd(d)).length > 0);
+    if (hasUntimed || hasUntimedTasks) {
+        html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--bg-main);min-height:32px;"><div style="border-right:1px solid var(--border);padding:6px 4px;font-size:10px;color:var(--text-light);text-align:right;white-space:nowrap;">all day</div>`;
         days.forEach((d) => {
-            const untimed = evForDate(fd(d)).filter(
+            const ds = fd(d);
+            const untimed = evForDate(ds).filter(
                 (e) => filters[e.category] && !e.event_time,
             );
-            html += `<div style="border-right:1px solid var(--border);padding:3px 2px;
-                                  min-height:32px;" onclick="openEvModal(null,'${fd(d)}')">`;
+            const dayT = tasksForDate(ds).filter((t) => !t.completed_at);
+            html += `<div style="border-right:1px solid var(--border);padding:3px 2px;min-height:32px;" onclick="openEvModal(null,'${ds}')">`;
             untimed.forEach((ev) => {
-                html += `<div style="font-size:10px;font-weight:600;padding:3px 6px;margin-bottom:2px;
-                                     border-radius:4px;cursor:pointer;width:100%;box-sizing:border-box;
-                                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                                     background:${CB[ev.category]};color:${CC[ev.category]};
-                                     border-left:3px solid ${CC[ev.category]};"
-                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
-                              title="${esc(ev.title)}">${esc(ev.title)}</div>`;
+                html += `<div style="font-size:10px;font-weight:600;padding:3px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:${CB[ev.category]};color:${CC[ev.category]};border-left:3px solid ${CC[ev.category]};"
+                    onclick="event.stopPropagation();openEvModal('${ev.id}')" title="${esc(ev.title)}">${esc(ev.title)}</div>`;
+            });
+            dayT.forEach((t) => {
+                html += `<div style="font-size:10px;font-weight:600;padding:3px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]};border-left:3px solid ${PRI_COLOR[t.priority || "low"]};"
+                    onclick="event.stopPropagation();openTaskModal('${t.id}')" title="${esc(t.title)}">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>`;
             });
             html += `</div>`;
         });
         html += `</div>`;
     }
 
-    // Scrollable time grid
-    html += `<div id="weekScrollBody" style="overflow-y:auto;max-height:580px;">
-                <div style="display:grid;grid-template-columns:52px repeat(7,1fr);position:relative;">`;
-
-    // Time gutter
+    // Time grid
+    html += `<div id="weekScrollBody" style="overflow-y:auto;max-height:580px;"><div style="display:grid;grid-template-columns:52px repeat(7,1fr);position:relative;">`;
+    // Gutter
     html += `<div style="position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:var(--bg-main);">`;
-    for (let h = 0; h < 24; h++) {
-        if (h === 0) continue;
+    for (let h = 1; h < 24; h++) {
         const label = h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
-        html += `<div style="position:absolute;top:${h * HOUR_H}px;right:6px;
-                              font-size:10px;color:var(--text-light);
-                              transform:translateY(-50%);white-space:nowrap;">
-                    ${label}
-                 </div>`;
+        html += `<div style="position:absolute;top:${h * HOUR_H}px;right:6px;font-size:10px;color:var(--text-light);transform:translateY(-50%);white-space:nowrap;">${label}</div>`;
     }
     html += `</div>`;
 
-    // Day columns
     days.forEach((d) => {
         const ds = fd(d);
         const isTod = sameDay(d, today);
         const allEvs = evForDate(ds).filter(
             (e) => filters[e.category] && e.event_time,
         );
+        const timedTasks = allTasks.filter(
+            (t) => t.due_date === ds && t.due_time && !t.completed_at,
+        );
 
-        html += `<div style="position:relative;height:${TOTAL_H}px;
-                              border-right:1px solid var(--border);
-                              background:${isTod ? "rgba(26,95,122,0.015)" : "white"};"
-                     onclick="openEvModal(null,'${ds}')">`;
-
+        html += `<div style="position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:${isTod ? "rgba(26,95,122,0.015)" : "white"};" onclick="openEvModal(null,'${ds}')">`;
         for (let h = 0; h < 24; h++) {
-            html += `<div style="position:absolute;top:${h * HOUR_H}px;left:0;right:0;
-                                  border-top:1px solid ${h === 0 ? "transparent" : "var(--border)"};
-                                  pointer-events:none;"></div>
-                     <div style="position:absolute;top:${h * HOUR_H + HOUR_H / 2}px;left:0;right:0;
-                                  border-top:1px dashed rgba(0,0,0,0.05);
-                                  pointer-events:none;"></div>`;
+            html += `<div style="position:absolute;top:${h * HOUR_H}px;left:0;right:0;border-top:1px solid ${h === 0 ? "transparent" : "var(--border)"};pointer-events:none;"></div>
+                     <div style="position:absolute;top:${h * HOUR_H + HOUR_H / 2}px;left:0;right:0;border-top:1px dashed rgba(0,0,0,0.05);pointer-events:none;"></div>`;
         }
-
         if (isTod) {
             const pct = (now.getHours() * 60 + now.getMinutes()) / 60;
-            html += `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;
-                                  border-top:2px solid var(--accent);z-index:4;pointer-events:none;">
-                        <div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;
-                                    border-radius:50%;background:var(--accent);"></div>
-                     </div>`;
+            html += `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;border-top:2px solid var(--accent);z-index:4;pointer-events:none;"><div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div></div>`;
         }
 
-        // Overlap detection
+        // Render timed events with overlap detection
         const sorted = [...allEvs].sort((a, b) =>
             a.event_time.localeCompare(b.event_time),
         );
-
         function getEventBounds(ev) {
             const [sh, sm] = ev.event_time.split(":").map(Number);
             const startMin = sh * 60 + sm;
             const topPx = (startMin / 60) * HOUR_H;
-            let heightPx;
+            let heightPx = HOUR_H;
             if (ev.end_time) {
                 const [eh, em] = ev.end_time.split(":").map(Number);
-                const durMin = eh * 60 + em - startMin;
-                heightPx = Math.max(28, (durMin / 60) * HOUR_H);
-            } else {
-                heightPx = HOUR_H;
+                heightPx = Math.max(
+                    28,
+                    ((eh * 60 + em - startMin) / 60) * HOUR_H,
+                );
             }
             return {
                 topPx,
@@ -536,76 +619,239 @@ function renderWeek() {
                 endMin: startMin + (heightPx / HOUR_H) * 60,
             };
         }
-
         const placed = [];
         sorted.forEach((ev) => {
             const bounds = getEventBounds(ev);
-            const overlapping = placed.filter(
+            const over = placed.filter(
                 (p) => bounds.startMin < p.endMin && bounds.endMin > p.startMin,
             );
-            const usedCols = new Set(overlapping.map((p) => p.col));
+            const used = new Set(over.map((p) => p.col));
             let col = 0;
-            while (usedCols.has(col)) col++;
+            while (used.has(col)) col++;
             placed.push({ ev, ...bounds, col });
         });
-
         placed.forEach((item) => {
-            const overlapping = placed.filter(
+            const over = placed.filter(
                 (p) => item.startMin < p.endMin && item.endMin > p.startMin,
             );
-            item.totalCols = Math.max(...overlapping.map((p) => p.col)) + 1;
+            item.totalCols = Math.max(...over.map((p) => p.col)) + 1;
         });
-
         placed.forEach(({ ev, topPx, heightPx, col, totalCols }) => {
             const colW = `calc((100% - 2px) / ${totalCols})`;
             const colL = `calc(1px + (100% - 2px) / ${totalCols} * ${col})`;
+            const minH = Math.max(28, heightPx);
             const timeLabel = fmt12(ev.event_time);
             const endLabel = ev.end_time ? ` – ${fmt12(ev.end_time)}` : "";
-            const isTodo = ev.category === "todo";
-            const minH = Math.max(28, heightPx);
+            html += `<div style="position:absolute;top:${topPx}px;left:${colL};width:${colW};height:${minH}px;z-index:2;box-sizing:border-box;background:${CB[ev.category]};border-left:3px solid ${CC[ev.category]};border-radius:4px;padding:4px 6px;cursor:pointer;overflow:hidden;"
+                onclick="event.stopPropagation();openEvModal('${ev.id}')" title="${esc(ev.title)} · ${timeLabel}${endLabel}">
+                <div style="font-size:10px;font-weight:700;color:${CC[ev.category]};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</div>
+                ${minH >= 44 ? `<div style="font-size:9px;color:${CC[ev.category]};opacity:.75;margin-top:2px;">${timeLabel}${endLabel}</div>` : ""}</div>`;
+        });
 
-            if (isTodo) {
-                html += `<div style="position:absolute;top:${topPx}px;left:0;right:0;
-                                      border-top:1.5px dashed ${CC.todo};opacity:.5;
-                                      pointer-events:none;z-index:2;"></div>
-                         <div style="position:absolute;top:${topPx}px;left:${colL};width:${colW};
-                                      height:${minH}px;z-index:3;box-sizing:border-box;
-                                      background:${CB.todo};border-left:3px solid ${CC.todo};
-                                      border-radius:4px;padding:3px 6px;cursor:pointer;overflow:hidden;"
-                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
-                              title="${esc(ev.title)} · ${timeLabel}">
-                            <div style="font-size:10px;font-weight:700;color:${CC.todo};
-                                         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                                         line-height:1.3;">📌 ${esc(ev.title)}</div>
-                            ${minH >= 44 ? `<div style="font-size:9px;color:${CC.todo};opacity:.7;margin-top:2px;">${timeLabel}</div>` : ""}
-                         </div>`;
-            } else {
-                html += `<div style="position:absolute;top:${topPx}px;left:${colL};width:${colW};
-                                      height:${minH}px;z-index:2;box-sizing:border-box;
-                                      background:${CB[ev.category]};
-                                      border-left:3px solid ${CC[ev.category]};
-                                      border-radius:4px;padding:4px 6px;cursor:pointer;
-                                      overflow:hidden;display:flex;flex-direction:column;
-                                      justify-content:flex-start;"
-                              onclick="event.stopPropagation();openEvModal('${ev.id}')"
-                              title="${esc(ev.title)} · ${timeLabel}${endLabel}">
-                            <div style="font-size:10px;font-weight:700;color:${CC[ev.category]};
-                                         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                                         line-height:1.3;">${esc(ev.title)}</div>
-                            ${minH >= 44 ? `<div style="font-size:9px;color:${CC[ev.category]};opacity:.75;margin-top:2px;">${timeLabel}${endLabel}</div>` : ""}
-                         </div>`;
-            }
+        // Render timed tasks
+        timedTasks.forEach((t) => {
+            const [sh, sm] = t.due_time.split(":").map(Number);
+            const topPx = ((sh * 60 + sm) / 60) * HOUR_H;
+            html += `<div style="position:absolute;top:${topPx}px;left:2px;right:2px;height:28px;z-index:3;box-sizing:border-box;background:${PRI_BG[t.priority || "low"]};border-left:3px solid ${PRI_COLOR[t.priority || "low"]};border-radius:4px;padding:3px 6px;cursor:pointer;overflow:hidden;"
+                onclick="event.stopPropagation();openTaskModal('${t.id}')" title="${esc(t.title)}">
+                <div style="font-size:10px;font-weight:700;color:${PRI_COLOR[t.priority || "low"]};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div></div>`;
         });
 
         html += `</div>`;
     });
-
     html += `</div></div></div>`;
-
     document.getElementById("weekGrid").innerHTML = html;
+    const sb = document.getElementById("weekScrollBody");
+    if (sb) sb.scrollTop = scrollToHour * HOUR_H;
+}
 
-    const scrollBody = document.getElementById("weekScrollBody");
-    if (scrollBody) scrollBody.scrollTop = scrollToHour * HOUR_H;
+// ═══════════════════════════════════════════════════════════════════
+// DAY VIEW
+// ═══════════════════════════════════════════════════════════════════
+function renderDay() {
+    const today = new Date(),
+        now = new Date();
+    const ds = fd(curDate);
+    const HOUR_H = 64,
+        TOTAL_H = 24 * HOUR_H;
+    const isTod = sameDay(curDate, today);
+
+    const dayEvs = evForDate(ds).filter((e) => filters[e.category]);
+    const timedEvs = dayEvs
+        .filter((e) => e.event_time)
+        .sort((a, b) => a.event_time.localeCompare(b.event_time));
+    const untimedEvs = dayEvs.filter((e) => !e.event_time);
+    const dayTasks = allTasks.filter((t) => t.due_date === ds);
+    const timedT = dayTasks.filter((t) => t.due_time && !t.completed_at);
+    const untimedT = dayTasks.filter((t) => !t.due_time);
+
+    // Overlap detection helpers
+    function getBounds(time, endTime) {
+        const [sh, sm] = time.split(":").map(Number);
+        const startMin = sh * 60 + sm;
+        let heightPx = HOUR_H;
+        if (endTime) {
+            const [eh, em] = endTime.split(":").map(Number);
+            heightPx = Math.max(28, ((eh * 60 + em - startMin) / 60) * HOUR_H);
+        }
+        return {
+            topPx: (startMin / 60) * HOUR_H,
+            heightPx,
+            startMin,
+            endMin: startMin + (heightPx / HOUR_H) * 60,
+        };
+    }
+
+    const placed = [];
+    timedEvs.forEach((ev) => {
+        const b = getBounds(ev.event_time, ev.end_time);
+        const over = placed.filter(
+            (p) => b.startMin < p.endMin && b.endMin > p.startMin,
+        );
+        const used = new Set(over.map((p) => p.col));
+        let col = 0;
+        while (used.has(col)) col++;
+        placed.push({ ev, ...b, col, isTask: false });
+    });
+    timedT.forEach((t) => {
+        const b = getBounds(t.due_time, null);
+        const over = placed.filter(
+            (p) => b.startMin < p.endMin && b.endMin > p.startMin,
+        );
+        const used = new Set(over.map((p) => p.col));
+        let col = 0;
+        while (used.has(col)) col++;
+        placed.push({ task: t, ...b, col, isTask: true });
+    });
+    placed.forEach((item) => {
+        const over = placed.filter(
+            (p) => item.startMin < p.endMin && item.endMin > p.startMin,
+        );
+        item.totalCols = Math.max(...over.map((p) => p.col)) + 1;
+    });
+
+    // Build timed items HTML
+    let timedItemsHtml = "";
+    placed.forEach(({ ev, task, topPx, heightPx, col, totalCols, isTask }) => {
+        const colW = `calc((100% - 4px) / ${totalCols})`;
+        const colL = `calc(2px + (100% - 4px) / ${totalCols} * ${col})`;
+        const minH = Math.max(36, heightPx);
+        if (isTask) {
+            const t = task;
+            timedItemsHtml += `<div onclick="event.stopPropagation();openTaskModal('${t.id}')"
+                style="position:absolute;top:${topPx}px;left:${colL};width:${colW};height:${minH}px;z-index:3;box-sizing:border-box;
+                background:${PRI_BG[t.priority || "low"]};border-left:4px solid ${PRI_COLOR[t.priority || "low"]};border-radius:6px;padding:6px 8px;cursor:pointer;overflow:hidden;">
+                <div style="font-size:12px;font-weight:700;color:${PRI_COLOR[t.priority || "low"]};">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>
+                ${minH >= 52 ? `<div style="font-size:11px;color:${PRI_COLOR[t.priority || "low"]};opacity:.7;margin-top:3px;">${fmt12(t.due_time)}</div>` : ""}</div>`;
+        } else {
+            timedItemsHtml += `<div onclick="event.stopPropagation();openEvModal('${ev.id}')"
+                style="position:absolute;top:${topPx}px;left:${colL};width:${colW};height:${minH}px;z-index:2;box-sizing:border-box;
+                background:${CB[ev.category]};border-left:4px solid ${CC[ev.category]};border-radius:6px;padding:6px 8px;cursor:pointer;overflow:hidden;">
+                <div style="font-size:12px;font-weight:700;color:${CC[ev.category]};">${esc(ev.title)}</div>
+                ${minH >= 52 ? `<div style="font-size:11px;color:${CC[ev.category]};opacity:.75;margin-top:3px;">${fmt12(ev.event_time)}${ev.end_time ? ` – ${fmt12(ev.end_time)}` : ""}</div>` : ""}</div>`;
+        }
+    });
+
+    // All-day strip HTML
+    let alldayHtml = "";
+    if (untimedEvs.length || untimedT.length) {
+        alldayHtml += `<div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">All day</div>`;
+        untimedEvs.forEach((ev) => {
+            alldayHtml += `<div onclick="openEvModal('${ev.id}')" style="padding:6px 10px;border-radius:6px;background:${CB[ev.category]};border-left:3px solid ${CC[ev.category]};color:${CC[ev.category]};font-size:13px;font-weight:600;cursor:pointer;margin-bottom:4px;">${CI[ev.category]} ${esc(ev.title)}</div>`;
+        });
+        untimedT.forEach((t) => {
+            alldayHtml += `<div onclick="openTaskModal('${t.id}')" style="padding:6px 10px;border-radius:6px;background:${PRI_BG[t.priority || "low"]};border-left:3px solid ${PRI_COLOR[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]};font-size:13px;font-weight:600;cursor:pointer;margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+                ${PRI_ICON[t.priority || "low"]} ${esc(t.title)}
+                ${t.completed_at ? `<span style="font-size:11px;opacity:.6;">✓ Done</span>` : ""}
+            </div>`;
+        });
+        alldayHtml += `</div>`;
+    }
+
+    // Hour labels for gutter
+    let gutterHtml = "";
+    for (let h = 1; h < 24; h++) {
+        const label = h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
+        gutterHtml += `<div style="position:absolute;top:${h * HOUR_H}px;right:6px;font-size:10px;color:var(--text-light);transform:translateY(-50%);white-space:nowrap;">${label}</div>`;
+    }
+
+    // Hour lines
+    let hourLinesHtml = "";
+    for (let h = 0; h < 24; h++) {
+        hourLinesHtml += `<div style="position:absolute;top:${h * HOUR_H}px;left:0;right:0;border-top:1px solid ${h === 0 ? "transparent" : "var(--border)"};pointer-events:none;"></div>
+                 <div style="position:absolute;top:${h * HOUR_H + HOUR_H / 2}px;left:0;right:0;border-top:1px dashed rgba(0,0,0,0.05);pointer-events:none;"></div>`;
+    }
+
+    // Current time line
+    let nowLineHtml = "";
+    if (isTod) {
+        const pct = (now.getHours() * 60 + now.getMinutes()) / 60;
+        nowLineHtml = `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;border-top:2px solid var(--accent);z-index:4;pointer-events:none;"><div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div></div>`;
+    }
+
+    // Right panel summary
+    let summaryHtml = `<div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Summary</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">📅 ${dayEvs.length} event${dayEvs.length !== 1 ? "s" : ""}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">✅ ${dayTasks.length} task${dayTasks.length !== 1 ? "s" : ""}</div>
+        ${dayTasks.length ? `<div style="font-size:13px;color:#0f766e;">✓ ${dayTasks.filter((t) => t.completed_at).length} completed</div>` : ""}
+    </div>`;
+
+    let tasksListHtml = "";
+    if (dayTasks.length) {
+        tasksListHtml = `<div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:14px;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Tasks</div>`;
+        dayTasks.forEach((t) => {
+            tasksListHtml += `<div onclick="openTaskModal('${t.id}')" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+                <div onclick="event.stopPropagation();toggleTaskDone('${t.id}')" style="width:16px;height:16px;border-radius:50%;border:2px solid ${PRI_COLOR[t.priority || "low"]};flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:${t.completed_at ? PRI_COLOR[t.priority || "low"] : "transparent"}">
+                    ${t.completed_at ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${t.completed_at ? "text-decoration:line-through;opacity:.5;" : ""}">${esc(t.title)}</div>
+                    ${t.due_time ? `<div style="font-size:11px;color:var(--text-secondary);">${fmt12(t.due_time)}</div>` : ""}
+                </div>
+            </div>`;
+        });
+        tasksListHtml += `</div>`;
+    }
+
+    // Assemble full day view HTML
+    // Uses a named class on the scroll container so CSS can target it
+    const html = `
+        <div style="display:flex;gap:16px;padding:4px 0;">
+            <div style="flex:1;min-width:0;">
+                ${alldayHtml}
+                <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+                    <div style="width:52px;flex-shrink:0;position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:var(--bg-main);">
+                        ${gutterHtml}
+                    </div>
+                    <div class="day-view-scroll" id="dayScrollBody" style="flex:1;overflow-y:auto;max-height:580px;position:relative;">
+                        <div style="position:relative;height:${TOTAL_H}px;background:${isTod ? "rgba(26,95,122,0.015)" : "white"};" onclick="openEvModal(null,'${ds}')">
+                            ${hourLinesHtml}
+                            ${nowLineHtml}
+                            ${timedItemsHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="width:220px;flex-shrink:0;">
+                ${summaryHtml}
+                ${tasksListHtml}
+            </div>
+        </div>`;
+
+    const container = document.getElementById("dayGrid");
+    container.innerHTML = html;
+
+    // Scroll to current/morning hour
+    const scrollTarget = isTod ? Math.max(0, now.getHours() - 1) : 7;
+    const scrollBody = document.getElementById("dayScrollBody");
+    if (scrollBody) {
+        setTimeout(() => {
+            scrollBody.scrollTop = scrollTarget * HOUR_H;
+        }, 50);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -621,38 +867,39 @@ function openPopover(dayEl, ds, cell) {
     document.getElementById("btnPopAdd").dataset.date = ds;
 
     const evs = evForDate(ds).filter((e) => filters[e.category]);
+    const tasks = allTasks.filter((t) => t.due_date === ds);
     const el = document.getElementById("popEvents");
-    el.innerHTML = evs.length
-        ? evs
-              .map(
-                  (ev) => `
-            <div class="popover-event" onclick="openEvModal('${ev.id}')">
-                <div class="popover-event-dot" style="background:${CC[ev.category]}"></div>
-                <div class="popover-event-info">
-                    <div class="popover-event-title">${esc(ev.title)}</div>
-                    ${ev.event_time ? `<div class="popover-event-time">${fmt12(ev.event_time)}</div>` : ""}
-                </div>
-                <button class="popover-ev-del" title="Delete"
-                        onclick="event.stopPropagation();promptSingleDelete('${ev.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
-                        <path d="M9 6V4h6v2"/>
-                    </svg>
-                </button>
-            </div>`,
-              )
-              .join("")
-        : '<div class="popover-empty">No events on this day</div>';
+
+    let inner = "";
+    evs.forEach((ev) => {
+        inner += `<div class="popover-event" onclick="openEvModal('${ev.id}')">
+            <div class="popover-event-dot" style="background:${CC[ev.category]}"></div>
+            <div class="popover-event-info">
+                <div class="popover-event-title">${esc(ev.title)}</div>
+                ${ev.event_time ? `<div class="popover-event-time">${fmt12(ev.event_time)}</div>` : ""}
+            </div>
+            <button class="popover-ev-del" onclick="event.stopPropagation();promptSingleDelete('${ev.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button></div>`;
+    });
+    tasks.forEach((t) => {
+        inner += `<div class="popover-event" onclick="openTaskModal('${t.id}')">
+            <div class="popover-event-dot" style="background:${PRI_COLOR[t.priority || "low"]}"></div>
+            <div class="popover-event-info">
+                <div class="popover-event-title" style="text-decoration:${t.completed_at ? "line-through" : "none"};opacity:${t.completed_at ? ".5" : "1"}">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>
+                ${t.due_time ? `<div class="popover-event-time">${fmt12(t.due_time)}</div>` : ""}
+            </div></div>`;
+    });
+    el.innerHTML =
+        inner || '<div class="popover-empty">No events on this day</div>';
 
     const r = dayEl.getBoundingClientRect();
-    let l = r.left + r.width / 2 - 142;
-    let t = r.bottom + 8;
+    let l = r.left + r.width / 2 - 142,
+        t2 = r.bottom + 8;
     l = Math.max(16, Math.min(l, window.innerWidth - 300));
-    if (t + 320 > window.innerHeight - 16) t = r.top - 330;
+    if (t2 + 320 > window.innerHeight - 16) t2 = r.top - 330;
     pop.style.left = l + "px";
-    pop.style.top = t + "px";
+    pop.style.top = t2 + "px";
     pop.classList.add("open");
 }
 
@@ -680,14 +927,12 @@ function exitSelectMode() {
     selIds.clear();
     document.body.classList.remove("select-mode");
     const btn = document.getElementById("btnSelectMode");
+    if (!btn) return;
     btn.classList.remove("active");
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Select`;
     document
         .querySelectorAll(".cal-day.day-sel")
         .forEach((d) => d.classList.remove("day-sel"));
-    document
-        .querySelectorAll(".upcoming-item.item-sel")
-        .forEach((i) => i.classList.remove("item-sel"));
     updateBulkBar();
 }
 
@@ -696,7 +941,6 @@ function toggleDaySel(ds, div) {
     const allIn = ids.every((id) => selIds.has(id));
     ids.forEach((id) => (allIn ? selIds.delete(id) : selIds.add(id)));
     div.classList.toggle("day-sel", !allIn);
-    syncUpcomingSel();
     updateBulkBar();
 }
 
@@ -707,22 +951,13 @@ function toggleItemSel(id, el) {
     updateBulkBar();
 }
 
-function syncUpcomingSel() {
-    document.querySelectorAll(".upcoming-item[data-id]").forEach((el) => {
-        el.classList.toggle("item-sel", selIds.has(el.dataset.id));
-    });
-    document.querySelectorAll(".all-ev-item[data-id]").forEach((el) => {
-        el.classList.toggle("item-sel", selIds.has(el.dataset.id));
-    });
-}
-
 function updateBulkBar() {
     const n = selIds.size;
-    document.getElementById("bulkCount").textContent =
-        `${n} event${n !== 1 ? "s" : ""} selected`;
-    document
-        .getElementById("bulkBar")
-        .classList.toggle("visible", n > 0 && selectMode);
+    const countEl = document.getElementById("bulkCount");
+    if (countEl)
+        countEl.textContent = `${n} event${n !== 1 ? "s" : ""} selected`;
+    const bar = document.getElementById("bulkBar");
+    if (bar) bar.classList.toggle("visible", n > 0 && selectMode);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -733,7 +968,8 @@ function renderUpcoming() {
     today.setHours(0, 0, 0, 0);
     const wEnd = new Date(today);
     wEnd.setDate(today.getDate() + 7);
-    const list = expanded
+
+    const evList = expanded
         .filter((e) => filters[e.category])
         .filter((e) => {
             const d = new Date(e.idate + "T00:00:00");
@@ -745,43 +981,59 @@ function renderUpcoming() {
                 : -1,
         );
 
+    const taskList = allTasks
+        .filter((t) => !t.completed_at && t.due_date)
+        .filter((t) => {
+            const d = new Date(t.due_date + "T00:00:00");
+            return d >= today && d <= wEnd;
+        })
+        .sort((a, b) =>
+            a.due_date + (a.due_time || "") > b.due_date + (b.due_time || "")
+                ? 1
+                : -1,
+        );
+
     const el = document.getElementById("upcomingList");
-    if (!list.length) {
+    if (!evList.length && !taskList.length) {
         el.innerHTML =
-            '<div class="state-box">No upcoming events this week 🎉</div>';
+            '<div class="state-box">Nothing coming up this week 🎉</div>';
         return;
     }
-    el.innerHTML = list
-        .map((ev) => {
-            const d = new Date(ev.idate + "T00:00:00");
-            const dl = d.toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-            });
-            const sel = selIds.has(ev.id);
-            return `<div class="upcoming-item ${sel ? "item-sel" : ""}" data-id="${ev.id}"
-                     onclick="handleItemClick(event,'${ev.id}',this)">
-            <div class="upcoming-check"></div>
+
+    let html = "";
+    evList.forEach((ev) => {
+        const d = new Date(ev.idate + "T00:00:00");
+        const dl = d.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+        });
+        html += `<div class="upcoming-item" data-id="${ev.id}" onclick="openEvModal('${ev.id}')">
             <div class="upcoming-dot" style="background:${CC[ev.category]}"></div>
             <div class="upcoming-info">
                 <div class="upcoming-title">${esc(ev.title)}</div>
                 <div class="upcoming-sub">${dl}${ev.event_time ? " · " + fmt12(ev.event_time) : ""}</div>
             </div>
-            <span class="upcoming-tag" style="background:${CB[ev.category]};color:${CC[ev.category]}">
-                ${CI[ev.category]} ${CL[ev.category]}
-            </span>
+            <span class="upcoming-tag" style="background:${CB[ev.category]};color:${CC[ev.category]}">${CI[ev.category]} ${CL[ev.category]}</span>
         </div>`;
-        })
-        .join("");
-}
-
-function handleItemClick(e, id, el) {
-    if (selectMode) {
-        toggleItemSel(id, el);
-        return;
-    }
-    openEvModal(id);
+    });
+    taskList.forEach((t) => {
+        const d = new Date(t.due_date + "T00:00:00");
+        const dl = d.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+        });
+        html += `<div class="upcoming-item" onclick="openTaskModal('${t.id}')">
+            <div class="upcoming-dot" style="background:${PRI_COLOR[t.priority || "low"]}"></div>
+            <div class="upcoming-info">
+                <div class="upcoming-title">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>
+                <div class="upcoming-sub">${dl}${t.due_time ? " · " + fmt12(t.due_time) : ""}${t.label ? ` · ${esc(t.label)}` : ""}</div>
+            </div>
+            <span class="upcoming-tag" style="background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]}">✅ Task</span>
+        </div>`;
+    });
+    el.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -790,10 +1042,33 @@ function handleItemClick(e, id, el) {
 function renderDeadlines() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const items = allEvents
+    const evItems = allEvents
         .filter((e) => e.category === "todo")
         .sort((a, b) => (a.event_date > b.event_date ? 1 : -1))
+        .slice(0, 4);
+    const taskItems = allTasks
+        .filter((t) => t.due_date && !t.completed_at)
+        .sort((a, b) => (a.due_date > b.due_date ? 1 : -1))
+        .slice(0, 4);
+
+    const items = [
+        ...evItems.map((e) => ({
+            title: e.title,
+            date: e.event_date,
+            time: e.event_time,
+            isTask: false,
+        })),
+        ...taskItems.map((t) => ({
+            title: t.title,
+            date: t.due_date,
+            time: t.due_time,
+            isTask: true,
+            priority: t.priority,
+        })),
+    ]
+        .sort((a, b) => (a.date > b.date ? 1 : -1))
         .slice(0, 7);
+
     if (!items.length) {
         document.getElementById("deadlinesList").innerHTML =
             '<div class="state-box">No deadlines 🎉</div>';
@@ -801,7 +1076,7 @@ function renderDeadlines() {
     }
     document.getElementById("deadlinesList").innerHTML = items
         .map((e) => {
-            const due = new Date(e.event_date + "T00:00:00");
+            const due = new Date(e.date + "T00:00:00");
             const diff = Math.ceil((due - today) / 86400000);
             let cls = "due-normal",
                 lbl = `${diff}d left`;
@@ -811,14 +1086,15 @@ function renderDeadlines() {
             } else if (diff === 1) {
                 cls = "due-urgent";
                 lbl = "Tomorrow";
-            } else if (diff <= 3) {
-                cls = "due-soon";
-            }
+            } else if (diff <= 3) cls = "due-soon";
+            const icon = e.isTask
+                ? PRI_ICON[e.priority || "low"] || "✅"
+                : "📌";
             return `<div class="deadline-item">
-            <div class="deadline-icon">📌</div>
+            <div class="deadline-icon">${icon}</div>
             <div class="deadline-info">
                 <div class="deadline-title">${esc(e.title)}</div>
-                <div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.event_time ? " · " + fmt12(e.event_time) : ""}</div>
+                <div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.time ? " · " + fmt12(e.time) : ""}</div>
             </div>
             <div class="deadline-due ${cls}">${lbl}</div>
         </div>`;
@@ -838,7 +1114,6 @@ function renderMyCalendars() {
                 new Date(e.idate + "T00:00:00") >= today &&
                 new Date(e.idate + "T00:00:00") <= wEnd,
         ).length;
-
     const cats = [
         {
             key: "class",
@@ -853,12 +1128,6 @@ function renderMyCalendars() {
             meta: `${cntW("group")} events this week`,
         },
         {
-            key: "todo",
-            label: "To Do",
-            color: "#dc2626",
-            meta: `${cntW("todo")} due this week`,
-        },
-        {
             key: "event",
             label: "Events",
             color: "#1a5f7a",
@@ -867,9 +1136,8 @@ function renderMyCalendars() {
     ];
     document.getElementById("myCalendars").innerHTML = cats
         .map(
-            (c) => `
-        <div class="cal-category ${filters[c.key] ? "active" : ""}" style="color:${c.color}"
-             onclick="toggleFilter('${c.key}')">
+            (c) =>
+                `<div class="cal-category ${filters[c.key] ? "active" : ""}" style="color:${c.color}" onclick="toggleFilter('${c.key}')">
             <div class="cal-category-dot" style="background:${c.color}"></div>
             <div class="cal-category-info">
                 <div class="cal-category-name">${c.label}</div>
@@ -884,11 +1152,9 @@ function renderMyCalendars() {
 function renderAllEvents() {
     const el = document.getElementById("allEventsList");
     if (!el) return;
-
     const q = (document.getElementById("allEvSearch")?.value || "")
         .toLowerCase()
         .trim();
-
     const evs = allEvents
         .filter((e) => filters[e.category])
         .filter(
@@ -908,35 +1174,27 @@ function renderAllEvents() {
         );
 
     if (!evs.length) {
-        el.innerHTML = `<div class="all-ev-empty">${q ? "No events match your search." : "No events yet."}</div>`;
+        el.innerHTML = `<div class="all-ev-empty">${q ? "No events match." : "No events yet."}</div>`;
         return;
     }
-
     const groups = {};
     evs.forEach((ev) => {
-        const d = new Date(ev.event_date + "T00:00:00");
-        const key = d.toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-        });
+        const key = new Date(ev.event_date + "T00:00:00").toLocaleDateString(
+            "en-US",
+            { month: "long", year: "numeric" },
+        );
         if (!groups[key]) groups[key] = [];
         groups[key].push(ev);
     });
-
     let html = "";
     Object.entries(groups).forEach(([month, items]) => {
         html += `<div class="all-ev-group-label">${month}</div>`;
         items.forEach((ev) => {
-            const d = new Date(ev.event_date + "T00:00:00");
-            const dl = d.toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-            });
-            const sel = selIds.has(ev.id);
-            html += `<div class="all-ev-item ${sel ? "item-sel" : ""}" data-id="${ev.id}"
-                          onclick="handleAllEvClick(event,'${ev.id}',this)">
-                <div class="all-ev-check"></div>
+            const dl = new Date(ev.event_date + "T00:00:00").toLocaleDateString(
+                "en-US",
+                { weekday: "short", month: "short", day: "numeric" },
+            );
+            html += `<div class="all-ev-item" data-id="${ev.id}" onclick="openEvModal('${ev.id}')">
                 <div class="all-ev-dot" style="background:${CC[ev.category]}"></div>
                 <div class="all-ev-info">
                     <div class="all-ev-title" title="${esc(ev.title)}">${esc(ev.title)}</div>
@@ -946,16 +1204,7 @@ function renderAllEvents() {
             </div>`;
         });
     });
-
     el.innerHTML = html;
-}
-
-function handleAllEvClick(e, id, el) {
-    if (selectMode) {
-        toggleItemSel(id, el);
-        return;
-    }
-    openEvModal(id);
 }
 
 function toggleFilter(key) {
@@ -963,6 +1212,270 @@ function toggleFilter(key) {
     renderCal();
     renderMyCalendars();
     renderUpcoming();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TASK MANAGER
+// ═══════════════════════════════════════════════════════════════════
+function tasksForDate(ds) {
+    return allTasks.filter((t) => t.due_date === ds);
+}
+
+function renderTaskManager() {
+    const total = allTasks.length;
+    const completed = allTasks.filter((t) => t.completed_at).length;
+    const active = total - completed;
+
+    document.getElementById("taskCountBadge").textContent = active;
+
+    const progEl = document.getElementById("taskProgress");
+    if (total > 0) {
+        progEl.style.display = "block";
+        document.getElementById("taskProgressLabel").textContent =
+            `${completed} / ${total} done`;
+        document.getElementById("taskProgressBar").style.width =
+            `${Math.round((completed / total) * 100)}%`;
+    } else {
+        progEl.style.display = "none";
+    }
+
+    const labels = [
+        ...new Set(allTasks.filter((t) => t.label).map((t) => t.label)),
+    ];
+    document.getElementById("taskLabelChips").innerHTML =
+        labels
+            .map(
+                (l) =>
+                    `<button onclick="setLabelFilter('${esc(l)}')" style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:${taskLabelFilter === l ? "var(--primary,#1a5f7a)" : "var(--bg-main)"};color:${taskLabelFilter === l ? "white" : "var(--text-secondary)"};">${esc(l)}</button>`,
+            )
+            .join("") +
+        (taskLabelFilter
+            ? `<button onclick="setLabelFilter(null)" style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:transparent;color:var(--text-secondary);">✕ Clear</button>`
+            : "");
+
+    let tasks = [...allTasks];
+    if (taskFilterStatus === "active")
+        tasks = tasks.filter((t) => !t.completed_at);
+    if (taskFilterStatus === "completed")
+        tasks = tasks.filter((t) => !!t.completed_at);
+    if (taskFilterPri !== "all")
+        tasks = tasks.filter((t) => t.priority === taskFilterPri);
+    if (taskLabelFilter)
+        tasks = tasks.filter((t) => t.label === taskLabelFilter);
+
+    if (taskSort === "due")
+        tasks.sort((a, b) =>
+            (a.due_date || "9999") > (b.due_date || "9999") ? 1 : -1,
+        );
+    if (taskSort === "priority")
+        tasks.sort((a, b) => {
+            const o = { high: 0, medium: 1, low: 2 };
+            return (
+                (o[a.priority || "low"] || 0) - (o[b.priority || "low"] || 0)
+            );
+        });
+    if (taskSort === "label")
+        tasks.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+    if (taskSort === "created")
+        tasks.sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+
+    const el = document.getElementById("taskList");
+    if (!tasks.length) {
+        el.innerHTML = `<div class="state-box">${total === 0 ? "No tasks yet. Add your first task! ✅" : "No tasks match your filters."}</div>`;
+        return;
+    }
+
+    if (taskSort === "due") {
+        const groups = {};
+        tasks.forEach((t) => {
+            const key = t.due_date
+                ? new Date(t.due_date + "T00:00:00").toLocaleDateString(
+                      "en-US",
+                      { weekday: "short", month: "short", day: "numeric" },
+                  )
+                : "No due date";
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(t);
+        });
+        el.innerHTML = Object.entries(groups)
+            .map(
+                ([date, items]) =>
+                    `<div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;">${date}</div>` +
+                    items.map(taskItemHTML).join(""),
+            )
+            .join("");
+    } else {
+        el.innerHTML = tasks.map(taskItemHTML).join("");
+    }
+}
+
+function taskItemHTML(t) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = t.due_date ? new Date(t.due_date + "T00:00:00") : null;
+    const diff = due ? Math.ceil((due - today) / 86400000) : null;
+    const overdue = diff !== null && diff < 0 && !t.completed_at;
+    const isDueToday = diff === 0 && !t.completed_at;
+
+    return `<div class="task-item ${t.completed_at ? "task-done" : ""}" data-id="${t.id}">
+        <button class="task-check-btn" onclick="toggleTaskDone('${t.id}')"
+            style="width:20px;height:20px;border-radius:50%;border:2px solid ${PRI_COLOR[t.priority || "low"]};flex-shrink:0;
+            background:${t.completed_at ? PRI_COLOR[t.priority || "low"] : "transparent"};cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            ${t.completed_at ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
+        </button>
+        <div class="task-body" onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);${t.completed_at ? "text-decoration:line-through;opacity:.45;" : ""}">${esc(t.title)}</span>
+                <span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]}">${PRI_ICON[t.priority || "low"]} ${t.priority || "low"}</span>
+                ${t.label ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;background:var(--border);color:var(--text-secondary);">${esc(t.label)}</span>` : ""}
+            </div>
+            <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap;">
+                ${
+                    due
+                        ? `<span style="font-size:11px;color:${overdue ? "#dc2626" : isDueToday ? "#d97706" : "var(--text-secondary)"};">
+                    ${overdue ? "⚠️ Overdue" : isDueToday ? "⏰ Due today" : `📅 ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                    ${t.due_time ? " · " + fmt12(t.due_time) : ""}</span>`
+                        : ""
+                }
+                ${t.notes ? `<span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">📝 ${esc(t.notes)}</span>` : ""}
+            </div>
+        </div>
+        <button onclick="promptDeleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-light);padding:4px;border-radius:4px;flex-shrink:0;"
+            title="Delete task">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+        </button>
+    </div>`;
+}
+
+function setLabelFilter(label) {
+    taskLabelFilter = label;
+    renderTaskManager();
+}
+
+async function toggleTaskDone(id) {
+    const t = allTasks.find((x) => x.id === id);
+    if (!t) return;
+    const data = t.completed_at
+        ? { completed_at: null }
+        : { completed_at: new Date().toISOString() };
+    try {
+        await taskUpdate(id, data);
+        const i = allTasks.findIndex((x) => x.id === id);
+        if (i !== -1) allTasks[i] = { ...allTasks[i], ...data };
+        renderTaskManager();
+        renderDeadlines();
+        renderUpcoming();
+        if (curView === "month") renderCal();
+        else if (curView === "week") renderWeek();
+        else renderDay();
+    } catch (err) {
+        alert("Failed: " + err.message);
+    }
+}
+
+// ── Task Modal ──────────────────────────────────────────────────
+function openTaskModal(id = null) {
+    editTaskId = id;
+    resetTaskForm();
+    if (id) {
+        const t = allTasks.find((x) => x.id === id);
+        if (!t) return;
+        document.getElementById("taskModalTitle").textContent = "Edit Task";
+        document.getElementById("taskTitle").value = t.title;
+        document.getElementById("taskDueDate").value = t.due_date || "";
+        document.getElementById("taskDueTime").value = t.due_time
+            ? t.due_time.slice(0, 5)
+            : "";
+        document.getElementById("taskLabel").value = t.label || "";
+        document.getElementById("taskNotes").value = t.notes || "";
+        const pri = t.priority || "low";
+        document.querySelectorAll(".priority-option").forEach((l) => {
+            const active = l.dataset.p === pri;
+            l.classList.toggle("sel", active);
+            l.querySelector("input").checked = active;
+        });
+        document.getElementById("btnDelTask").style.display = "block";
+    } else {
+        document.getElementById("taskModalTitle").textContent = "Add Task";
+        document.getElementById("btnDelTask").style.display = "none";
+    }
+    document.getElementById("taskModal").classList.add("open");
+}
+
+function closeTaskModal() {
+    document.getElementById("taskModal").classList.remove("open");
+    editTaskId = null;
+}
+
+function resetTaskForm() {
+    [
+        "taskTitle",
+        "taskDueDate",
+        "taskDueTime",
+        "taskLabel",
+        "taskNotes",
+    ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    document.querySelectorAll(".priority-option").forEach((l) => {
+        l.classList.toggle("sel", l.dataset.p === "low");
+        l.querySelector("input").checked = l.dataset.p === "low";
+    });
+    document.getElementById("btnDelTask").style.display = "none";
+}
+
+async function saveTask() {
+    const title = document.getElementById("taskTitle").value.trim();
+    if (!title) return alert("Please enter a task title.");
+    const pri =
+        document.querySelector('input[name="taskPriority"]:checked')?.value ||
+        "low";
+    const data = {
+        title,
+        priority: pri,
+        due_date: document.getElementById("taskDueDate").value || null,
+        due_time: document.getElementById("taskDueTime").value || null,
+        label: document.getElementById("taskLabel").value.trim() || null,
+        notes: document.getElementById("taskNotes").value.trim() || null,
+    };
+    const btn = document.getElementById("btnSaveTask");
+    btn.textContent = "Saving…";
+    btn.disabled = true;
+    try {
+        if (editTaskId) {
+            await taskUpdate(editTaskId, data);
+            const i = allTasks.findIndex((x) => x.id === editTaskId);
+            if (i !== -1) allTasks[i] = { ...allTasks[i], ...data };
+        } else {
+            const row = await taskInsert(data);
+            allTasks.unshift(row);
+        }
+        closeTaskModal();
+        renderTaskManager();
+        renderDeadlines();
+        renderUpcoming();
+        if (curView === "month") renderCal();
+        else if (curView === "week") renderWeek();
+        else renderDay();
+    } catch (err) {
+        alert("Save failed: " + err.message);
+    } finally {
+        btn.textContent = "Save Task";
+        btn.disabled = false;
+    }
+}
+
+function promptDeleteTask(id) {
+    const t = allTasks.find((x) => x.id === id);
+    pendDel = { mode: "task", ids: [id] };
+    document.getElementById("confirmTitle").textContent = "Delete Task";
+    document.getElementById("confirmBody").innerHTML =
+        `Are you sure you want to delete <strong>"${esc(t?.title || "this task")}"</strong>? This cannot be undone.`;
+    closeTaskModal();
+    document.getElementById("confirmModal").classList.add("open");
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -982,13 +1495,11 @@ function openEvModal(id = null, prefill = null) {
         document.getElementById("evCat").value = ev.category;
         document.getElementById("evDesc").value = ev.description || "";
         updateModalFields();
-
         const st = ev.event_time ? ev.event_time.slice(0, 5) : "";
         const et = ev.end_time ? ev.end_time.slice(0, 5) : "";
-
-        if (ev.category === "todo") {
+        if (ev.category === "todo")
             document.getElementById("evTimeTodo").value = st;
-        } else if (ev.category === "class") {
+        else if (ev.category === "class") {
             document.getElementById("evTimeStart").value = st;
             document.getElementById("evTimeEnd").value = et;
         } else if (ev.category === "group") {
@@ -998,7 +1509,6 @@ function openEvModal(id = null, prefill = null) {
             document.getElementById("evTimeStartEvent").value = st;
             document.getElementById("evTimeEndEvent").value = et;
         }
-
         document.getElementById("evRecur").checked = !!ev.is_recurring;
         if (ev.is_recurring) {
             document.getElementById("recurOpts").style.display = "block";
@@ -1024,9 +1534,10 @@ function closeEvModal() {
 
 function updateModalFields() {
     const cat = document.getElementById("evCat").value;
-    ["todo", "class", "group", "event"].forEach((c) => {
-        const key = c.charAt(0).toUpperCase() + c.slice(1);
-        const el = document.getElementById(`timeField${key}`);
+    ["class", "group", "event"].forEach((c) => {
+        const el = document.getElementById(
+            `timeField${c.charAt(0).toUpperCase() + c.slice(1)}`,
+        );
         if (el) el.style.display = cat === c ? "" : "none";
     });
 }
@@ -1043,11 +1554,11 @@ function resetForm() {
         "evTimeStartEvent",
         "evTimeEndEvent",
         "evRecurEnd",
+        "evDate",
     ].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
-    document.getElementById("evDate").value = "";
     document.getElementById("evCat").value = "todo";
     document.getElementById("evRecur").checked = false;
     document.getElementById("recurOpts").style.display = "none";
@@ -1062,20 +1573,14 @@ async function saveEv() {
     const cat = document.getElementById("evCat").value;
     const title = document.getElementById("evTitle").value.trim();
     const date = document.getElementById("evDate").value;
-    const desc = document.getElementById("evDesc").value.trim() || null;
-    const recur = document.getElementById("evRecur").checked;
-    const rDays = recur
-        ? [...document.querySelectorAll(".rday.sel")].map((b) => b.dataset.d)
-        : null;
-    const rEnd = recur
-        ? document.getElementById("evRecurEnd").value || null
-        : null;
+    if (!title) return alert("Please enter a title.");
+    if (!date) return alert("Please select a date.");
 
     let startTime = null,
         endTime = null;
-    if (cat === "todo") {
+    if (cat === "todo")
         startTime = document.getElementById("evTimeTodo").value || null;
-    } else if (cat === "class") {
+    if (cat === "class") {
         startTime = document.getElementById("evTimeStart").value || null;
         endTime = document.getElementById("evTimeEnd").value || null;
     } else if (cat === "group") {
@@ -1086,12 +1591,15 @@ async function saveEv() {
         endTime = document.getElementById("evTimeEndEvent").value || null;
     }
 
-    if (!title) return alert("Please enter a title.");
-    if (!date) return alert("Please select a date.");
     if (cat === "class" && (!startTime || !endTime))
-        return alert("Class schedule requires both start and end time.");
+        return alert("Class requires both start and end time.");
     if (cat === "group" && !startTime)
         return alert("Study group requires a start time.");
+
+    const recur = document.getElementById("evRecur").checked;
+    const rDays = recur
+        ? [...document.querySelectorAll(".rday.sel")].map((b) => b.dataset.d)
+        : null;
     if (recur && rDays && !rDays.length)
         return alert("Select at least one repeat day.");
 
@@ -1099,12 +1607,14 @@ async function saveEv() {
         title,
         event_date: date,
         category: cat,
-        description: desc,
+        description: document.getElementById("evDesc").value.trim() || null,
         event_time: startTime,
         end_time: endTime,
         is_recurring: recur,
         recur_days: rDays,
-        recur_end: rEnd,
+        recur_end: recur
+            ? document.getElementById("evRecurEnd").value || null
+            : null,
     };
 
     const btn = document.getElementById("btnSaveEv");
@@ -1141,7 +1651,7 @@ function promptSingleDelete(id) {
     pendDel = { mode: "single", ids: [id] };
     document.getElementById("confirmTitle").textContent = "Delete Event";
     document.getElementById("confirmBody").innerHTML =
-        `Are you sure you want to delete <span class="confirm-count">"${esc(ev?.title || "this event")}"</span>? This cannot be undone.`;
+        `Are you sure you want to delete <strong>"${esc(ev?.title || "this event")}"</strong>? This cannot be undone.`;
     document.getElementById("confirmModal").classList.add("open");
 }
 
@@ -1152,7 +1662,7 @@ function promptBulkDelete() {
     document.getElementById("confirmTitle").textContent =
         `Delete ${n} Event${n !== 1 ? "s" : ""}`;
     document.getElementById("confirmBody").innerHTML =
-        `Are you sure you want to permanently delete <span class="confirm-count">${n} event${n !== 1 ? "s" : ""}</span>? This cannot be undone.`;
+        `Are you sure you want to permanently delete <strong>${n} event${n !== 1 ? "s" : ""}</strong>? This cannot be undone.`;
     document.getElementById("confirmModal").classList.add("open");
 }
 
@@ -1167,13 +1677,24 @@ async function execDelete() {
     btn.textContent = "Deleting…";
     btn.disabled = true;
     try {
-        await dbDelete(pendDel.ids);
-        const set = new Set(pendDel.ids);
-        allEvents = allEvents.filter((e) => !set.has(e.id));
-        if (pendDel.mode === "bulk") exitSelectMode();
-        expandAll();
+        if (pendDel.mode === "task") {
+            await taskDelete(pendDel.ids[0]);
+            allTasks = allTasks.filter((t) => t.id !== pendDel.ids[0]);
+            renderTaskManager();
+            renderDeadlines();
+            renderUpcoming();
+            if (curView === "month") renderCal();
+            else if (curView === "week") renderWeek();
+            else renderDay();
+        } else {
+            await dbDelete(pendDel.ids);
+            const set = new Set(pendDel.ids);
+            allEvents = allEvents.filter((e) => !set.has(e.id));
+            if (pendDel.mode === "bulk") exitSelectMode();
+            expandAll();
+            redraw();
+        }
         closeConfirm();
-        redraw();
     } catch (err) {
         alert("Delete failed: " + err.message);
     } finally {
@@ -1188,11 +1709,9 @@ async function execDelete() {
 function evForDate(ds) {
     return expanded.filter((e) => e.idate === ds);
 }
-
 function fd(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
 function sameDay(a, b) {
     return (
         a.getFullYear() === b.getFullYear() &&
@@ -1200,14 +1719,13 @@ function sameDay(a, b) {
         a.getDate() === b.getDate()
     );
 }
-
 function fmt12(t) {
     if (!t) return "";
     const [h, m] = t.split(":").map(Number);
     return `${h === 0 ? 12 : h > 12 ? h - 12 : h}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
-
 function esc(s) {
+    if (s == null) return "";
     const d = document.createElement("div");
     d.textContent = s;
     return d.innerHTML;
