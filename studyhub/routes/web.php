@@ -8,6 +8,7 @@ use App\Http\Controllers\SearchController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
+use App\Http\Controllers\DashboardController;
 
 // ──────────────────────────────────────────────────────────────
 // ROLE & AUTH HELPERS
@@ -63,6 +64,37 @@ Route::get('/forgot-password', function () {
     return view('auth.forgot-password');
 })->name('forgot-password');
 
+Route::get('/dashboard', function () {
+    return view('home.dashboard');
+})->name('dashboard');
+
+// ✅ Single definition, no auth middleware (your controller handles the session check)
+Route::get('/user_dashboard', [DashboardController::class, 'user_dashboard'])->name('user_dashboard');
+
+Route::get('/study-groups', function () {
+    return view('home.study-groups');
+})->name('study-groups');
+
+Route::get('/resources', function () {
+    return view('home.resources');
+})->name('resources');
+
+Route::get('/notifications', function () {
+    return view('home.notifications');
+})->name('notifications');
+
+Route::get('/messages', function () {
+    return view('home.messages');
+})->name('messages');
+
+Route::get('/profile', function () {
+    return view('home.profile');
+})->name('profile');
+
+Route::get('/settings', function () {
+    return view('home.settings');
+})->name('settings');
+
 // Guests can browse public resources (read-only, handled in JS)
 Route::get('/resources/public', function () {
     return view('home.resources', ['activeNav' => 'resources']);
@@ -98,7 +130,6 @@ Route::post('/set-session', function (Request $request) {
         'user_role'          => $request->input('role', 'student'),
         'is_banned'          => $request->input('is_banned', false),
     ]);
-
     return response()->json(['success' => true]);
 })->name('set-session');
 
