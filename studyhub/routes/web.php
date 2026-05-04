@@ -65,6 +65,9 @@ Route::get('/dashboard', function () {
     return view('home.dashboard');
 })->name('dashboard');
 
+// ✅ Single definition, no auth middleware (your controller handles the session check)
+Route::get('/user_dashboard', [CalendarController::class, 'user_dashboard'])->name('user_dashboard');
+
 Route::get('/study-groups', function () {
     return view('home.study-groups');
 })->name('study-groups');
