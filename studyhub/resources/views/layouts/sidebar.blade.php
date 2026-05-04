@@ -37,25 +37,8 @@
             }
 
             if (!empty($friendIds)) {
-                foreach ($provider->getAllProfiles() as $profile) {
-                    $pid = (string) ($profile['id'] ?? '');
-                    if (!isset($friendIds[$pid])) continue;
-
-                    $friendFirst = trim((string) ($profile['first_name'] ?? ''));
-                    $friendLast  = trim((string) ($profile['last_name'] ?? ''));
-                    $friendName  = trim($friendFirst . ' ' . $friendLast) ?: trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-                    $status      = strtolower((string) ($profile['status'] ?? ''));
-                    $isActive    = (bool) ($profile['is_online'] ?? false)
-                        || (bool) ($profile['is_active'] ?? false)
-                        || in_array($status, ['online', 'active'], true);
-
-                    $sidebarFriends[] = [
-                        'id'        => $pid,
-                        'name'      => $friendName,
-                        'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
-                        'initials'  => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
-                        'is_active' => $isActive,
-                    ];
+                foreach (array_keys($friendIds) as $friendId) {
+                    $sidebarFriends[] = resolveFriendProfileEntry($provider, $friendId);
                 }
             }
         } catch (\Throwable $e) {

@@ -25,6 +25,16 @@
 <main class="main-content">
     <div class="profile-column">
 
+        @if (session('status'))
+            <div class="friend-status-banner" style="margin-bottom:16px;">{{ session('status') }}</div>
+        @endif
+
+        @if ($errors->any())
+            <div class="friend-status-banner" style="margin-bottom:16px;background:#fef2f2;color:#991b1b;border-color:#fecaca;">
+                {{ $errors->first() }}
+            </div>
+        @endif
+
         <!-- PROFILE HERO CARD -->
         <div class="profile-hero">
             <div class="profile-cover">
@@ -38,9 +48,18 @@
                     <div id="profileActions">
                         @if(($userId ?? '') !== session('user_id'))
                             @if(($relationshipState ?? 'none') === 'friends')
-                                <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Friends</button>
+                                <div style="display:flex; gap:10px;">
+                                    <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Friends</button>
+                                    <form method="POST" action="{{ route('friends.remove', ['friendId' => $userId ?? '']) }}">
+                                        @csrf
+                                        <button type="submit" class="profile-upload-btn profile-add-friend-btn" style="background:#f3f4f6;color:#374151;">Remove</button>
+                                    </form>
+                                </div>
                             @elseif(($relationshipState ?? 'none') === 'pending_outgoing')
-                                <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Request Sent</button>
+                                <form method="POST" action="{{ route('friend-requests.send', ['receiverId' => $userId ?? '']) }}" style="display:flex; gap:10px;">
+                                    @csrf
+                                    <button type="button" class="profile-upload-btn profile-add-friend-btn" disabled>Request Sent</button>
+                                </form>
                             @elseif(($relationshipState ?? 'none') === 'pending_incoming' && !empty($pendingRequestId))
                                 <div class="profile-action-form" style="display:flex; gap:10px; flex-wrap:wrap;">
                                     <form method="POST" action="{{ route('friend-requests.accept', ['friendRequest' => $pendingRequestId]) }}">

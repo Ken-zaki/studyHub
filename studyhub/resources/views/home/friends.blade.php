@@ -20,6 +20,16 @@
 			<p class="page-subtitle">People you are connected with. Online friends appear in the right sidebar.</p>
 		</header>
 
+		@if (session('status'))
+			<div class="friend-status-banner">{{ session('status') }}</div>
+		@endif
+
+		@if ($errors->any())
+			<div class="friend-status-banner" style="background:#fef2f2;color:#991b1b;border-color:#fecaca;">
+				{{ $errors->first() }}
+			</div>
+		@endif
+
 		<div class="widget-card">
 			<div class="widget-title">Your Friends</div>
 			@if (empty($friends))
@@ -27,22 +37,28 @@
 			@else
 				<div class="friends-list" style="margin-top:12px;">
 					@foreach ($friends as $friend)
-						<a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}" class="friend-item">
-							<div class="friend-avatar">
-								@if($friend['photo'])
-									<img src="{{ $friend['photo'] }}" alt="{{ $friend['name'] }}">
-								@else
-									{{ $friend['initials'] }}
-								@endif
-							</div>
-							<div class="friend-meta">
-								<div class="friend-name">{{ $friend['name'] }}</div>
-								<div class="friend-status-row">
-									<span class="friend-status-dot {{ $friend['is_active'] ? 'online' : 'offline' }}"></span>
-									<span class="friend-status-text">{{ $friend['is_active'] ? 'Online' : 'Offline' }}</span>
+						<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 8px; transition: background 0.2s ease;">
+							<a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}" class="friend-item" style="flex: 1; margin: 0; padding: 0; border-radius: 0; border: none;">
+								<div class="friend-avatar">
+									@if($friend['photo'])
+										<img src="{{ $friend['photo'] }}" alt="{{ $friend['name'] }}">
+									@else
+										{{ $friend['initials'] }}
+									@endif
 								</div>
-							</div>
-						</a>
+								<div class="friend-meta">
+									<div class="friend-name">{{ $friend['name'] }}</div>
+									<div class="friend-status-row">
+										<span class="friend-status-dot {{ $friend['is_active'] ? 'online' : 'offline' }}"></span>
+										<span class="friend-status-text">{{ $friend['is_active'] ? 'Online' : 'Offline' }}</span>
+									</div>
+								</div>
+							</a>
+							<form method="POST" action="{{ route('friends.remove', ['friendId' => $friend['id']]) }}" style="margin-left: 12px;">
+								@csrf
+								<button type="submit" class="profile-upload-btn profile-add-friend-btn" style="background:#f3f4f6;color:#374151; padding: 8px 16px; font-size: 13px;">Remove</button>
+							</form>
+						</div>
 					@endforeach
 				</div>
 			@endif

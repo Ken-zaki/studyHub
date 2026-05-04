@@ -44,6 +44,48 @@ function requireModeratorOrAdmin() {
     return null;
 }
 
+function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $userId): array
+{
+    $userId = trim($userId);
+    $profile = $userId !== '' ? $provider->getProfileById($userId) : null;
+
+    if (!is_array($profile) || empty($profile)) {
+        if ($userId !== '' && $userId === (string) session('user_id', '')) {
+            $profile = [
+                'id' => $userId,
+                'first_name' => (string) session('user_first_name', ''),
+                'last_name' => (string) session('user_last_name', ''),
+                'username' => (string) session('user_username', ''),
+                'profile_photo_url' => (string) session('user_profile_photo', ''),
+            ];
+        } else {
+            $profile = ['id' => $userId];
+        }
+    }
+
+    $firstName = trim((string) ($profile['first_name'] ?? ''));
+    $lastName  = trim((string) ($profile['last_name'] ?? ''));
+    $name = trim($firstName . ' ' . $lastName);
+
+    if ($name === '') {
+        $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
+    }
+
+    $status = strtolower((string) ($profile['status'] ?? ''));
+    $isActive = (bool) ($profile['is_online'] ?? false)
+        || (bool) ($profile['is_active'] ?? false)
+        || in_array($status, ['online', 'active'], true);
+
+    return [
+        'id' => (string) ($profile['id'] ?? $userId),
+        'name' => $name,
+        'username' => (string) ($profile['username'] ?? ''),
+        'photo' => (string) ($profile['profile_photo_url'] ?? ''),
+        'initials' => strtoupper(substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)),
+        'is_active' => $isActive,
+    ];
+}
+
 // ──────────────────────────────────────────────────────────────
 // PUBLIC ROUTES (guests can access)
 // ──────────────────────────────────────────────────────────────
@@ -207,31 +249,8 @@ Route::get('/friends', function () {
 
     $friends = [];
     if (!empty($friendIds)) {
-        foreach ($provider->getAllProfiles() as $profile) {
-            $pid = (string) ($profile['id'] ?? '');
-            if (!isset($friendIds[$pid])) {
-                continue;
-            }
-
-            $friendFirst = trim((string) ($profile['first_name'] ?? ''));
-            $friendLast  = trim((string) ($profile['last_name'] ?? ''));
-            $friendName  = trim($friendFirst . ' ' . $friendLast);
-            if ($friendName === '') {
-                $friendName = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-            }
-
-            $status = strtolower((string) ($profile['status'] ?? ''));
-            $isActive = (bool) ($profile['is_online'] ?? false)
-                || (bool) ($profile['is_active'] ?? false)
-                || in_array($status, ['online', 'active'], true);
-
-            $friends[] = [
-                'id' => $pid,
-                'name' => $friendName,
-                'photo' => (string) ($profile['profile_photo_url'] ?? ''),
-                'initials' => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
-                'is_active' => $isActive,
-            ];
+        foreach (array_keys($friendIds) as $friendId) {
+            $friends[] = resolveFriendProfileEntry($provider, $friendId);
         }
     }
 
@@ -242,6 +261,8 @@ Route::get('/friend-requests', [FriendRequestController::class, 'index'])->name(
 Route::post('/friend-requests/{receiverId}', [FriendRequestController::class, 'send'])->name('friend-requests.send');
 Route::post('/friend-requests/{friendRequest}/accept', [FriendRequestController::class, 'accept'])->name('friend-requests.accept');
 Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
+Route::post('/friend-requests/{friendRequest}/cancel', [FriendRequestController::class, 'cancel'])->name('friend-requests.cancel');
+Route::post('/friends/{friendId}/remove', [FriendRequestController::class, 'remove'])->name('friends.remove');
 
 // ── SEARCH (from GitHub version) ─────────────────────────────
 // Route::get('/search/universal', [SearchController::class, 'universal'])
@@ -341,21 +362,19 @@ Route::get('/profile', function () {
             }, $postsResult);
         }
 
-        $friendRows = $provider->queryTable('friends', [
-            'select' => 'user_id,friend_id',
-            'or'     => '(user_id.eq.' . $userId . ',friend_id.eq.' . $userId . ')',
-        ]);
+        $friendRows = Friendship::query()
+            ->where('user_id', $userId)
+            ->orWhere('friend_id', $userId)
+            ->get(['user_id', 'friend_id']);
 
-        if (is_array($friendRows) && !isset($friendRows['error'])) {
-            foreach ($friendRows as $row) {
-                $candidate = (string) (
-                    ($row['user_id'] ?? '') === $userId
-                        ? ($row['friend_id'] ?? '')
-                        : ($row['user_id'] ?? '')
-                );
-                if ($candidate !== '' && $candidate !== $userId) {
-                    $friendIds[$candidate] = true;
-                }
+        foreach ($friendRows as $row) {
+            $candidate = (string) (
+                $row->user_id === $userId
+                    ? $row->friend_id
+                    : $row->user_id
+            );
+            if ($candidate !== '' && $candidate !== $userId) {
+                $friendIds[$candidate] = true;
             }
         }
 
@@ -472,31 +491,8 @@ Route::get('/profile/{userId}', function ($userId) {
 
     $friendProfiles = [];
     if (!empty($friendIds)) {
-        foreach ($provider->getAllProfiles() as $profile) {
-            $pid = (string) ($profile['id'] ?? '');
-            if (!isset($friendIds[$pid])) {
-                continue;
-            }
-
-            $friendFirst = trim((string) ($profile['first_name'] ?? ''));
-            $friendLast  = trim((string) ($profile['last_name'] ?? ''));
-            $friendName  = trim($friendFirst . ' ' . $friendLast);
-            if ($friendName === '') {
-                $friendName = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-            }
-
-            $status = strtolower((string) ($profile['status'] ?? ''));
-            $isActive = (bool) ($profile['is_online'] ?? false)
-                || (bool) ($profile['is_active'] ?? false)
-                || in_array($status, ['online', 'active'], true);
-
-            $friendProfiles[] = [
-                'id' => $pid,
-                'name' => $friendName,
-                'photo' => (string) ($profile['profile_photo_url'] ?? ''),
-                'initials' => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
-                'is_active' => $isActive,
-            ];
+        foreach (array_keys($friendIds) as $friendId) {
+            $friendProfiles[] = resolveFriendProfileEntry($provider, $friendId);
         }
     }
 

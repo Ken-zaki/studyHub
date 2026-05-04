@@ -10,7 +10,7 @@ const TASK_TABLE = "tasks";
 let curDate = new Date();
 let allEvents = [];
 let expanded = [];
-let filters = { todo: true, class: true, group: true, event: true };
+let filters = { class: true, group: true, event: true };
 let selectMode = false;
 let selIds = new Set();
 let editId = null;
@@ -144,20 +144,17 @@ function expandAll() {
 // COLOUR CONSTANTS
 // ═══════════════════════════════════════════════════════════════════
 const CC = {
-    todo: "#dc2626",
     class: "#0f766e",
     group: "#7c3aed",
     event: "#1a5f7a",
 };
 const CB = {
-    todo: "rgba(255,107,107,.13)",
     class: "rgba(42,157,143,.13)",
     group: "rgba(124,77,202,.13)",
     event: "rgba(26,95,122,.11)",
 };
-const CI = { todo: "📌", class: "📗", group: "👥", event: "📅" };
+const CI = { class: "📗", group: "👥", event: "📅" };
 const CL = {
-    todo: "To Do",
     class: "Class",
     group: "Study Group",
     event: "Event",
@@ -503,14 +500,13 @@ function renderWeek() {
     }
 
     // Summary bar
-    const counts = { todo: 0, class: 0, group: 0, event: 0 };
+    const counts = { class: 0, group: 0, event: 0 };
     days.forEach((d) =>
         evForDate(fd(d))
             .filter((e) => filters[e.category])
             .forEach((e) => counts[e.category]++),
     );
     const sumLabels = {
-        todo: "to do",
         class: "class",
         group: "study group",
         event: "event",
@@ -1132,12 +1128,6 @@ function renderMyCalendars() {
             meta: `${cntW("group")} events this week`,
         },
         {
-            key: "todo",
-            label: "To Do",
-            color: "#dc2626",
-            meta: `${cntW("todo")} due this week`,
-        },
-        {
             key: "event",
             label: "Events",
             color: "#1a5f7a",
@@ -1544,7 +1534,7 @@ function closeEvModal() {
 
 function updateModalFields() {
     const cat = document.getElementById("evCat").value;
-    ["todo", "class", "group", "event"].forEach((c) => {
+    ["class", "group", "event"].forEach((c) => {
         const el = document.getElementById(
             `timeField${c.charAt(0).toUpperCase() + c.slice(1)}`,
         );
@@ -1590,7 +1580,7 @@ async function saveEv() {
         endTime = null;
     if (cat === "todo")
         startTime = document.getElementById("evTimeTodo").value || null;
-    else if (cat === "class") {
+    if (cat === "class") {
         startTime = document.getElementById("evTimeStart").value || null;
         endTime = document.getElementById("evTimeEnd").value || null;
     } else if (cat === "group") {

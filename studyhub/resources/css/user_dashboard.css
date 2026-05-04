@@ -473,10 +473,6 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.chip-todo {
-    background: rgba(255, 107, 107, 0.14);
-    color: #dc2626;
-}
 .chip-class {
     background: rgba(42, 157, 143, 0.14);
     color: #0f766e;
