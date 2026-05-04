@@ -22,27 +22,23 @@
 
 @include('layouts.sidebar', ['activeNav' => 'profile'])
 
-<!-- MAIN CONTENT -->
 <main class="main-content">
     <div class="profile-column">
 
-        <!-- PROFILE HERO CARD -->
+        <!-- PROFILE HERO -->
         <div class="profile-hero">
-            <div class="profile-cover">
-                <div class="profile-cover-pattern"></div>
-            </div>
+            <div class="profile-cover"><div class="profile-cover-pattern"></div></div>
             <div class="profile-body">
                 <div class="profile-hero-header">
                     <div class="profile-avatar-wrap">
                         <div class="profile-avatar-large" id="profileAvatarLarge"></div>
                     </div>
                     <div>
-                        <button class="profile-upload-btn" type="button" id="profilePhotoButton">
-                            Change photo
-                        </button>
+                        <button class="profile-upload-btn" type="button" id="profilePhotoButton">Change photo</button>
                         <input type="file" class="profile-photo-input" id="profilePhotoInput" accept="image/*">
                     </div>
                 </div>
+
                 <div class="profile-meta">
                     <div>
                         <div class="profile-name" id="profileFullName">Loading…</div>
@@ -52,6 +48,20 @@
                             <div class="profile-meta-pill">Joined <span id="profileJoinedDate">—</span></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Followers / Following counts -->
+                <div class="profile-follow-row">
+                    <button class="profile-follow-stat" onclick="openFollowModal('followers')">
+                        <span class="profile-follow-num" id="followerCount">—</span>
+                        <span class="profile-follow-divider"></span>
+                        <span class="profile-follow-lbl">Followers</span>
+                    </button>
+                    <button class="profile-follow-stat" onclick="openFollowModal('following')">
+                        <span class="profile-follow-num" id="followingCount">—</span>
+                        <span class="profile-follow-divider"></span>
+                        <span class="profile-follow-lbl">Following</span>
+                    </button>
                 </div>
 
                 <div class="profile-insights-row">
@@ -77,38 +87,29 @@
                     <div class="profile-friends-card">
                         <div class="profile-friends-header">Friends</div>
                         <div class="profile-friends-scroll">
-                            @php
-                                $friendList = is_array($profileData['friends'] ?? null) ? $profileData['friends'] : [];
-                            @endphp
-
+                            @php $friendList = is_array($profileData['friends'] ?? null) ? $profileData['friends'] : []; @endphp
                             @if (count($friendList) === 0)
                                 <div class="profile-friends-empty">No friends added yet.</div>
                             @else
                                 @foreach ($friendList as $friend)
                                     @php
-                                        $friendName = trim((string) ($friend['name'] ?? 'Friend'));
-                                        $friendPhoto = trim((string) ($friend['photo'] ?? ''));
-                                        $friendInitials = trim((string) ($friend['initials'] ?? ''));
+                                        $friendName = trim((string)($friend['name'] ?? 'Friend'));
+                                        $friendPhoto = trim((string)($friend['photo'] ?? ''));
+                                        $friendInitials = trim((string)($friend['initials'] ?? ''));
                                         if ($friendInitials === '') {
                                             $parts = preg_split('/\s+/', $friendName) ?: [];
-                                            $friendInitials = strtoupper(substr((string) ($parts[0] ?? 'F'), 0, 1) . substr((string) ($parts[1] ?? ''), 0, 1));
+                                            $friendInitials = strtoupper(substr((string)($parts[0] ?? 'F'),0,1).substr((string)($parts[1] ?? ''),0,1));
                                         }
-                                        $isFriendActive = (bool) ($friend['is_active'] ?? false);
+                                        $isFriendActive = (bool)($friend['is_active'] ?? false);
                                     @endphp
                                     <div class="profile-friend-row">
                                         <div class="profile-friend-main">
                                             <div class="profile-friend-avatar">
-                                                @if ($friendPhoto !== '')
-                                                    <img src="{{ $friendPhoto }}" alt="{{ $friendName }}">
-                                                @else
-                                                    {{ $friendInitials }}
-                                                @endif
+                                                @if($friendPhoto !== '') <img src="{{ $friendPhoto }}" alt="{{ $friendName }}"> @else {{ $friendInitials }} @endif
                                             </div>
                                             <div class="profile-friend-name">{{ $friendName }}</div>
                                         </div>
-                                        @if ($isFriendActive)
-                                            <span class="profile-friend-active-dot" title="Active"></span>
-                                        @endif
+                                        @if($isFriendActive) <span class="profile-friend-active-dot" title="Active"></span> @endif
                                     </div>
                                 @endforeach
                             @endif
@@ -123,12 +124,8 @@
             <span class="section-title">My Posts</span>
             <span class="post-count-badge" id="postCountBadge">Loading…</span>
         </div>
-
         <div id="profileFeed" class="feed">
-            <div class="loading">
-                <div class="loading-spinner"></div>
-                Loading your posts…
-            </div>
+            <div class="loading"><div class="loading-spinner"></div>Loading your posts…</div>
         </div>
 
         <div class="profile-account-actions">
@@ -141,7 +138,6 @@
                 <button type="submit" class="profile-account-btn danger">Logout</button>
             </form>
         </div>
-
     </div>
 </main>
 
@@ -160,8 +156,20 @@
     </div>
 </div>
 
+<!-- FOLLOWERS / FOLLOWING MODAL -->
+<div class="modal-overlay" id="followModal">
+    <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+            <span class="modal-title" id="followModalTitle">Followers</span>
+            <button class="modal-close" type="button" onclick="closeFollowModal()">✕</button>
+        </div>
+        <div id="followModalList" class="follow-modal-list-wrap">
+            <div class="loading"><div class="loading-spinner"></div></div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Pass profile data to JavaScript
     window.profileData = @json($profileData ?? []);
 </script>
 <script src="{{ asset('js/profile.js') }}"></script>
