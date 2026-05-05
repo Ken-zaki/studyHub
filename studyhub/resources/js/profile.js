@@ -75,7 +75,9 @@ async function loadProfilePosts() {
         return;
     }
     try {
-        const res = await sbFetch(
+        // Use service key so we can see own friends/only_me posts
+        // (anon key + RLS would block them)
+        const res = await sbSvcFetch(
             `${SB_URL}/rest/v1/posts` +
             `?select=*,profiles(username,first_name,last_name,profile_photo_url)` +
             `&user_id=eq.${currentUser.id}` +
@@ -304,6 +306,11 @@ function sharePost(id)   { window.location.href = `/newsfeed#post-${id}`; }
 // ── HELPERS ───────────────────────────────────────────────────
 function sbFetch(url) {
     return fetch(url, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } });
+}
+function sbSvcFetch(url) {
+    // Use service key to bypass RLS — only use for own-user queries
+    const key = SB_SVC || SB_KEY;
+    return fetch(url, { headers: { 'apikey': key, 'Authorization': `Bearer ${key}` } });
 }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 function setAvatar(id, photoUrl, name, initials) {

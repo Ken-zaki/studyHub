@@ -16,6 +16,7 @@ let activeReportId   = null;        // for report modal
 let activeShareId    = null;        // for share modal
 let editingPostId    = null;
 let followingSet     = new Set();   // user IDs the current user follows
+let friendSet        = new Set();   // accepted friends (separate from follows)
 let replyingTo       = null;        // { commentId, authorName }
 
 const STUDY_TIPS = [
@@ -87,10 +88,33 @@ function avatarHTML(user, size = 40) {
 async function loadFollowing() {
     if (!currentUser.id) return;
     try {
-        const { data } = await _sb.from('follows')
+        // Load who we follow
+        const { data: fData } = await _sb.from('follows')
             .select('following_id').eq('follower_id', currentUser.id);
-        followingSet = new Set((data||[]).map(r => r.following_id));
-    } catch(e) {}
+        followingSet = new Set((fData||[]).map(r => r.following_id));
+
+        // Load accepted friends from user_friends table
+        // The friends table stores bidirectional relationships — fetch both directions
+        const { data: fFriends } = await _sb.from('user_friends')
+            .select('user_id, friend_id')
+            .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`);
+        friendSet = new Set();
+        (fFriends||[]).forEach(row => {
+            const otherId = row.user_id === currentUser.id ? row.friend_id : row.user_id;
+            friendSet.add(otherId);
+        });
+    } catch(e) {
+        // user_friends table may use a different name — try fallback
+        try {
+            const { data: fFriends } = await _sb.from('friendships')
+                .select('user_id, friend_id')
+                .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`);
+            (fFriends||[]).forEach(row => {
+                const otherId = row.user_id === currentUser.id ? row.friend_id : row.user_id;
+                friendSet.add(otherId);
+            });
+        } catch(e2) {}
+    }
 }
 
 async function toggleFollow(userId, btn) {
@@ -130,53 +154,86 @@ async function loadFeed() {
     const feed = document.getElementById('feed');
     feed.innerHTML = '<div class="loading-state">Loading posts…</div>';
     try {
-        let query = _sb.from('posts')
-            .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
-            .order('created_at', { ascending: false })
-            .limit(30);
+        const allMap = new Map();
 
-        if (currentTab === 'following') {
+        if (currentTab === 'for_you') {
+            // ── FOR YOU ──────────────────────────────────────────
+            // 1. All public posts from anyone
+            const { data: publicPosts, error: pubErr } = await _sb.from('posts')
+                .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
+                .eq('visibility', 'public')
+                .order('created_at', { ascending: false })
+                .limit(40);
+            if (pubErr) throw pubErr;
+            (publicPosts||[]).forEach(p => allMap.set(p.id, p));
+
+            // 2. Own posts of ALL visibilities (public, friends, only_me)
+            if (currentUser.id) {
+                const { data: ownPosts } = await _sb.from('posts')
+                    .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                (ownPosts||[]).forEach(p => allMap.set(p.id, p));
+            }
+
+            // 3. Friends-visibility posts from actual friends
+            if (friendSet.size) {
+                const { data: friendPosts } = await _sb.from('posts')
+                    .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
+                    .in('user_id', [...friendSet])
+                    .eq('visibility', 'friends')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                (friendPosts||[]).forEach(p => allMap.set(p.id, p));
+            }
+
+        } else if (currentTab === 'following') {
+            // ── FOLLOWING ────────────────────────────────────────
+            // Posts from people I follow — public and friends-visibility only (not only_me)
             if (!followingSet.size) {
                 feed.innerHTML = `<div class="feed-empty"><div class="ei">👁</div>
                     <p>You're not following anyone yet.<br>Follow people to see their posts here.</p></div>`;
                 return;
             }
-            query = query.in('user_id', [...followingSet]);
+            const { data: followedPosts, error: folErr } = await _sb.from('posts')
+                .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
+                .in('user_id', [...followingSet])
+                .in('visibility', ['public', 'friends'])
+                .order('created_at', { ascending: false })
+                .limit(40);
+            if (folErr) throw folErr;
+            (followedPosts||[]).forEach(p => allMap.set(p.id, p));
+
+            // Also show own posts (all visibilities) in following tab
+            if (currentUser.id) {
+                const { data: ownPosts } = await _sb.from('posts')
+                    .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                (ownPosts||[]).forEach(p => allMap.set(p.id, p));
+            }
+
         } else if (currentTab === 'friends') {
-            // Friends = mutual follows (simplification: people who follow you back)
-            // Fetch followers of currentUser
-            const { data: followers } = await _sb.from('follows')
-                .select('follower_id').eq('following_id', currentUser.id);
-            const followerIds = (followers||[]).map(r => r.follower_id);
-            const mutualIds   = followerIds.filter(id => followingSet.has(id));
-            if (!mutualIds.length) {
+            // ── FRIENDS ──────────────────────────────────────────
+            // Only posts from actual friends (accepted friend requests)
+            // Shows their public + friends-visibility posts, NOT only_me
+            if (!friendSet.size) {
                 feed.innerHTML = `<div class="feed-empty"><div class="ei">👥</div>
-                    <p>No mutual friends to show yet.</p></div>`;
+                    <p>No friends added yet. Add friends to see their posts here!</p></div>`;
                 return;
             }
-            query = query.in('user_id', mutualIds)
-                .not('visibility', 'eq', 'only_me');
-        } else {
-            // For You: approved public posts
-            query = query.eq('visibility', 'public');
-        }
-
-        const { data: posts, error } = await query;
-        if (error) throw error;
-
-        // Also always show own posts in for_you / following
-        let ownPosts = [];
-        if (currentUser.id && currentTab !== 'friends') {
-            const { data: own } = await _sb.from('posts')
+            const { data: friendsPosts, error: frErr } = await _sb.from('posts')
                 .select('*, profiles(id, first_name, last_name, username, profile_photo_url)')
-                .eq('user_id', currentUser.id)
-                .order('created_at', { ascending: false }).limit(10);
-            ownPosts = own || [];
+                .in('user_id', [...friendSet])
+                .in('visibility', ['public', 'friends'])
+                .order('created_at', { ascending: false })
+                .limit(40);
+            if (frErr) throw frErr;
+            (friendsPosts||[]).forEach(p => allMap.set(p.id, p));
         }
 
-        // Merge and deduplicate
-        const allMap = new Map();
-        [...(posts||[]), ...ownPosts].forEach(p => allMap.set(p.id, p));
         const all = [...allMap.values()].sort((a,b) =>
             new Date(b.created_at) - new Date(a.created_at));
 
