@@ -12,7 +12,9 @@ let allEvents = [];
 let expanded = [];
 let filters = { class: true, group: true, event: true };
 let selectMode = false;
+let selPopoverEl = null;
 let selIds = new Set();
+let selTaskIds = new Set(); // ← NEW: tracks selected task IDs
 let editId = null;
 let pendDel = null;
 let curView = "month"; // 'month' | 'week' | 'day'
@@ -84,7 +86,6 @@ async function taskLoad() {
         `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
         { headers: hdrs() },
     );
-    // Guarantee allTasks is always an array even if Supabase returns null
     if (!Array.isArray(allTasks)) allTasks = [];
 }
 
@@ -172,14 +173,9 @@ const PRI_ICON = { high: "🔴", medium: "🟡", low: "🟢" };
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
-    // Wire static UI elements immediately
     wireStaticUI();
-
-    // The top-bar buttons are injected by an inline <script> in the blade
-    // AFTER this file loads, so we wait one tick for them to exist.
     setTimeout(wireInjectedButtons, 0);
 
-    // Load data
     try {
         await Promise.all([dbLoad(), taskLoad()]);
         expandAll();
@@ -197,10 +193,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// WIRE UI — split into static (always in DOM) and injected (top-bar)
+// WIRE UI
 // ═══════════════════════════════════════════════════════════════════
 function wireStaticUI() {
-    // Navigation
     document.getElementById("btnPrev").onclick = () => navigate(-1);
     document.getElementById("btnNext").onclick = () => navigate(+1);
     document.getElementById("btnToday").onclick = () => {
@@ -209,7 +204,6 @@ function wireStaticUI() {
         redraw();
     };
 
-    // View toggle
     document.querySelectorAll(".view-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
             document
@@ -221,7 +215,6 @@ function wireStaticUI() {
         });
     });
 
-    // Popover
     document.getElementById("btnPopClose").addEventListener("click", (e) => {
         e.stopPropagation();
         closePopover();
@@ -232,7 +225,6 @@ function wireStaticUI() {
         openEvModal(null, d);
     };
 
-    // Event modal
     document.getElementById("btnModalClose").onclick = closeEvModal;
     document.getElementById("btnModalCancel").onclick = closeEvModal;
     document.getElementById("btnSaveEv").onclick = saveEv;
@@ -247,14 +239,12 @@ function wireStaticUI() {
         .querySelectorAll(".rday")
         .forEach((b) => (b.onclick = () => b.classList.toggle("sel")));
 
-    // Task modal
     document.getElementById("btnTaskModalClose").onclick = closeTaskModal;
     document.getElementById("btnTaskModalCancel").onclick = closeTaskModal;
     document.getElementById("btnSaveTask").onclick = saveTask;
     document.getElementById("btnDelTask").onclick = () =>
         promptDeleteTask(editTaskId);
 
-    // Priority radio styling
     document.querySelectorAll(".priority-option").forEach((lbl) => {
         lbl.addEventListener("click", () => {
             document
@@ -265,7 +255,6 @@ function wireStaticUI() {
         });
     });
 
-    // Task filters / sort
     document.getElementById("taskSort").onchange = (e) => {
         taskSort = e.target.value;
         renderTaskManager();
@@ -279,12 +268,10 @@ function wireStaticUI() {
         renderTaskManager();
     };
 
-    // Confirm modal
     document.getElementById("btnConfirmClose").onclick = closeConfirm;
     document.getElementById("btnConfirmCancel").onclick = closeConfirm;
     document.getElementById("btnConfirmDel").onclick = execDelete;
 
-    // Close popover on outside click
     document.addEventListener("click", (e) => {
         if (!document.getElementById("dayPopover").classList.contains("open"))
             return;
@@ -292,7 +279,6 @@ function wireStaticUI() {
             closePopover();
     });
 
-    // All events search
     document
         .getElementById("allEventsWidget")
         .addEventListener("input", (e) => {
@@ -301,7 +287,6 @@ function wireStaticUI() {
 }
 
 function wireInjectedButtons() {
-    // These buttons are injected into the top-bar by the blade inline script
     const btnAdd = document.getElementById("btnAdd");
     const btnAddTask = document.getElementById("btnAddTask");
     const btnSelectMode = document.getElementById("btnSelectMode");
@@ -315,7 +300,6 @@ function wireInjectedButtons() {
     if (btnBulkDelete) btnBulkDelete.onclick = promptBulkDelete;
 }
 
-// Legacy alias kept for safety
 function wireUI() {
     wireStaticUI();
     wireInjectedButtons();
@@ -420,11 +404,13 @@ function renderCal() {
         div.dataset.date = ds;
 
         const vis = devs.filter((e) => filters[e.category]);
+
+        // ── Individual event chips — selectable in select mode ──
         const chips = vis
             .slice(0, 3)
             .map(
                 (e) =>
-                    `<div class="day-event-chip chip-${e.category}">${esc(e.title)}</div>`,
+                    `<div class="day-event-chip chip-${e.category}" title="${esc(e.title)}">${esc(e.title)}</div>`,
             )
             .join("");
         const more =
@@ -451,14 +437,16 @@ function renderCal() {
         if (!isOther) {
             div.addEventListener("click", (e) => {
                 if (selectMode) {
-                    toggleDaySel(ds, div);
-                    return;
+                    e.stopPropagation();
+                    openSelectPopover(div, ds, cell);
+                } else {
+                    e.stopPropagation();
+                    openPopover(div, ds, cell);
                 }
-                e.stopPropagation();
-                openPopover(div, ds, cell);
             });
             div.querySelector(".day-check").addEventListener("click", (e) => {
                 e.stopPropagation();
+                if (!selectMode) toggleSelectMode();
                 toggleDaySel(ds, div);
             });
         }
@@ -466,8 +454,31 @@ function renderCal() {
     }
 }
 
+// Called when a chip on the month calendar is clicked
+function handleChipClick(e, id) {
+    e.stopPropagation();
+    if (selectMode) {
+        toggleEventSel(id);
+    } else {
+        openEvModal(id);
+    }
+}
+
+// Called when a task dot on the month calendar is clicked
+function handleTaskDotClick(e, id) {
+    e.stopPropagation();
+    if (selectMode) {
+        toggleTaskSel(id);
+    } else {
+        openTaskModal(id);
+    }
+}
+
 function isDaySel(ds) {
-    return evForDate(ds).some((e) => selIds.has(e.id));
+    // Day is "selected" if any of its events or tasks are selected
+    const evSel = evForDate(ds).some((e) => selIds.has(e.id));
+    const tSel = tasksForDate(ds).some((t) => selTaskIds.has(t.id));
+    return evSel || tSel;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -499,25 +510,18 @@ function renderWeek() {
         days.push(d);
     }
 
-    // Summary bar
     const counts = { class: 0, group: 0, event: 0 };
     days.forEach((d) =>
         evForDate(fd(d))
             .filter((e) => filters[e.category])
             .forEach((e) => counts[e.category]++),
     );
-    const sumLabels = {
-        class: "class",
-        group: "study group",
-        event: "event",
-    };
+    const sumLabels = { class: "class", group: "study group", event: "event" };
     document.getElementById("weekSummaryBar").innerHTML = Object.entries(counts)
         .filter(([, n]) => n > 0)
         .map(
-            ([
-                cat,
-                n,
-            ]) => `<div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border);background:white;color:var(--text-secondary)">
+            ([cat, n]) =>
+                `<div style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border);background:white;color:var(--text-secondary)">
             <div style="width:8px;height:8px;border-radius:50%;background:${CC[cat]}"></div>${n} ${sumLabels[cat]}${n !== 1 ? "s" : ""}</div>`,
         )
         .join("");
@@ -532,7 +536,6 @@ function renderWeek() {
     );
 
     let html = `<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:16px;overflow:hidden;">`;
-    // Header
     html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);border-bottom:2px solid var(--border);background:var(--bg-main);position:sticky;top:0;z-index:10;"><div style="border-right:1px solid var(--border);"></div>`;
     days.forEach((d) => {
         const isTod = sameDay(d, today);
@@ -542,7 +545,6 @@ function renderWeek() {
     });
     html += `</div>`;
 
-    // All-day row (untimed events + tasks)
     const hasUntimedTasks = days.some((d) => tasksForDate(fd(d)).length > 0);
     if (hasUntimed || hasUntimedTasks) {
         html += `<div style="display:grid;grid-template-columns:52px repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--bg-main);min-height:32px;"><div style="border-right:1px solid var(--border);padding:6px 4px;font-size:10px;color:var(--text-light);text-align:right;white-space:nowrap;">all day</div>`;
@@ -566,9 +568,7 @@ function renderWeek() {
         html += `</div>`;
     }
 
-    // Time grid
     html += `<div id="weekScrollBody" style="overflow-y:auto;max-height:580px;"><div style="display:grid;grid-template-columns:52px repeat(7,1fr);position:relative;">`;
-    // Gutter
     html += `<div style="position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:var(--bg-main);">`;
     for (let h = 1; h < 24; h++) {
         const label = h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
@@ -596,7 +596,6 @@ function renderWeek() {
             html += `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;border-top:2px solid var(--accent);z-index:4;pointer-events:none;"><div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div></div>`;
         }
 
-        // Render timed events with overlap detection
         const sorted = [...allEvs].sort((a, b) =>
             a.event_time.localeCompare(b.event_time),
         );
@@ -648,7 +647,6 @@ function renderWeek() {
                 ${minH >= 44 ? `<div style="font-size:9px;color:${CC[ev.category]};opacity:.75;margin-top:2px;">${timeLabel}${endLabel}</div>` : ""}</div>`;
         });
 
-        // Render timed tasks
         timedTasks.forEach((t) => {
             const [sh, sm] = t.due_time.split(":").map(Number);
             const topPx = ((sh * 60 + sm) / 60) * HOUR_H;
@@ -685,7 +683,6 @@ function renderDay() {
     const timedT = dayTasks.filter((t) => t.due_time && !t.completed_at);
     const untimedT = dayTasks.filter((t) => !t.due_time);
 
-    // Overlap detection helpers
     function getBounds(time, endTime) {
         const [sh, sm] = time.split(":").map(Number);
         const startMin = sh * 60 + sm;
@@ -730,7 +727,6 @@ function renderDay() {
         item.totalCols = Math.max(...over.map((p) => p.col)) + 1;
     });
 
-    // Build timed items HTML
     let timedItemsHtml = "";
     placed.forEach(({ ev, task, topPx, heightPx, col, totalCols, isTask }) => {
         const colW = `calc((100% - 4px) / ${totalCols})`;
@@ -752,7 +748,6 @@ function renderDay() {
         }
     });
 
-    // All-day strip HTML
     let alldayHtml = "";
     if (untimedEvs.length || untimedT.length) {
         alldayHtml += `<div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
@@ -769,28 +764,18 @@ function renderDay() {
         alldayHtml += `</div>`;
     }
 
-    // Hour labels for gutter
-    let gutterHtml = "";
-    for (let h = 1; h < 24; h++) {
-        const label = h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
-        gutterHtml += `<div style="position:absolute;top:${h * HOUR_H}px;right:6px;font-size:10px;color:var(--text-light);transform:translateY(-50%);white-space:nowrap;">${label}</div>`;
-    }
-
-    // Hour lines
     let hourLinesHtml = "";
     for (let h = 0; h < 24; h++) {
         hourLinesHtml += `<div style="position:absolute;top:${h * HOUR_H}px;left:0;right:0;border-top:1px solid ${h === 0 ? "transparent" : "var(--border)"};pointer-events:none;"></div>
                  <div style="position:absolute;top:${h * HOUR_H + HOUR_H / 2}px;left:0;right:0;border-top:1px dashed rgba(0,0,0,0.05);pointer-events:none;"></div>`;
     }
 
-    // Current time line
     let nowLineHtml = "";
     if (isTod) {
         const pct = (now.getHours() * 60 + now.getMinutes()) / 60;
         nowLineHtml = `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;border-top:2px solid var(--accent);z-index:4;pointer-events:none;"><div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div></div>`;
     }
 
-    // Right panel summary
     let summaryHtml = `<div style="background:var(--bg-main);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
         <div style="font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Summary</div>
         <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">📅 ${dayEvs.length} event${dayEvs.length !== 1 ? "s" : ""}</div>
@@ -816,21 +801,30 @@ function renderDay() {
         tasksListHtml += `</div>`;
     }
 
-    // Assemble full day view HTML
-    // Uses a named class on the scroll container so CSS can target it
     const html = `
         <div style="display:flex;gap:16px;padding:4px 0;">
             <div style="flex:1;min-width:0;">
                 ${alldayHtml}
-                <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-                    <div style="width:52px;flex-shrink:0;position:relative;height:${TOTAL_H}px;border-right:1px solid var(--border);background:var(--bg-main);">
-                        ${gutterHtml}
-                    </div>
-                    <div class="day-view-scroll" id="dayScrollBody" style="flex:1;overflow-y:auto;max-height:580px;position:relative;">
-                        <div style="position:relative;height:${TOTAL_H}px;background:${isTod ? "rgba(26,95,122,0.015)" : "white"};" onclick="openEvModal(null,'${ds}')">
-                            ${hourLinesHtml}
-                            ${nowLineHtml}
-                            ${timedItemsHtml}
+                <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+                    <div class="day-view-scroll" id="dayScrollBody" style="overflow-y:auto;max-height:580px;">
+                        <div style="display:flex;position:relative;">
+                            <div style="width:52px;flex-shrink:0;position:relative;height:${TOTAL_H}px;background:var(--bg-main);border-right:1px solid var(--border);">
+                                ${Array.from({ length: 23 }, (_, h) => {
+                                    const hour = h + 1;
+                                    const label =
+                                        hour < 12
+                                            ? `${hour} AM`
+                                            : hour === 12
+                                              ? "12 PM"
+                                              : `${hour - 12} PM`;
+                                    return `<div style="position:absolute;top:${hour * HOUR_H}px;right:6px;font-size:10px;color:var(--text-light);transform:translateY(-50%);white-space:nowrap;">${label}</div>`;
+                                }).join("")}
+                            </div>
+                            <div style="flex:1;position:relative;height:${TOTAL_H}px;background:${isTod ? "rgba(26,95,122,0.015)" : "white"};" onclick="openEvModal(null,'${ds}')">
+                                ${hourLinesHtml}
+                                ${nowLineHtml}
+                                ${timedItemsHtml}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -844,7 +838,6 @@ function renderDay() {
     const container = document.getElementById("dayGrid");
     container.innerHTML = html;
 
-    // Scroll to current/morning hour
     const scrollTarget = isTod ? Math.max(0, now.getHours() - 1) : 7;
     const scrollBody = document.getElementById("dayScrollBody");
     if (scrollBody) {
@@ -905,6 +898,112 @@ function openPopover(dayEl, ds, cell) {
 
 function closePopover() {
     document.getElementById("dayPopover").classList.remove("open");
+    closeSelectPopover();
+}
+
+function openSelectPopover(dayEl, ds, cell) {
+    closeSelectPopover();
+
+    const evs = evForDate(ds).filter((e) => filters[e.category]);
+    const tasks = allTasks.filter((t) => t.due_date === ds);
+    if (!evs.length && !tasks.length) return;
+
+    const pop = document.createElement("div");
+    pop.id = "selDayPop";
+    pop.style.cssText = `
+        position:fixed;z-index:9999;background:var(--bg-main,#fff);
+        border:1px solid var(--border,rgba(0,0,0,.18));border-radius:10px;
+        padding:10px 12px;width:230px;box-shadow:0 6px 20px rgba(0,0,0,.12);
+    `;
+
+    const dateLabel = cell.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+    });
+    let html = `<div style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">${dateLabel}</div>`;
+
+    evs.forEach((ev) => {
+        const isSel = selIds.has(ev.id);
+        html += `<div onclick="toggleEventSel('${ev.id}');renderSelPopItems()"
+            style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;">
+            <div style="width:15px;height:15px;border-radius:3px;border:1.5px solid ${CC[ev.category]};flex-shrink:0;
+                display:flex;align-items:center;justify-content:center;background:${isSel ? CC[ev.category] : "transparent"};"
+                class="spop-chk" data-type="ev" data-id="${ev.id}" data-color="${CC[ev.category]}">
+                ${isSel ? `<svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>` : ""}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</div>
+                <div style="font-size:10px;color:var(--text-light);">${ev.event_time ? fmt12(ev.event_time) + " · " : ""}${CL[ev.category]}</div>
+            </div>
+        </div>`;
+    });
+
+    tasks.forEach((t) => {
+        const isSel = selTaskIds.has(t.id);
+        html += `<div onclick="toggleTaskSel('${t.id}');renderSelPopItems()"
+            style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;">
+            <div style="width:15px;height:15px;border-radius:3px;border:1.5px solid ${PRI_COLOR[t.priority || "low"]};flex-shrink:0;
+                display:flex;align-items:center;justify-content:center;background:${isSel ? PRI_COLOR[t.priority || "low"] : "transparent"};"
+                class="spop-chk" data-type="task" data-id="${t.id}" data-color="${PRI_COLOR[t.priority || "low"]}">
+                ${isSel ? `<svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>` : ""}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>
+                <div style="font-size:10px;color:var(--text-light);">Task · ${t.priority || "low"} priority${t.due_time ? " · " + fmt12(t.due_time) : ""}</div>
+            </div>
+        </div>`;
+    });
+
+    pop.innerHTML = html;
+    document.body.appendChild(pop);
+    selPopoverEl = pop;
+
+    // expose a re-render helper so toggleEventSel/toggleTaskSel can update checkboxes
+    window.renderSelPopItems = () => {
+        pop.querySelectorAll(".spop-chk").forEach((chk) => {
+            const isEv = chk.dataset.type === "ev";
+            const sel = isEv
+                ? selIds.has(chk.dataset.id)
+                : selTaskIds.has(chk.dataset.id);
+            chk.style.background = sel ? chk.dataset.color : "transparent";
+            chk.innerHTML = sel
+                ? `<svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>`
+                : "";
+        });
+        updateBulkBar();
+        // refresh calendar dots/chips without destroying popup
+        renderCal();
+    };
+
+    // position
+    const r = dayEl.getBoundingClientRect();
+    let left = r.right + 6;
+    let top = r.top;
+    if (left + 240 > window.innerWidth - 12) left = r.left - 240;
+    if (top + pop.offsetHeight + 40 > window.innerHeight)
+        top = Math.max(8, window.innerHeight - pop.offsetHeight - 16);
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    setTimeout(() => {
+        document.addEventListener("click", closeSelPopoverOutside);
+    }, 0);
+}
+
+function closeSelPopoverOutside(e) {
+    if (selPopoverEl && !selPopoverEl.contains(e.target)) {
+        closeSelectPopover();
+    }
+}
+
+function closeSelectPopover() {
+    if (selPopoverEl) {
+        selPopoverEl.remove();
+        selPopoverEl = null;
+        document.removeEventListener("click", closeSelPopoverOutside);
+        window.renderSelPopItems = null;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -917,6 +1016,10 @@ function toggleSelectMode() {
         document.body.classList.add("select-mode");
         btn.classList.add("active");
         btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Selecting…`;
+        // Re-render all panels so checkboxes appear immediately
+        renderCal();
+        renderTaskManager();
+        renderAllEvents();
     } else {
         exitSelectMode();
     }
@@ -925,6 +1028,7 @@ function toggleSelectMode() {
 function exitSelectMode() {
     selectMode = false;
     selIds.clear();
+    selTaskIds.clear(); // ← clear task selection too
     document.body.classList.remove("select-mode");
     const btn = document.getElementById("btnSelectMode");
     if (!btn) return;
@@ -934,14 +1038,43 @@ function exitSelectMode() {
         .querySelectorAll(".cal-day.day-sel")
         .forEach((d) => d.classList.remove("day-sel"));
     updateBulkBar();
+    // Re-render task manager and all events to remove selection UI
+    renderTaskManager();
+    renderAllEvents();
+    closeSelectPopover();
 }
 
+// Toggle ALL events for a day (via day-check checkbox)
 function toggleDaySel(ds, div) {
     const ids = evForDate(ds).map((e) => e.id);
-    const allIn = ids.every((id) => selIds.has(id));
+    const taskIds = tasksForDate(ds).map((t) => t.id);
+    const allEvIn = ids.every((id) => selIds.has(id));
+    const allTaskIn = taskIds.every((id) => selTaskIds.has(id));
+    const allIn = allEvIn && allTaskIn;
     ids.forEach((id) => (allIn ? selIds.delete(id) : selIds.add(id)));
+    taskIds.forEach((id) =>
+        allIn ? selTaskIds.delete(id) : selTaskIds.add(id),
+    );
     div.classList.toggle("day-sel", !allIn);
     updateBulkBar();
+    renderTaskManager();
+    renderAllEvents();
+}
+
+// Toggle a single event (chip click / all-events row click)
+function toggleEventSel(id) {
+    selIds.has(id) ? selIds.delete(id) : selIds.add(id);
+    updateBulkBar();
+    renderCal(); // refresh chips
+    renderAllEvents(); // refresh all-events list
+}
+
+// Toggle a single task (task item click / task dot click)
+function toggleTaskSel(id) {
+    selTaskIds.has(id) ? selTaskIds.delete(id) : selTaskIds.add(id);
+    updateBulkBar();
+    renderCal(); // refresh task dots
+    renderTaskManager(); // refresh task list
 }
 
 function toggleItemSel(id, el) {
@@ -952,10 +1085,18 @@ function toggleItemSel(id, el) {
 }
 
 function updateBulkBar() {
-    const n = selIds.size;
+    const n = selIds.size + selTaskIds.size;
     const countEl = document.getElementById("bulkCount");
-    if (countEl)
-        countEl.textContent = `${n} event${n !== 1 ? "s" : ""} selected`;
+    if (countEl) {
+        const evPart = selIds.size
+            ? `${selIds.size} event${selIds.size !== 1 ? "s" : ""}`
+            : "";
+        const tPart = selTaskIds.size
+            ? `${selTaskIds.size} task${selTaskIds.size !== 1 ? "s" : ""}`
+            : "";
+        countEl.textContent =
+            [evPart, tPart].filter(Boolean).join(" + ") + " selected";
+    }
     const bar = document.getElementById("bulkBar");
     if (bar) bar.classList.toggle("visible", n > 0 && selectMode);
 }
@@ -1149,6 +1290,9 @@ function renderMyCalendars() {
         .join("");
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ALL EVENTS LIST — with per-item selection in select mode
+// ═══════════════════════════════════════════════════════════════════
 function renderAllEvents() {
     const el = document.getElementById("allEventsList");
     if (!el) return;
@@ -1186,16 +1330,31 @@ function renderAllEvents() {
         if (!groups[key]) groups[key] = [];
         groups[key].push(ev);
     });
+
     let html = "";
     Object.entries(groups).forEach(([month, items]) => {
         html += `<div class="all-ev-group-label">${month}</div>`;
         items.forEach((ev) => {
+            const isSel = selectMode && selIds.has(ev.id);
             const dl = new Date(ev.event_date + "T00:00:00").toLocaleDateString(
                 "en-US",
                 { weekday: "short", month: "short", day: "numeric" },
             );
-            html += `<div class="all-ev-item" data-id="${ev.id}" onclick="openEvModal('${ev.id}')">
-                <div class="all-ev-dot" style="background:${CC[ev.category]}"></div>
+
+            // Selection checkbox shown in select mode
+            const checkbox = selectMode
+                ? `<div onclick="event.stopPropagation();toggleEventSel('${ev.id}')"
+                    style="width:17px;height:17px;border-radius:4px;border:2px solid ${CC[ev.category]};flex-shrink:0;
+                    display:flex;align-items:center;justify-content:center;cursor:pointer;
+                    background:${isSel ? CC[ev.category] : "transparent"};">
+                    ${isSel ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
+                   </div>`
+                : `<div class="all-ev-dot" style="background:${CC[ev.category]}"></div>`;
+
+            html += `<div class="all-ev-item ${isSel ? "item-sel" : ""}" data-id="${ev.id}"
+                style="${isSel ? "background:rgba(26,95,122,0.07);" : ""}"
+                onclick="${selectMode ? `toggleEventSel('${ev.id}')` : `openEvModal('${ev.id}')`}">
+                ${checkbox}
                 <div class="all-ev-info">
                     <div class="all-ev-title" title="${esc(ev.title)}">${esc(ev.title)}</div>
                     <div class="all-ev-sub">${dl}${ev.event_time ? " · " + fmt12(ev.event_time) : ""}</div>
@@ -1215,7 +1374,7 @@ function toggleFilter(key) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TASK MANAGER
+// TASK MANAGER — with per-item selection in select mode
 // ═══════════════════════════════════════════════════════════════════
 function tasksForDate(ds) {
     return allTasks.filter((t) => t.due_date === ds);
@@ -1316,16 +1475,33 @@ function taskItemHTML(t) {
     const diff = due ? Math.ceil((due - today) / 86400000) : null;
     const overdue = diff !== null && diff < 0 && !t.completed_at;
     const isDueToday = diff === 0 && !t.completed_at;
+    const isSel = selectMode && selTaskIds.has(t.id);
 
-    return `<div class="task-item ${t.completed_at ? "task-done" : ""}" data-id="${t.id}">
-        <button class="task-check-btn" onclick="toggleTaskDone('${t.id}')"
+    // In select mode: square checkbox for selection; otherwise circular complete button
+    const checkBtn = selectMode
+        ? `<button class="task-check-btn" onclick="event.stopPropagation();toggleTaskSel('${t.id}')"
+            style="width:20px;height:20px;border-radius:4px;border:2px solid ${PRI_COLOR[t.priority || "low"]};flex-shrink:0;
+            background:${isSel ? PRI_COLOR[t.priority || "low"] : "transparent"};cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            ${isSel ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
+           </button>`
+        : `<button class="task-check-btn" onclick="toggleTaskDone('${t.id}')"
             style="width:20px;height:20px;border-radius:50%;border:2px solid ${PRI_COLOR[t.priority || "low"]};flex-shrink:0;
             background:${t.completed_at ? PRI_COLOR[t.priority || "low"] : "transparent"};cursor:pointer;display:flex;align-items:center;justify-content:center;">
             ${t.completed_at ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
-        </button>
-        <div class="task-body" onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;">
+           </button>`;
+
+    // In select mode clicking the body also toggles selection; otherwise opens modal
+    const bodyClick = selectMode
+        ? `onclick="event.stopPropagation();toggleTaskSel('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`
+        : `onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`;
+
+    return `<div class="task-item ${t.completed_at && !selectMode ? "task-done" : ""} ${isSel ? "item-sel" : ""}"
+        data-id="${t.id}"
+        style="${isSel ? "background:rgba(26,95,122,0.07);border-radius:8px;" : ""}">
+        ${checkBtn}
+        <div class="task-body" ${bodyClick}>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                <span style="font-size:13px;font-weight:600;color:var(--text-primary);${t.completed_at ? "text-decoration:line-through;opacity:.45;" : ""}">${esc(t.title)}</span>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);${t.completed_at && !selectMode ? "text-decoration:line-through;opacity:.45;" : ""}">${esc(t.title)}</span>
                 <span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]}">${PRI_ICON[t.priority || "low"]} ${t.priority || "low"}</span>
                 ${t.label ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;background:var(--border);color:var(--text-secondary);">${esc(t.label)}</span>` : ""}
             </div>
@@ -1656,14 +1832,124 @@ function promptSingleDelete(id) {
 }
 
 function promptBulkDelete() {
-    if (!selIds.size) return;
-    const n = selIds.size;
-    pendDel = { mode: "bulk", ids: [...selIds] };
-    document.getElementById("confirmTitle").textContent =
-        `Delete ${n} Event${n !== 1 ? "s" : ""}`;
+    const evCount = selIds.size;
+    const taskCount = selTaskIds.size;
+    if (!evCount && !taskCount) return;
+
+    // Store mutable copies so user can uncheck items in the confirm dialog
+    pendDel = {
+        mode: "bulk",
+        ids: new Set([...selIds]),
+        taskIds: new Set([...selTaskIds]),
+    };
+
+    document.getElementById("confirmTitle").textContent = `Delete items`;
+
+    // Build checklist HTML
+    let listHtml = `<div style="border:1px solid var(--border,rgba(0,0,0,.12));border-radius:8px;overflow:hidden;margin:12px 0;">`;
+
+    [...selIds].forEach((id) => {
+        const ev = allEvents.find((e) => e.id === id);
+        if (!ev) return;
+        const dl = new Date(ev.event_date + "T00:00:00").toLocaleDateString(
+            "en-US",
+            { month: "short", day: "numeric" },
+        );
+        listHtml += `<div onclick="toggleConfirmEv('${id}')" id="ci-ev-${id}"
+            style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border,rgba(0,0,0,.08));cursor:pointer;background:var(--bg-main);">
+            <div id="cichk-ev-${id}" style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${CC[ev.category]};flex-shrink:0;
+                display:flex;align-items:center;justify-content:center;background:${CC[ev.category]};">
+                <svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>
+            </div>
+            <div style="width:8px;height:8px;border-radius:50%;background:${CC[ev.category]};flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</div>
+                <div style="font-size:11px;color:var(--text-light);">${CL[ev.category]} · ${dl}</div>
+            </div>
+        </div>`;
+    });
+
+    [...selTaskIds].forEach((id) => {
+        const t = allTasks.find((x) => x.id === id);
+        if (!t) return;
+        const dl = t.due_date
+            ? new Date(t.due_date + "T00:00:00").toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+              })
+            : "No date";
+        const priColor = PRI_COLOR[t.priority || "low"];
+        listHtml += `<div onclick="toggleConfirmTask('${id}')" id="ci-task-${id}"
+            style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border,rgba(0,0,0,.08));cursor:pointer;background:var(--bg-main);">
+            <div id="cichk-task-${id}" style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${priColor};flex-shrink:0;
+                display:flex;align-items:center;justify-content:center;background:${priColor};">
+                <svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>
+            </div>
+            <div style="width:8px;height:8px;border-radius:50%;background:${priColor};flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${PRI_ICON[t.priority || "low"]} ${esc(t.title)}</div>
+                <div style="font-size:11px;color:var(--text-light);">Task · ${t.priority || "low"} · ${dl}</div>
+            </div>
+        </div>`;
+    });
+
+    listHtml += `</div>`;
+
     document.getElementById("confirmBody").innerHTML =
-        `Are you sure you want to permanently delete <strong>${n} event${n !== 1 ? "s" : ""}</strong>? This cannot be undone.`;
+        `<span id="confirmBodyText">Uncheck anything you want to keep.</span>${listHtml}`;
+
+    updateConfirmCount();
     document.getElementById("confirmModal").classList.add("open");
+}
+
+// Toggle an event's checked state inside the confirm dialog
+function toggleConfirmEv(id) {
+    const chk = document.getElementById(`cichk-ev-${id}`);
+    const ev = allEvents.find((e) => e.id === id);
+    if (!ev) return;
+    if (pendDel.ids.has(id)) {
+        pendDel.ids.delete(id);
+        chk.style.background = "transparent";
+        chk.innerHTML = "";
+        document.getElementById(`ci-ev-${id}`).style.opacity = ".45";
+    } else {
+        pendDel.ids.add(id);
+        chk.style.background = CC[ev.category];
+        chk.innerHTML = `<svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>`;
+        document.getElementById(`ci-ev-${id}`).style.opacity = "1";
+    }
+    updateConfirmCount();
+}
+
+// Toggle a task's checked state inside the confirm dialog
+function toggleConfirmTask(id) {
+    const chk = document.getElementById(`cichk-task-${id}`);
+    const t = allTasks.find((x) => x.id === id);
+    if (!t) return;
+    const priColor = PRI_COLOR[t.priority || "low"];
+    if (pendDel.taskIds.has(id)) {
+        pendDel.taskIds.delete(id);
+        chk.style.background = "transparent";
+        chk.innerHTML = "";
+        document.getElementById(`ci-task-${id}`).style.opacity = ".45";
+    } else {
+        pendDel.taskIds.add(id);
+        chk.style.background = priColor;
+        chk.innerHTML = `<svg viewBox="0 0 10 8" fill="none" stroke="white" stroke-width="2.5" width="9" height="7"><polyline points="1 4 4 7 9 1"/></svg>`;
+        document.getElementById(`ci-task-${id}`).style.opacity = "1";
+    }
+    updateConfirmCount();
+}
+
+function updateConfirmCount() {
+    const n = (pendDel?.ids?.size || 0) + (pendDel?.taskIds?.size || 0);
+    const btn = document.getElementById("btnConfirmDel");
+    if (btn) {
+        btn.textContent = n > 0 ? `Yes, delete ${n}` : "Nothing to delete";
+        btn.disabled = n === 0;
+    }
+    const title = document.getElementById("confirmTitle");
+    if (title) title.textContent = `Delete ${n} item${n !== 1 ? "s" : ""}`;
 }
 
 function closeConfirm() {
@@ -1678,6 +1964,7 @@ async function execDelete() {
     btn.disabled = true;
     try {
         if (pendDel.mode === "task") {
+            // Single task delete
             await taskDelete(pendDel.ids[0]);
             allTasks = allTasks.filter((t) => t.id !== pendDel.ids[0]);
             renderTaskManager();
@@ -1687,12 +1974,23 @@ async function execDelete() {
             else if (curView === "week") renderWeek();
             else renderDay();
         } else {
-            await dbDelete(pendDel.ids);
-            const set = new Set(pendDel.ids);
-            allEvents = allEvents.filter((e) => !set.has(e.id));
-            if (pendDel.mode === "bulk") exitSelectMode();
+            // Bulk delete: events + tasks
+            if (pendDel.ids.size > 0) {
+                await dbDelete([...pendDel.ids]);
+                const evSet = pendDel.ids;
+                allEvents = allEvents.filter((e) => !evSet.has(e.id));
+            }
+            if (pendDel.taskIds?.size > 0) {
+                await Promise.all(
+                    [...pendDel.taskIds].map((id) => taskDelete(id)),
+                );
+                const taskSet = pendDel.taskIds;
+                allTasks = allTasks.filter((t) => !taskSet.has(t.id));
+            }
+            exitSelectMode(); // clears selIds, selTaskIds, re-renders
             expandAll();
             redraw();
+            renderTaskManager();
         }
         closeConfirm();
     } catch (err) {
