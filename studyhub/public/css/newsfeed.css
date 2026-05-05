@@ -591,7 +591,6 @@
 .wtf-avatar:hover { opacity: 0.82; }
 .wtf-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Clickable name+username block */
 .wtf-info-link {
     flex: 1; min-width: 0; text-decoration: none;
     transition: color 0.15s;
@@ -667,7 +666,6 @@
 }
 .feed-empty .ei { font-size: 52px; margin-bottom: 12px; }
 
-/* ── RESPONSIVE ── */
 @media (max-width: 860px) {
     .post-media.count-many { grid-template-columns: 1fr 1fr; }
 }
