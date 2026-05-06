@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\FocusModeController;
 use App\Http\Controllers\FriendRequestController;
+use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\SearchController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
@@ -90,6 +91,28 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
 // PUBLIC ROUTES (guests can access)
 // ──────────────────────────────────────────────────────────────
 
+// DEBUG ROUTE - Check all friend requests in database
+Route::get('/debug/all-requests', function () {
+    $allRequests = FriendRequest::all();
+    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
+    $userId = trim((string) session('user_id', ''));
+    
+    $myIncoming = FriendRequest::where('receiver_id', $userId)->get();
+    $myOutgoing = FriendRequest::where('sender_id', $userId)->get();
+    
+    return response()->json([
+        'current_session_user_id' => $userId,
+        'db_columns' => $schemaColumns,
+        'total_requests_in_db' => count($allRequests),
+        'all_requests_raw' => $allRequests->toArray(),
+        'my_incoming_count' => count($myIncoming),
+        'my_incoming' => $myIncoming->toArray(),
+        'my_outgoing_count' => count($myOutgoing),
+        'my_outgoing' => $myOutgoing->toArray(),
+        'sample_raw_query' => \DB::table('friend_requests')->get()->toArray(),
+    ]);
+});
+
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -113,29 +136,6 @@ Route::get('/dashboard', function () {
 // ✅ Single definition, no auth middleware (your controller handles the session check)
 Route::get('/user_dashboard', [DashboardController::class, 'user_dashboard'])->name('user_dashboard');
 
-Route::get('/study-groups', function () {
-    return view('home.study-groups');
-})->name('study-groups');
-
-Route::get('/resources', function () {
-    return view('home.resources');
-})->name('resources');
-
-Route::get('/notifications', function () {
-    return view('home.notifications');
-})->name('notifications');
-
-Route::get('/messages', function () {
-    return view('home.messages');
-})->name('messages');
-
-Route::get('/profile', function () {
-    return view('home.profile');
-})->name('profile');
-
-Route::get('/settings', function () {
-    return view('home.settings');
-})->name('settings');
 
 // Guests can browse public resources (read-only, handled in JS)
 Route::get('/resources/public', function () {
@@ -263,6 +263,9 @@ Route::post('/friend-requests/{friendRequest}/accept', [FriendRequestController:
 Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
 Route::post('/friend-requests/{friendRequest}/cancel', [FriendRequestController::class, 'cancel'])->name('friend-requests.cancel');
 Route::post('/friends/{friendId}/remove', [FriendRequestController::class, 'remove'])->name('friends.remove');
+
+// ── DIAGNOSTICS ──────────────────────────────────────────────
+Route::get('/diagnostics/friend-requests', [DiagnosticsController::class, 'friendRequests']);
 
 // ── SEARCH (from GitHub version) ─────────────────────────────
 // Route::get('/search/universal', [SearchController::class, 'universal'])

@@ -2,10 +2,18 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 class FriendRequest extends Model
 {
+    use HasUuids;
+
+    protected $table = 'friend_requests';
+    protected $keyType = 'string';
+    public $incrementing = false;
+    public $timestamps = true;
+    
     protected $fillable = [
         'sender_id',
         'receiver_id',
@@ -15,6 +23,8 @@ class FriendRequest extends Model
 
     protected $casts = [
         'responded_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     public function sender()

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Friendship extends Model
 {
     protected $table = 'friends';
+    protected $keyType = 'string';
+    public $incrementing = false;
 
     protected $fillable = [
         'user_id',
