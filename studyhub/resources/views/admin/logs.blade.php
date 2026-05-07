@@ -32,7 +32,6 @@
             <option value="reject_resource">Reject Resource</option>
             <option value="resolve_report">Resolve Report</option>
             <option value="takedown_content">Takedown Content</option>
-            <option value="delete_post">Delete Post</option>
         </select>
         <select id="logDateFilter" class="adm-select" onchange="filterLogs()">
             <option value="">All Time</option>
@@ -80,7 +79,6 @@ const ACTION_META = {
     reject_resource:   { label: 'Reject Resource',    color: 'badge-danger',  icon: '❌' },
     resolve_report:    { label: 'Resolve Report',     color: 'badge-info',    icon: '📋' },
     takedown_content:  { label: 'Takedown Content',   color: 'badge-danger',  icon: '🗑' },
-    delete_post:       { label: 'Delete Post',        color: 'badge-danger',  icon: '🗑' },
     view_as_user:      { label: 'View as User',       color: 'badge-gray',    icon: '👁' },
 };
 

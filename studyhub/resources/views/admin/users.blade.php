@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - StudyHub Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
 </head>
 <body>
@@ -95,17 +97,19 @@
 </div>
 
 <script>
-const SB_URL = '{{ env("SUPABASE_URL") }}';
-const SB_SVC = '{{ env("SUPABASE_SERVICE_KEY") }}';
-const CSRF   = '{{ csrf_token() }}';
+const SB_URL   = '{{ env("SUPABASE_URL") }}';
+const SB_SVC   = '{{ env("SUPABASE_SERVICE_KEY") }}';
+const ADMIN_ID = '{{ session("user_id") }}';
 
 function svcHeaders() {
     return { 'apikey': SB_SVC, 'Authorization': `Bearer ${SB_SVC}`, 'Content-Type': 'application/json' };
 }
 
 let allUsers = [];
-let pendingUserId = null, pendingAction = null, pendingRoleUserId = null;
+let pendingUserId = null, pendingAction = null;
+let pendingRoleUserId = null, pendingRoleUserName = null, pendingOldRole = null;
 
+// ── LOAD ─────────────────────────────────────────────────────
 async function loadUsers() {
     try {
         const res = await fetch(
@@ -114,7 +118,9 @@ async function loadUsers() {
         );
         allUsers = await res.json();
         renderUsers(allUsers);
-    } catch(e) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="adm-loading">Failed to load.</td></tr>'; }
+    } catch(e) {
+        document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="adm-loading">Failed to load.</td></tr>';
+    }
 }
 
 function renderUsers(users) {
@@ -165,6 +171,7 @@ function filterUsers() {
     renderUsers(filtered);
 }
 
+// ── BAN / UNBAN ───────────────────────────────────────────────
 function openConfirm(userId, action, name) {
     pendingUserId = userId; pendingAction = action;
     document.getElementById('confirmTitle').textContent = action === 'ban' ? 'Ban User' : 'Unban User';
@@ -176,41 +183,82 @@ function openConfirm(userId, action, name) {
     document.getElementById('confirmBtn').className     = 'adm-btn ' + (action==='ban'?'adm-btn-danger':'adm-btn-primary');
     document.getElementById('confirmModal').style.display = 'flex';
 }
-function closeModal() { document.getElementById('confirmModal').style.display = 'none'; pendingUserId=null; pendingAction=null; }
+function closeModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingUserId = null; pendingAction = null;
+}
 
 document.getElementById('confirmBtn').addEventListener('click', async () => {
     if (!pendingUserId) return;
+    const isBan = pendingAction === 'ban';
     try {
         await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${pendingUserId}`, {
             method: 'PATCH', headers: svcHeaders(),
-            body: JSON.stringify({ is_banned: pendingAction === 'ban' })
+            body: JSON.stringify({ is_banned: isBan })
         });
+        // ── LOG TO ADMIN_LOGS ──────────────────────────────────
+        await logAction(
+            isBan ? 'ban_user' : 'unban_user',
+            'user',
+            pendingUserId,
+            isBan ? 'User banned by admin' : 'User unbanned by admin'
+        );
         closeModal();
         loadUsers();
     } catch(e) { alert('Action failed: ' + e.message); }
 });
 
+// ── CHANGE ROLE ───────────────────────────────────────────────
 function openRoleModal(userId, name, currentRole) {
-    pendingRoleUserId = userId;
+    pendingRoleUserId  = userId;
+    pendingRoleUserName = name;
+    pendingOldRole     = currentRole;
     document.getElementById('roleTargetName').textContent = name;
     document.getElementById('newRoleSelect').value = currentRole;
     document.getElementById('roleModal').style.display = 'flex';
 }
-function closeRoleModal() { document.getElementById('roleModal').style.display = 'none'; }
+function closeRoleModal() {
+    document.getElementById('roleModal').style.display = 'none';
+}
 
 async function saveRole() {
     const newRole = document.getElementById('newRoleSelect').value;
+    if (newRole === pendingOldRole) { closeRoleModal(); return; }
     try {
         await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${pendingRoleUserId}`, {
             method: 'PATCH', headers: svcHeaders(),
             body: JSON.stringify({ role: newRole })
         });
+        // ── LOG TO ADMIN_LOGS ──────────────────────────────────
+        await logAction(
+            'change_role',
+            'user',
+            pendingRoleUserId,
+            `Role changed from ${pendingOldRole} to ${newRole} for ${pendingRoleUserName}`
+        );
         closeRoleModal();
         loadUsers();
     } catch(e) { alert('Failed: ' + e.message); }
 }
 
-function escH(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+// ── ADMIN LOG HELPER ──────────────────────────────────────────
+async function logAction(action, targetType, targetId, notes) {
+    try {
+        await fetch(`${SB_URL}/rest/v1/admin_logs`, {
+            method: 'POST',
+            headers: svcHeaders(),
+            body: JSON.stringify({
+                admin_id:    ADMIN_ID || null,
+                action,
+                target_type: targetType,
+                target_id:   targetId || null,
+                notes:       notes || null
+            })
+        });
+    } catch(e) { console.warn('Log failed:', e); }
+}
+
+function escH(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 document.getElementById('adminPageTitle').textContent = 'User Management';
 loadUsers();
 </script>

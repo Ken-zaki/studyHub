@@ -526,24 +526,26 @@ async function submitAction(status) {
             })
         });
 
-        // 2. If taking down a resource — mark as rejected (is_approved = false) and log it
+        // 2. Act on the reported content
         if (status === 'resolved') {
             const report = allReports.find(r => r.id === pendingReportId);
+
             if (report?.reported_content_type === 'resource' && report.reported_content_id) {
-                await fetch(`${SB_URL}/rest/v1/resources?id=eq.${report.reported_content_id}`, {
-                    method: 'PATCH',
-                    headers: svcH(),
-                    body: JSON.stringify({ is_approved: false })
-                });
+                // Delete resource files first (FK constraint), then the resource
+                await fetch(`${SB_URL}/rest/v1/resource_files?resource_id=eq.${report.reported_content_id}`,
+                    { method: 'DELETE', headers: svcH() });
+                await fetch(`${SB_URL}/rest/v1/resources?id=eq.${report.reported_content_id}`,
+                    { method: 'DELETE', headers: svcH() });
             }
-            // For posts: you could soft-delete or flag — here we log it
-            // If you want to hard-delete posts, uncomment:
-            // if (report?.reported_content_type === 'post' && report.reported_content_id) {
-            //     await fetch(`${SB_URL}/rest/v1/posts?id=eq.${report.reported_content_id}`,
-            //         { method: 'DELETE', headers: svcH() });
-            // }
+
+            if (report?.reported_content_type === 'post' && report.reported_content_id) {
+                // Hard-delete the post (comments cascade via FK)
+                await fetch(`${SB_URL}/rest/v1/posts?id=eq.${report.reported_content_id}`,
+                    { method: 'DELETE', headers: svcH() });
+            }
 
             // 3. Log the admin action
+            await logAdminAction('takedown_content', 'post_or_resource', report?.reported_content_id, fullNotes);
             await logAdminAction('resolve_report', 'report', pendingReportId, fullNotes);
         }
 
