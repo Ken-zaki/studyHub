@@ -64,9 +64,8 @@
         deckBrowser:            $("deckBrowser"),
         deckGrid:               $("deckGrid"),
         deckCreateBtn:          $("deckCreateBtn"),
-        deckCreateForm:         $("deckCreateForm"),
+        deckModalOverlay:       $("deckModalOverlay") || $("deckCreateBackdrop"),
         deckNameInput:          $("deckNameInput"),
-        deckDescInput:          $("deckDescInput"),
         deckCancelBtn:          $("deckCancelBtn"),
         deckSaveBtn:            $("deckSaveBtn"),
         deckStatus:             $("deckStatus"),
@@ -131,6 +130,21 @@
         quizStatus:             $("quizStatus"),
     };
 
+    // Expose a lightweight plugin API so deck/flashcard modules can register
+    window.FocusMode = window.FocusMode || {};
+    window.FocusMode.state = state;
+    window.FocusMode.el = el;
+    window.FocusMode.register = function (name, initFn) {
+        try {
+            if (typeof initFn === "function") initFn(window.FocusMode.state, window.FocusMode.el);
+        } catch (err) {
+            console.error("FocusMode plugin error", name, err);
+        }
+    };
+    window.FocusMode.getCsrfToken = getCsrfToken;
+    window.FocusMode.escHtml = escHtml;
+    window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
+
     /* ── CSRF helper ────────────────────────────────────────── */
     function getCsrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -155,10 +169,6 @@
         state.currentScreen = id;
         updateMaterialsPanelVisibility();
         updateMusicFabVisibility();
-        // When entering flashcard screen, show deck browser by default
-        if (id === "screenFlashcard") {
-            showDeckBrowser();
-        }
     }
 
     // Menu buttons → navigate to target screen
@@ -251,147 +261,7 @@
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       DECK BROWSER
-    ═══════════════════════════════════════════════════════════ */
-    function showDeckBrowser() {
-        state.activeDeckId = null;
-        el.deckBrowser?.classList.remove("hidden");
-        el.deckContent?.classList.add("hidden");
-        if (el.flashcardScreenBackBtn) {
-            el.flashcardScreenBackBtn.dataset.target = "screenMenu";
-        }
-        renderDeckGrid();
-    }
-
-    function showDeckContent(deckId) {
-        const deck = state.decks.find((d) => d.id === deckId);
-        if (!deck) return;
-        state.activeDeckId = deckId;
-        state.flashcardIndex = 0;
-
-        el.deckBrowser?.classList.add("hidden");
-        el.deckContent?.classList.remove("hidden");
-
-        if (el.deckContentTitle) el.deckContentTitle.textContent = deck.name;
-        if (el.deckContentDesc)  el.deckContentDesc.textContent  = deck.description || "";
-
-        // Hide the "← Back to Menu" button while inside a deck; back-to-decks handles it
-        if (el.flashcardScreenBackBtn) el.flashcardScreenBackBtn.classList.add("hidden");
-
-        renderFlashcardSlider(deck.flashcards || []);
-    }
-
-    // Back to deck browser from inside a deck
-    el.deckBackBtn?.addEventListener("click", () => {
-        el.flashcardScreenBackBtn?.classList.remove("hidden");
-        showDeckBrowser();
-    });
-
-    function renderDeckGrid() {
-        if (!el.deckGrid) return;
-        if (!state.decks.length) {
-            el.deckGrid.innerHTML = `<div class="deck-empty-state">No Decks Available Yet<br><span>Create a deck above to get started</span></div>`;
-            return;
-        }
-        el.deckGrid.innerHTML = state.decks.map((d) => `
-            <div class="deck-card" data-deck-id="${d.id}" role="button" tabindex="0" aria-label="Open deck ${escHtml(d.name)}">
-                <div class="deck-card-icon">🃏</div>
-                <div class="deck-card-name">${escHtml(d.name)}</div>
-                <div class="deck-card-count">${(d.flashcards || []).length} card${(d.flashcards || []).length !== 1 ? "s" : ""}</div>
-                ${d.description ? `<div class="deck-card-desc">${escHtml(d.description)}</div>` : ""}
-                <button class="deck-delete-btn" data-deck-id="${d.id}" aria-label="Delete deck" title="Delete deck">🗑</button>
-            </div>`).join("");
-
-        // Click on card → open deck
-        el.deckGrid.querySelectorAll(".deck-card").forEach((card) => {
-            card.addEventListener("click", (e) => {
-                if (e.target.classList.contains("deck-delete-btn")) return; // handled below
-                showDeckContent(Number(card.dataset.deckId));
-            });
-            card.addEventListener("keydown", (e) => {
-                if (e.key === "Enter" || e.key === " ") showDeckContent(Number(card.dataset.deckId));
-            });
-        });
-
-        // Delete deck buttons
-        el.deckGrid.querySelectorAll(".deck-delete-btn").forEach((btn) => {
-            btn.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                if (!confirm("Delete this deck and all its flashcards?")) return;
-                await handleDeckDelete(Number(btn.dataset.deckId));
-            });
-        });
-    }
-
-    // Toggle create form
-    el.deckCreateBtn?.addEventListener("click", () => {
-        el.deckCreateForm?.classList.remove("hidden");
-        el.deckCreateBtn?.classList.add("hidden");
-        el.deckNameInput?.focus();
-    });
-    el.deckCancelBtn?.addEventListener("click", () => {
-        el.deckCreateForm?.classList.add("hidden");
-        el.deckCreateBtn?.classList.remove("hidden");
-        el.deckNameInput && (el.deckNameInput.value = "");
-        el.deckDescInput && (el.deckDescInput.value = "");
-        setDeckStatus("");
-    });
-    el.deckSaveBtn?.addEventListener("click", handleDeckCreate);
-
-    function setDeckStatus(msg, isError = false) {
-        if (!el.deckStatus) return;
-        el.deckStatus.textContent = msg;
-        el.deckStatus.classList.toggle("error", isError);
-    }
-
-    async function handleDeckCreate() {
-        const name = (el.deckNameInput?.value || "").trim();
-        if (!name) { setDeckStatus("Please enter a deck name.", true); return; }
-        try {
-            state.deckBusy = true;
-            if (el.deckSaveBtn) el.deckSaveBtn.disabled = true;
-            setDeckStatus("Creating…");
-            const res = await fetch("/focus-mode/decks", {
-                method: "POST",
-                headers: {
-                    "X-CSRF-TOKEN": getCsrfToken(),
-                    Accept: "application/json",
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ name, description: el.deckDescInput?.value?.trim() || null }),
-            });
-            const payload = await res.json();
-            if (!res.ok) throw new Error(payload?.message || "Failed to create deck.");
-            state.decks = payload.decks || [payload.deck, ...state.decks];
-            setDeckStatus("Deck created!");
-            el.deckCreateForm?.classList.add("hidden");
-            el.deckCreateBtn?.classList.remove("hidden");
-            el.deckNameInput && (el.deckNameInput.value = "");
-            el.deckDescInput && (el.deckDescInput.value = "");
-            renderDeckGrid();
-        } catch (err) {
-            setDeckStatus(err.message || "Failed.", true);
-        } finally {
-            state.deckBusy = false;
-            if (el.deckSaveBtn) el.deckSaveBtn.disabled = false;
-        }
-    }
-
-    async function handleDeckDelete(deckId) {
-        try {
-            const res = await fetch(`/focus-mode/decks/${deckId}`, {
-                method: "DELETE",
-                headers: { "X-CSRF-TOKEN": getCsrfToken(), Accept: "application/json" },
-            });
-            const payload = await res.json();
-            if (!res.ok) throw new Error(payload?.message || "Failed to delete deck.");
-            state.decks = payload.decks || state.decks.filter((d) => d.id !== deckId);
-            renderDeckGrid();
-        } catch (err) {
-            alert(err.message || "Failed to delete deck.");
-        }
-    }
+    /* Deck UI & functionality moved to resources/js/flashcards-decks.js via plugin registration. */
 
     /* ═══════════════════════════════════════════════════════════
        FLASHCARD MODAL  (Upload / Create — opened from deck content)
@@ -467,6 +337,33 @@
             return;
         }
         try {
+            // If the active deck is a local-only deck (created offline), try to sync it first
+            if (String(state.activeDeckId).startsWith("local-")) {
+                const localDeck = state.decks.find((d) => d.id === state.activeDeckId);
+                if (!localDeck) { setFlashcardStatus("Deck not found.", true); return; }
+                try {
+                    setFlashcardStatus("Syncing deck to server…");
+                    const r = await fetch("/focus-mode/decks", {
+                        method: "POST",
+                        headers: {
+                            "X-CSRF-TOKEN": getCsrfToken(),
+                            Accept: "application/json",
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ name: localDeck.name, description: localDeck.description || "" }),
+                    });
+                    const p = await r.json().catch(() => null);
+                    if (!r.ok || !p || !p.deck) throw new Error(p?.message || "Sync failed");
+                    // Replace local deck with server deck
+                    state.decks = state.decks.map((d) => d.id === localDeck.id ? p.deck : d);
+                    state.activeDeckId = p.deck.id;
+                    setFlashcardStatus("Deck synced.");
+                } catch (syncErr) {
+                    setFlashcardStatus("Could not sync deck to server. Try again later.", true);
+                    return;
+                }
+            }
+
             state.flashcardBusy = true;
             if (el.flashcardSaveBtn) el.flashcardSaveBtn.disabled = true;
             setFlashcardStatus("Saving…");

@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
     <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}?v={{ filemtime(public_path('css/focus-mode.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/flashcards.css') }}?v={{ filemtime(public_path('css/flashcards.css')) }}">
 </head>
 <body>
 
@@ -65,32 +66,44 @@
 
             {{-- ── DECK BROWSER (shown when no deck is selected) ── --}}
             <div id="deckBrowser">
-                <div class="deck-browser-header">
-                    <div>
-                        <h2 class="deck-browser-title">Your Flashcard Decks</h2>
-                        <p class="deck-browser-sub">Select a deck to study, or create a new one</p>
-                    </div>
-                    <button class="deck-create-btn" id="deckCreateBtn" type="button">
-                        <span>＋</span> New Deck
-                    </button>
+
+                {{-- "FLASHCARDS" page heading (screenshot 1 & 3) --}}
+                <h2 class="flashcard-screen-heading">Flashcards</h2>
+
+                {{-- "My Decks" section label --}}
+                <p class="deck-section-label">My Decks</p>
+
+                {{-- Deck grid — JS populates .deck-card elements here --}}
+                <div class="deck-grid" id="deckGrid">
+                    {{-- Empty state shown by JS when no decks exist --}}
+                    <p class="deck-empty-state" id="deckEmptyState">No decks created yet.</p>
                 </div>
 
-                {{-- Create deck inline form --}}
-                <div class="deck-create-form hidden" id="deckCreateForm">
-                    <input class="deck-input" id="deckNameInput" type="text" maxlength="120"
-                           placeholder="Deck name (e.g. Biology Chapter 3)" />
-                    <input class="deck-input" id="deckDescInput" type="text" maxlength="250"
-                           placeholder="Short description (optional)" />
+                {{-- "+ Add Decks" button (teal circle + label, below grid) --}}
+                <button class="deck-add-btn" id="deckCreateBtn" type="button">
+                    <span class="deck-add-circle" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"
+                                  fill="none" d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </span>
+                    Add Decks
+                </button>
+
+            </div>
+
+            {{-- Create deck modal — outside #deckBrowser so position:fixed is not clipped --}}
+            <div class="deck-create-backdrop" id="deckModalOverlay">
+                <div class="deck-create-form" id="deckCreateForm" role="dialog"
+                     aria-modal="true" aria-labelledby="deckModalTitle">
+                    <p class="deck-modal-title" id="deckModalTitle">Deck Name</p>
+                    <input class="deck-input" id="deckNameInput" type="text"
+                           maxlength="120" placeholder="Name of deck" />
                     <div class="deck-form-actions">
+                        <button class="deck-save-btn"   id="deckSaveBtn"   type="button">Confirm</button>
                         <button class="deck-cancel-btn" id="deckCancelBtn" type="button">Cancel</button>
-                        <button class="deck-save-btn"   id="deckSaveBtn"   type="button">Create Deck</button>
                     </div>
                     <div class="deck-status" id="deckStatus"></div>
-                </div>
-
-                {{-- Deck grid --}}
-                <div class="deck-grid" id="deckGrid">
-                    {{-- Populated by JS --}}
                 </div>
             </div>
 
@@ -98,7 +111,7 @@
             <div class="hidden" id="deckContent">
                 <div class="deck-content-header">
                     <button class="back-btn deck-back-btn" id="deckBackBtn" type="button">← Back to Decks</button>
-                    <div class="deck-content-meta">
+                    <div>
                         <h2 class="deck-content-title" id="deckContentTitle">Deck Name</h2>
                         <p class="deck-content-desc" id="deckContentDesc"></p>
                     </div>
@@ -346,6 +359,7 @@
     window.__focusQuizzes   = @json($quizzes  ?? []);
 </script>
 <script src="{{ asset('js/focus-mode.js') }}"></script>
+<script src="{{ asset('js/flashcards-decks.js') }}"></script>
 
 </body>
-</html>
+</html> 

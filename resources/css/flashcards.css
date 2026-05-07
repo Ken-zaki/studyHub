@@ -1,13 +1,4 @@
-/* ============================================================
-   DECK BROWSER — focus-mode.css
-   Matches mockup screenshots exactly:
-   - Screen 1: "FLASHCARDS" heading, "My Decks" label, teal
-               "+ Add Decks" button, soft pink "No decks yet" empty state
-   - Screen 2: Modal — muted-pink "DECK NAME" title, grey input,
-               orange pill "Confirm" + teal pill "Cancel", warm card bg
-   - Screen 3: Deck cards — light rounded rect, colored left accent
-               bar (orange / yellow / teal cycling), uppercase name
-   ============================================================ */
+/* Flashcards / Decks styles (moved from focus-mode.css) */
 
 /* ── Page heading ("FLASHCARDS") ── */
 .flashcard-screen-heading {
@@ -348,54 +339,5 @@
     color: var(--text-secondary, #666);
     font-size: 13px;
     margin: 0;
-    font-family: "DM Sans", sans-serif;
-}
-
-/* ── Flashcard empty slide ── */
-.flashcard-empty-slide {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    min-height: 180px;
-    padding: 32px 24px;
-    color: var(--text-secondary, #888);
-    font-size: 15px;
-    line-height: 1.6;
-    border: 2px dashed #d1d5db;
-    border-radius: 18px;
-    width: 100%;
-    font-family: "DM Sans", sans-serif;
-}
-
-/* ── Quiz card extras ── */
-.quiz-options-display {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 12px;
-    text-align: left;
-}
-.quiz-opt-row   { display: flex; gap: 8px; font-size: 13px; }
-.quiz-opt-key   { font-weight: 700; color: var(--focus, #7c4dca); min-width: 18px; }
-.quiz-opt-val   { color: var(--text-primary, #1a1a1a); }
-.quiz-flip-hint {
-    margin-top: 12px;
-    font-size: 11px;
-    opacity: 0.55;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-family: "DM Sans", sans-serif;
-}
-.quiz-correct-answer {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--success, #2a9d8f);
-}
-.quiz-explanation-text {
-    margin-top: 12px;
-    font-size: 13px;
-    opacity: 0.85;
-    font-style: italic;
     font-family: "DM Sans", sans-serif;
 }
