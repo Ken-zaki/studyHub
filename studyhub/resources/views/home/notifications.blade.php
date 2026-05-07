@@ -20,6 +20,6 @@
         <p>The Notifications page is under construction.</p>
     </div>
 </main>
-
+@include('layouts.admin_bar')
 </body>
 </html>

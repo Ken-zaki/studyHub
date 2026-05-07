@@ -240,6 +240,6 @@
 
 	tabs.forEach(tab => tab.addEventListener('click', () => activatePanel(tab.dataset.target)));
 </script>
-
+@include('layouts.admin_bar')
 </body>
 </html>

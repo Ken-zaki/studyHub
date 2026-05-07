@@ -518,6 +518,6 @@
         </div>
     </div>
 </div>
-
+@include('layouts.admin_bar')
 </body>
 </html>

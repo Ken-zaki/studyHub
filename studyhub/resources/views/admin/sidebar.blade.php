@@ -191,7 +191,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             Reports
-            <span class="adm-nav-badge" id="sidebarReportBadge">—</span>
+            <span class="adm-nav-badge" id="sidebarReportBadge" style="display:none;">0</span>
         </a>
 
         <a href="{{ route('admin.resources') }}" class="adm-nav-item {{ $activeAdmin === 'resources' ? 'active' : '' }}">
@@ -200,7 +200,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
                 <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
             </svg>
             Resource Approval
-            <span class="adm-nav-badge warn" id="sidebarResourceBadge">—</span>
+            <span class="adm-nav-badge warn" id="sidebarResourceBadge" style="display:none;">0</span>
         </a>
 
         <a href="{{ route('admin.logs') }}" class="adm-nav-item {{ $activeAdmin === 'logs' ? 'active' : '' }}">
@@ -223,9 +223,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
             Settings
         </a>
 
-        <a href="{{ route('newsfeed') }}" class="adm-nav-item">
+        {{-- VIEW AS USER — sets sessionStorage flag then navigates to newsfeed --}}
+        <a href="{{ route('newsfeed') }}"
+           class="adm-nav-item"
+           onclick="activateViewAsUser()">
             <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
             </svg>
             View as User
         </a>
@@ -267,26 +271,43 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
 </div>
 
 <script>
-// Update sidebar report/resource badges from Supabase
 const SUPABASE_URL      = '{{ env("SUPABASE_URL") }}';
 const SUPABASE_ANON_KEY = '{{ env("SUPABASE_ANON_KEY") }}';
 
+// ── SIDEBAR BADGES ────────────────────────────────────────────
 async function loadSidebarBadges() {
     try {
         const [rRes, resRes] = await Promise.all([
             fetch(`${SUPABASE_URL}/rest/v1/reports?status=eq.pending&select=id`,
-                { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Prefer':'count=exact' }}),
+                { headers: { 'apikey': SUPABASE_ANON_KEY, 'Prefer': 'count=exact' } }),
             fetch(`${SUPABASE_URL}/rest/v1/resources?is_approved=eq.false&select=id`,
-                { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Prefer':'count=exact' }})
+                { headers: { 'apikey': SUPABASE_ANON_KEY, 'Prefer': 'count=exact' } })
         ]);
-        const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1] || '0');
+        const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1]   || '0');
         const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
 
         const rb = document.getElementById('sidebarReportBadge');
         const ab = document.getElementById('sidebarResourceBadge');
-        if (rb)   { rb.textContent   = rCount;   rb.style.display   = rCount   ? '' : 'none'; }
-        if (ab)   { ab.textContent   = resCount; ab.style.display   = resCount ? '' : 'none'; }
+        if (rb)  { rb.textContent  = rCount;   rb.style.display   = rCount   ? '' : 'none'; }
+        if (ab)  { ab.textContent  = resCount; ab.style.display   = resCount ? '' : 'none'; }
     } catch(e) {}
 }
 loadSidebarBadges();
+
+// ── VIEW AS USER ──────────────────────────────────────────────
+// Stores the flag + admin URLs in sessionStorage so the
+// persistent admin bar can appear on every user-facing page.
+function activateViewAsUser() {
+    sessionStorage.setItem('admViewAsUser',   '1');
+    sessionStorage.setItem('admDashboardUrl', '{{ route("admin.dashboard") }}');
+    sessionStorage.setItem('admReportsUrl',   '{{ route("admin.reports") }}');
+    sessionStorage.setItem('admResourcesUrl', '{{ route("admin.resources") }}');
+    sessionStorage.setItem('admLogsUrl',      '{{ route("admin.logs") }}');
+    sessionStorage.setItem('admUsersUrl',     '{{ route("admin.users") }}');
+    sessionStorage.setItem('admSettingsUrl',  '{{ route("admin.settings") }}');
+    // Also store Supabase creds so the mini sidebar can show badge counts
+    sessionStorage.setItem('admSbUrl', '{{ env("SUPABASE_URL") }}');
+    sessionStorage.setItem('admSbKey', '{{ env("SUPABASE_ANON_KEY") }}');
+    // href navigation proceeds normally after this — no preventDefault needed
+}
 </script>

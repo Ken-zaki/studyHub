@@ -74,5 +74,6 @@
     const CSRF_TOKEN        = '{{ csrf_token() }}';
 </script>
 <script src="{{ asset('js/login.js') }}"></script>
+@include('layouts.admin_bar')
 </body>
 </html>

@@ -179,5 +179,6 @@
 </script>
 <script src="{{ asset('js/focus-mode.js') }}"></script>
 
+@include('layouts.admin_bar')
 </body>
 </html>

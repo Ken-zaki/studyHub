@@ -91,5 +91,6 @@
     const RESET_PASSWORD_URL  = '{{ url("/reset-password") }}';
 </script>
 <script src="{{ asset('js/forgot-password.js') }}"></script>
+@include('layouts.admin_bar')
 </body>
 </html>

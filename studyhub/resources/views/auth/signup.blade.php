@@ -103,5 +103,6 @@
     const LOGIN_URL        = '{{ route("login") }}';
 </script>
 <script src="{{ asset('js/signup.js') }}"></script>
+@include('layouts.admin_bar')
 </body>
 </html>

@@ -180,5 +180,6 @@
 </div>
 
 <script src="{{ asset('js/profileview.js') }}"></script>
+@include('layouts.admin_bar')
 </body>
 </html>

@@ -173,5 +173,6 @@
     window.profileData = @json($profileData ?? []);
 </script>
 <script src="{{ asset('js/profile.js') }}"></script>
+@include('layouts.admin_bar')
 </body>
 </html>
