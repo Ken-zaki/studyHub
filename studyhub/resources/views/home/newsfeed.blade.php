@@ -310,5 +310,4 @@
      <script src="{{ asset('js/newsfeed.js') }}"></script>
 @include('layouts.admin_bar')
 </body>
-
- </html>
+</html>
