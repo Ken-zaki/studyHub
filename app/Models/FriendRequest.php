@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class FriendRequest extends Model
+{
+    protected $fillable = [
+        'sender_id',
+        'receiver_id',
+        'status',
+        'responded_at',
+    ];
+
+    protected $casts = [
+        'responded_at' => 'datetime',
+    ];
+
+    public function sender()
+    {
+        return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    public function receiver()
+    {
+        return $this->belongsTo(User::class, 'receiver_id');
+    }
+
+    public function scopeBetween($query, string $userA, string $userB)
+    {
+        return $query->where(function ($inner) use ($userA, $userB) {
+            $inner->where('sender_id', $userA)->where('receiver_id', $userB)
+                ->orWhere(function ($nested) use ($userA, $userB) {
+                    $nested->where('sender_id', $userB)->where('receiver_id', $userA);
+                });
+        });
+    }
+}
