@@ -284,7 +284,7 @@
 
 /* Confirm = orange (left button in screenshot) */
 .deck-save-btn {
-    background: #f4843a;
+    background: #735377;
 }
 .deck-save-btn:hover {
     transform: translateY(-1px);
@@ -293,7 +293,7 @@
 
 /* Cancel = teal (right button in screenshot) */
 .deck-cancel-btn {
-    background: #2a9d8f;
+    background: #a989ab;
 }
 .deck-cancel-btn:hover {
     opacity: 0.85;

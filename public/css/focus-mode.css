@@ -62,6 +62,7 @@ body.modal-open {
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
+    margin-top:-150px;
 }
 .menu-sub {
     color: var(--text-secondary);
@@ -74,6 +75,7 @@ body.modal-open {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
+    margin-top: -50px;
 }
 
 .menu-btn {

@@ -691,7 +691,7 @@
     background: white; transition: background 0.15s;
 }
 .efm-row:last-child { border-bottom: none; }
-.efm-row:hover { background: #fafafa; }
+.efm-row:hover { background: #FAFAFA; }
 .efm-row-new { background: rgba(26,95,122,0.04); }
 .efm-row-new:hover { background: rgba(26,95,122,0.07); }
 

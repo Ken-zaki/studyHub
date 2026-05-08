@@ -4,10 +4,10 @@
 
 /* ── SHARED ADMIN LAYOUT VARS (also in sidebar partial) ── */
 :root {
-    --adm-primary: #1a5f7a; --adm-dark: #144d61;
-    --adm-accent:  #f59e42; --adm-danger: #ff6b6b;
+    --adm-primary: #a9a9a9; --adm-dark: #737373;
+    --adm-accent:  #cebedc; --adm-danger: #ff6b6b;
     --adm-success: #2a9d8f; --adm-warning: #f4a261;
-    --adm-bg:      #f2e7dd; --adm-sidebar: #ffffff;
+    --adm-bg:      #FAFAFA; --adm-sidebar: #ffffff;
     --adm-card:    #ffffff; --adm-text: #1a1a1a;
     --adm-muted:   #6b7280; --adm-light: #9ca3af;
     --adm-border:  #e5e7eb;

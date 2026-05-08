@@ -24,7 +24,7 @@
         {{-- ══ SCREEN: MAIN MENU ══ --}}
         <div class="screen screen-menu" id="screenMenu">
             <div class="menu-intro">
-                <h1 class="menu-heading">What would you like to do?</h1>
+                <h1 class="menu-heading">How do we study today?</h1>
                 <p class="menu-sub">Choose a study mode to begin your session</p>
             </div>
             <div class="menu-buttons">
@@ -93,7 +93,7 @@
             </div>
 
             {{-- Create deck modal — outside #deckBrowser so position:fixed is not clipped --}}
-            <div class="deck-create-backdrop" id="deckModalOverlay">
+            <div class="deck-create-backdrop hidden" id="deckModalOverlay">
                 <div class="deck-create-form" id="deckCreateForm" role="dialog"
                      aria-modal="true" aria-labelledby="deckModalTitle">
                     <p class="deck-modal-title" id="deckModalTitle">Deck Name</p>

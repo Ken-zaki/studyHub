@@ -1,11 +1,11 @@
 :root {
-    --primary: #1a5f7a;
-    --primary-dark: #144d61;
-    --secondary: #f59e42;
-    --accent: #ff6b6b;
+    --primary: #a989ab;
+    --primary-dark: #735377;
+    --secondary: #d9cde4;
+    --accent: #cebedc;
     --success: #2a9d8f;
     --purple: #7c4dca;
-    --bg-main: #f2e7dd;
+    --bg-main: #f8ecff;
     --bg-sidebar: #ffffff;
     --bg-card: #ffffff;
     --text-primary: #1a1a1a;
@@ -109,7 +109,7 @@ body {
     background: linear-gradient(
         135deg,
         var(--primary) 0%,
-        var(--secondary) 100%
+        var(--primary-dark) 100%
     );
     display: flex;
     align-items: center;
@@ -141,6 +141,7 @@ body {
     padding: 9px 20px;
     background: linear-gradient(
         135deg,
+        var(--secondary) 0%,
         var(--primary) 0%,
         var(--primary-dark) 100%
     );
