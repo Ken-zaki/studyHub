@@ -2,350 +2,263 @@
 
 namespace App\Providers;
 
-/**
- * SupabaseService Provider
- *
- * This class handles all Supabase API interactions for StudyHub
- * Place this file in: studyhub/app/Providers/SupabaseServiceProvider.php
- */
-
 class SupabaseServiceProvider
 {
-    private $supabaseUrl;
-    private $supabaseAnonKey;
-    private $supabaseServiceKey;
+    private string $supabaseUrl;
+    private string $supabaseAnonKey;
+    private string $supabaseServiceKey;
 
     public function __construct()
     {
-        // Load from .env file
-        $this->supabaseUrl = env('SUPABASE_URL');
-        $this->supabaseAnonKey = env('SUPABASE_ANON_KEY');
-        $this->supabaseServiceKey = env('SUPABASE_SERVICE_KEY');
+        $this->supabaseUrl        = (string) env('SUPABASE_URL', '');
+        $this->supabaseAnonKey    = (string) env('SUPABASE_ANON_KEY', '');
+        $this->supabaseServiceKey = (string) env('SUPABASE_SERVICE_KEY', '');
     }
 
-    /**
-     * Sign up a new user
-     *
-     * @param string $email
-     * @param string $password
-     * @param array $metadata Additional user data (username, first_name, last_name, birthday)
-     * @return array Response from Supabase
-     */
-    public function signUp($email, $password, $metadata = [])
-    {
-        $url = $this->supabaseUrl . '/auth/v1/signup';
+    // ──────────────────────────────────────────────────────────────
+    // AUTH  (anon key, no service key needed)
+    // ──────────────────────────────────────────────────────────────
 
-        $data = [
-            'email' => $email,
+    public function signUp(string $email, string $password, array $metadata = []): array
+    {
+        return $this->request('POST', '/auth/v1/signup', [
+            'email'    => $email,
             'password' => $password,
-            'data' => $metadata // User metadata
-        ];
-
-        return $this->makeRequest($url, 'POST', $this->supabaseAnonKey, $data);
+            'data'     => $metadata,
+        ], useServiceKey: false);
     }
 
-    /**
-     * Sign in existing user
-     *
-     * @param string $email
-     * @param string $password
-     * @return array Response with access_token and user data
-     */
-    public function signIn($email, $password)
+    public function signIn(string $email, string $password): array
     {
-        $url = $this->supabaseUrl . '/auth/v1/token?grant_type=password';
-
-        $data = [
-            'email' => $email,
-            'password' => $password
-        ];
-
-        return $this->makeRequest($url, 'POST', $this->supabaseAnonKey, $data);
+        return $this->request('POST', '/auth/v1/token?grant_type=password', [
+            'email'    => $email,
+            'password' => $password,
+        ], useServiceKey: false);
     }
 
-    /**
-     * Sign in with username (requires custom implementation)
-     * First, look up email by username, then sign in
-     *
-     * @param string $username
-     * @param string $password
-     * @return array Response with access_token and user data
-     */
-    public function signInWithUsername($username, $password)
+    public function signInWithUsername(string $username, string $password): array
     {
-        // First, get email from username
         $profile = $this->getProfileByUsername($username);
-
-        if (!$profile) {
+        if (!$profile || empty($profile['email'])) {
             return ['error' => 'Username not found'];
         }
-
-        $email = $profile['email'];
-        return $this->signIn($email, $password);
+        return $this->signIn((string) $profile['email'], $password);
     }
 
-    /**
-     * Get user profile by username
-     *
-     * @param string $username
-     * @return array|null User profile or null
-     */
-    public function getProfileByUsername($username)
+    public function sendPasswordResetEmail(string $email): array
     {
-        $url = $this->supabaseUrl . '/rest/v1/profiles?username=eq.' . urlencode($username);
-
-        $result = $this->makeRequest($url, 'GET', $this->supabaseAnonKey);
-
-        return !empty($result) ? $result[0] : null;
+        return $this->request('POST', '/auth/v1/recover', ['email' => $email], useServiceKey: false);
     }
 
-    /**
-     * Get user profile by ID.
-     *
-     * @param string $userId
-     * @return array|null
-     */
-    public function getProfileById($userId)
+    public function updatePassword(string $accessToken, string $newPassword): array
     {
-        $url = $this->supabaseUrl . '/rest/v1/profiles?id=eq.' . urlencode((string) $userId);
-
-        $result = $this->makeRequest($url, 'GET', $this->supabaseAnonKey);
-
-        return is_array($result) && !empty($result) ? $result[0] : null;
+        return $this->request('PUT', '/auth/v1/user', ['password' => $newPassword],
+            useServiceKey: false, bearerOverride: $accessToken);
     }
 
-    /**
-     * Get all profile rows.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    public function getUser(string $accessToken): array
+    {
+        return $this->request('GET', '/auth/v1/user', null,
+            useServiceKey: false, bearerOverride: $accessToken);
+    }
+
+    public function signOut(string $accessToken): array
+    {
+        return $this->request('POST', '/auth/v1/logout', null,
+            useServiceKey: false, bearerOverride: $accessToken);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // PROFILE READS  (service key — bypasses RLS completely)
+    // ──────────────────────────────────────────────────────────────
+
     public function getAllProfiles(): array
     {
-        $url = $this->supabaseUrl . '/rest/v1/profiles?select=*';
-        $result = $this->makeRequest($url, 'GET', $this->supabaseAnonKey);
-
-        return is_array($result) && !isset($result['error']) ? $result : [];
+        $result = $this->request('GET', '/rest/v1/profiles?select=*', null, useServiceKey: true);
+        return isset($result['error']) ? [] : $result;
     }
 
-    /**
-     * Update the stored profile photo URL for a user.
-     *
-     * @param string $userId
-     * @param string $profilePhotoUrl
-     * @return array
-     */
-    public function updateProfilePhoto($userId, $profilePhotoUrl): array
+    public function getProfileById(string $userId): ?array
     {
-        $url = $this->supabaseUrl . '/rest/v1/profiles?id=eq.' . urlencode((string) $userId);
-
-        return $this->makeRequest($url, 'PATCH', $this->supabaseServiceKey, [
-            'profile_photo_url' => (string) $profilePhotoUrl,
-        ]);
-    }
-
-    /**
-     * Generic table query helper.
-     *
-     * @param string $table
-     * @param array<string, string> $queryParams
-     * @param bool $useServiceKey
-     * @return array<int, array<string, mixed>>|array<string, mixed>
-     */
-    public function queryTable($table, array $queryParams = [], $useServiceKey = false)
-    {
-        $queryString = http_build_query($queryParams);
-        $url = $this->supabaseUrl . '/rest/v1/' . $table . ($queryString !== '' ? '?' . $queryString : '');
-        $apiKey = $useServiceKey ? $this->supabaseServiceKey : $this->supabaseAnonKey;
-
-        return $this->makeRequest($url, 'GET', $apiKey);
-    }
-
-    /**
-     * Count rows for a table using query filters.
-     *
-     * @param string $table
-     * @param array<string, string> $queryParams
-     * @param bool $useServiceKey
-     * @return int
-     */
-    public function countTableRows($table, array $queryParams = [], $useServiceKey = false): int
-    {
-        $params = array_merge(['select' => 'id'], $queryParams);
-        $rows = $this->queryTable($table, $params, $useServiceKey);
-
-        return is_array($rows) && !isset($rows['error']) ? count($rows) : 0;
-    }
-
-    /**
-     * Create user profile (after signup)
-     *
-     * @param string $userId UUID from auth.users
-     * @param array $profileData username, first_name, last_name, birthday, email
-     * @return array Response from Supabase
-     */
-    public function createProfile($userId, $profileData)
-    {
-        $url = $this->supabaseUrl . '/rest/v1/profiles';
-
-        $data = array_merge(
-            ['id' => $userId],
-            $profileData
+        $result = $this->request(
+            'GET',
+            '/rest/v1/profiles?id=eq.' . urlencode($userId) . '&limit=1',
+            null,
+            useServiceKey: true
         );
-
-        return $this->makeRequest($url, 'POST', $this->supabaseServiceKey, $data);
+        return !empty($result) && !isset($result['error']) ? $result[0] : null;
     }
 
-    /**
-     * Send password reset email
-     *
-     * @param string $email
-     * @return array Response from Supabase
-     */
-    public function sendPasswordResetEmail($email)
+    public function getProfileByUsername(string $username): ?array
     {
-        $url = $this->supabaseUrl . '/auth/v1/recover';
-
-        $data = ['email' => $email];
-
-        return $this->makeRequest($url, 'POST', $this->supabaseAnonKey, $data);
+        $result = $this->request(
+            'GET',
+            '/rest/v1/profiles?username=eq.' . urlencode($username) . '&limit=1',
+            null,
+            useServiceKey: true
+        );
+        return !empty($result) && !isset($result['error']) ? $result[0] : null;
     }
 
-    /**
-     * Update user password
-     *
-     * @param string $accessToken User's JWT token
-     * @param string $newPassword
-     * @return array Response from Supabase
-     */
-    public function updatePassword($accessToken, $newPassword)
+    public function getProfileByEmail(string $email): ?array
     {
-        $url = $this->supabaseUrl . '/auth/v1/user';
-
-        $data = ['password' => $newPassword];
-
-        return $this->makeRequest($url, 'PUT', $this->supabaseAnonKey, $data, $accessToken);
+        $result = $this->request(
+            'GET',
+            '/rest/v1/profiles?email=eq.' . urlencode($email) . '&limit=1',
+            null,
+            useServiceKey: true
+        );
+        return !empty($result) && !isset($result['error']) ? $result[0] : null;
     }
 
-    /**
-     * Get current user from access token
-     *
-     * @param string $accessToken JWT token
-     * @return array User data
-     */
-    public function getUser($accessToken)
-    {
-        $url = $this->supabaseUrl . '/auth/v1/user';
+    // ──────────────────────────────────────────────────────────────
+    // PROFILE WRITES  (service key)
+    // ──────────────────────────────────────────────────────────────
 
-        return $this->makeRequest($url, 'GET', $this->supabaseAnonKey, null, $accessToken);
+    public function createProfile(string $userId, array $profileData): array
+    {
+        return $this->request('POST', '/rest/v1/profiles',
+            array_merge(['id' => $userId], $profileData), useServiceKey: true);
     }
 
-    /**
-     * Sign out user
-     *
-     * @param string $accessToken JWT token
-     * @return array Response
-     */
-    public function signOut($accessToken)
+    public function updateProfilePhoto(string $userId, string $profilePhotoUrl): array
     {
-        $url = $this->supabaseUrl . '/auth/v1/logout';
-
-        return $this->makeRequest($url, 'POST', $this->supabaseAnonKey, null, $accessToken);
+        return $this->request(
+            'PATCH',
+            '/rest/v1/profiles?id=eq.' . urlencode($userId),
+            ['profile_photo_url' => $profilePhotoUrl],
+            useServiceKey: true
+        );
     }
 
-    /**
-     * Make HTTP request to Supabase API
-     *
-     * @param string $url API endpoint
-     * @param string $method HTTP method
-     * @param string $apiKey Supabase API key (REQUIRED)
-     * @param array|null $data Request body (optional)
-     * @param string|null $accessToken User JWT token (optional)
-     * @return array Response data
-     */
-    private function makeRequest($url, $method, $apiKey, $data = null, $accessToken = null)
+    // ──────────────────────────────────────────────────────────────
+    // GENERIC TABLE HELPERS
+    // ──────────────────────────────────────────────────────────────
+
+    public function queryTable(string $table, array $queryParams = [], bool $useServiceKey = false): array
     {
-        $ch = curl_init();
-
-        $headers = [
-            'apikey: ' . $apiKey,
-            'Content-Type: application/json'
-        ];
-
-        if ($accessToken) {
-            $headers[] = 'Authorization: Bearer ' . $accessToken;
-        }
-
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-
-        if ($data !== null && in_array($method, ['POST', 'PUT', 'PATCH'])) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        }
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        curl_close($ch);
-
-        $result = json_decode($response, true);
-
-        if ($httpCode >= 400) {
-            return [
-                'error' => true,
-                'status' => $httpCode,
-                'message' => $result['message'] ?? 'Request failed'
-            ];
-        }
-
-        return $result;
+        $qs     = http_build_query($queryParams);
+        $path   = '/rest/v1/' . $table . ($qs !== '' ? '?' . $qs : '');
+        $result = $this->request('GET', $path, null, useServiceKey: $useServiceKey);
+        return !isset($result['error']) ? $result : [];
     }
 
-    /**
-     * Upload file to Supabase Storage
-     *
-     * @param string $bucket Bucket name (profile-photos, study-resources, group-files)
-     * @param string $filePath Local file path
-     * @param string $fileName Name to save as in storage
-     * @return array Response with file URL
-     */
-    public function uploadFile($bucket, $filePath, $fileName)
+    public function countTableRows(string $table, array $queryParams = [], bool $useServiceKey = false): int
     {
-        $url = $this->supabaseUrl . '/storage/v1/object/' . $bucket . '/' . $fileName;
+        return count($this->queryTable($table, array_merge(['select' => 'id'], $queryParams), $useServiceKey));
+    }
 
+    // ──────────────────────────────────────────────────────────────
+    // STORAGE
+    // ──────────────────────────────────────────────────────────────
+
+    public function uploadFile(string $bucket, string $filePath, string $fileName): array
+    {
+        $url      = $this->supabaseUrl . '/storage/v1/object/' . $bucket . '/' . $fileName;
         $fileData = file_get_contents($filePath);
         $mimeType = mime_content_type($filePath);
 
         $ch = curl_init();
-
-        $headers = [
-            'apikey: ' . $this->supabaseServiceKey,
-            'Content-Type: ' . $mimeType,
-            'Authorization: Bearer ' . $this->supabaseServiceKey
-        ];
-
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $fileData);
-
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $fileData,
+            CURLOPT_HTTPHEADER     => [
+                'apikey: '               . $this->supabaseServiceKey,
+                'Authorization: Bearer ' . $this->supabaseServiceKey,
+                'Content-Type: '         . $mimeType,
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ]);
         $response = curl_exec($ch);
         curl_close($ch);
-
-        return json_decode($response, true);
+        return (array) json_decode($response, true);
     }
 
-    /**
-     * Get public URL for uploaded file
-     *
-     * @param string $bucket Bucket name
-     * @param string $fileName File name in storage
-     * @return string Public URL
-     */
-    public function getPublicUrl($bucket, $fileName)
+    public function getPublicUrl(string $bucket, string $fileName): string
     {
         return $this->supabaseUrl . '/storage/v1/object/public/' . $bucket . '/' . $fileName;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // CORE HTTP  — single place where all headers are assembled
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * @param string      $method         GET | POST | PUT | PATCH | DELETE
+     * @param string      $path           URL path + query string (no base URL)
+     * @param array|null  $body           JSON body for POST/PUT/PATCH
+     * @param bool        $useServiceKey  true  → service key as apikey AND bearer (bypasses RLS)
+     *                                   false → anon key as apikey, no bearer unless $bearerOverride
+     * @param string|null $bearerOverride Explicit bearer token (e.g. user JWT for auth endpoints)
+     */
+    private function request(
+        string  $method,
+        string  $path,
+        ?array  $body          = null,
+        bool    $useServiceKey = false,
+        ?string $bearerOverride = null
+    ): array {
+        $url    = $this->supabaseUrl . $path;
+        $apiKey = $useServiceKey ? $this->supabaseServiceKey : $this->supabaseAnonKey;
+
+        // Bearer token priority:
+        //   1. explicit override (user JWT passed by caller)
+        //   2. service key when useServiceKey = true  ← THIS is what was missing before
+        //   3. nothing (anon / public endpoints)
+        $bearer = $bearerOverride ?? ($useServiceKey ? $this->supabaseServiceKey : null);
+
+        $headers = [
+            'apikey: '        . $apiKey,
+            'Content-Type: application/json',
+        ];
+
+        if ($bearer !== null && $bearer !== '') {
+            $headers[] = 'Authorization: Bearer ' . $bearer;
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ]);
+
+        if ($body !== null && in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        }
+
+        $response  = curl_exec($ch);
+        $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            \Log::error('Supabase cURL error', ['path' => $path, 'error' => $curlError]);
+            return ['error' => true, 'message' => 'Network error: ' . $curlError];
+        }
+
+        $decoded = json_decode($response, true);
+
+        if ($httpCode >= 400) {
+            \Log::warning('Supabase HTTP ' . $httpCode, [
+                'path'    => $path,
+                'response'=> $response,
+            ]);
+            return [
+                'error'   => true,
+                'status'  => $httpCode,
+                'message' => is_array($decoded)
+                    ? ($decoded['message'] ?? $decoded['error_description'] ?? 'Request failed')
+                    : 'Request failed',
+            ];
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 }

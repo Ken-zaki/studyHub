@@ -551,6 +551,70 @@ Route::prefix('admin')->group(function () {
     Route::get('/settings', function () {
         if ($r = requireAdmin()) return $r;
         return view('admin.settings', ['activeNav' => 'admin', 'activeAdmin' => 'settings']);
+        
     })->name('admin.settings');
+
+// ═══════════════════════════════════════════════════════════════════
+// TEMPORARY DEBUG ROUTES — remove after fixing
+// Paste these into web.php, visit the URLs while logged in
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Visit /debug/profiles  — shows raw Supabase profile data
+Route::get('/debug/profiles', function () {
+    $provider = new \App\Providers\SupabaseServiceProvider();
+    $profiles = $provider->getAllProfiles();
+
+    return response()->json([
+        'session_user_id'  => session('user_id'),
+        'supabase_url_set' => !empty(env('SUPABASE_URL')),
+        'anon_key_set'     => !empty(env('SUPABASE_ANON_KEY')),
+        'service_key_set'  => !empty(env('SUPABASE_SERVICE_KEY')),
+        'profile_count'    => count($profiles),
+        // Shows the raw fields of the first 5 profiles — look for 'id' value type
+        'profiles_sample'  => array_map(function ($p) {
+            return [
+                'id'         => $p['id']         ?? '(missing)',
+                'first_name' => $p['first_name'] ?? '(missing)',
+                'last_name'  => $p['last_name']  ?? '(missing)',
+                'username'   => $p['username']   ?? '(missing)',
+                'email'      => $p['email']      ?? '(missing)',
+                'all_keys'   => array_keys($p),
+            ];
+        }, array_slice($profiles, 0, 5)),
+    ]);
+});
+
+// 2. Visit /debug/send/{anyUUID}  — simulates what send() does step by step
+Route::get('/debug/send/{receiverId}', function (string $receiverId) {
+    $senderId   = trim((string) session('user_id', ''));
+    $receiverId = trim($receiverId);
+
+    $isValidUuid = (bool) preg_match(
+        '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+        $receiverId
+    );
+
+    $provider = new \App\Providers\SupabaseServiceProvider();
+    $allProfiles = $provider->getAllProfiles();
+
+    // Try to find the profile with this ID
+    $matchedProfile = null;
+    foreach ($allProfiles as $p) {
+        if ((string)($p['id'] ?? '') === $receiverId) {
+            $matchedProfile = $p;
+            break;
+        }
+    }
+
+    return response()->json([
+        'sender_id'           => $senderId,
+        'receiver_id_param'   => $receiverId,
+        'is_valid_uuid'       => $isValidUuid,
+        'total_profiles'      => count($allProfiles),
+        'matched_profile'     => $matchedProfile,
+        'first_profile_id'    => $allProfiles[0]['id'] ?? '(none)',
+        'first_profile_keys'  => isset($allProfiles[0]) ? array_keys($allProfiles[0]) : [],
+    ]);
+});
 
 });

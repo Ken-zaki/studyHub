@@ -2,22 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 class Friendship extends Model
 {
-    protected $table = 'friends';
-    protected $keyType = 'string';
-    public $incrementing = false;
+    use HasUuids;
 
+    protected $table    = 'friends';
+    protected $keyType  = 'string';
+    public $incrementing = false;
+    public $timestamps = false;
+
+    // NOTE: 'friends' table has no accepted_at column per schema.
+    // Columns: id, user_id, friend_id, created_at
     protected $fillable = [
         'user_id',
         'friend_id',
-        'accepted_at',
-    ];
-
-    protected $casts = [
-        'accepted_at' => 'datetime',
     ];
 
     public function user()
