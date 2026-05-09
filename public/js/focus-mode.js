@@ -144,6 +144,16 @@
     window.FocusMode.getCsrfToken = getCsrfToken;
     window.FocusMode.escHtml = escHtml;
     window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
+    window.FocusMode.renderQuizSlider      = function (questions) { if (typeof renderQuizSlider === 'function') return renderQuizSlider(questions); };
+    window.FocusMode.showQuizSetUI         = function () {
+        document.getElementById("quizSetActionRow")?.classList.remove("hidden");
+    };
+    window.FocusMode.hideQuizSetUI         = function () {
+        document.getElementById("quizSetActionRow")?.classList.add("hidden");
+        document.getElementById("quizStage")?.classList.add("hidden");
+        const counter = document.getElementById("quizStageCounter");
+        if (counter) { counter.classList.add("hidden"); counter.textContent = ""; }
+    };
 
     /* ── CSRF helper ────────────────────────────────────────── */
     function getCsrfToken() {
@@ -169,8 +179,6 @@
         state.currentScreen = id;
         updateMaterialsPanelVisibility();
         updateMusicFabVisibility();
-        // reflect visible screen in the URL hash for deep-linking/navigation
-        try { history.replaceState(null, "", `#${id}`); } catch (err) { /* ignore */ }
     }
 
     // Menu buttons → navigate to target screen
@@ -541,12 +549,18 @@
                     Accept: "application/json",
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ question, option_a: optionA, option_b: optionB, option_c: optionC, option_d: optionD, correct_option: correctOption, explanation }),
+                body: JSON.stringify({ quiz_set_id: state.activeQuizSetId || null, question, option_a: optionA, option_b: optionB, option_c: optionC, option_d: optionD, correct_option: correctOption, explanation }),
             });
             const payload = await res.json();
             if (!res.ok) throw new Error(payload?.message || "Save failed.");
-            state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
-            renderQuizSlider();
+
+            if (state.activeQuizSetId && payload.questions) {
+                // Update the active set's nested questions
+                const activeSet = (state.quizSets || []).find((s) => s.id === state.activeQuizSetId);
+                if (activeSet) activeSet.questions = payload.questions;
+                renderQuizSlider(payload.questions);
+            }
+            // No fallback: quiz questions must always belong to a set
             setQuizStatus("Quiz question saved!");
             el.quizForm?.reset();
             setTimeout(closeQuizModal, 800);
@@ -558,59 +572,96 @@
         }
     }
 
-    function renderQuizSlider() {
+    function renderQuizSlider(questionsOverride) {
         if (!el.quizStageTrack) return;
         quizIndex = 0;
-        if (!state.quizzes.length) {
-            el.quizStageTrack.innerHTML = `<div class="flashcard-empty-slide">No quiz questions yet.<br>Click "Create Quiz" to add one.</div>`;
-            if (el.quizStageCounter) el.quizStageCounter.textContent = "";
+        const questions = Array.isArray(questionsOverride) ? questionsOverride : state.quizzes;
+
+        // Show/hide the stage and counter alongside the slider
+        const quizStage = document.getElementById("quizStage");
+        const quizStageCounter = el.quizStageCounter;
+
+        if (!questions.length) {
+            el.quizStageTrack.innerHTML = `<div class="flashcard-empty-slide">No quiz questions yet.<br>Click "Create Quiz Questions" to add one.</div>`;
+            if (quizStageCounter) { quizStageCounter.textContent = ""; quizStageCounter.classList.add("hidden"); }
+            if (quizStage) quizStage.classList.remove("hidden");
             updateQuizNav(0, 0);
             return;
         }
-        el.quizStageTrack.innerHTML = state.quizzes.map((q, i) => {
+        if (quizStage) quizStage.classList.remove("hidden");
+        if (quizStageCounter) quizStageCounter.classList.remove("hidden");
+
+        el.quizStageTrack.innerHTML = questions.map((q, i) => {
             const opts = q.options || { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
+            const optPairs = Object.entries(opts).filter(([, v]) => v);
             return `
-            <div class="flashcard-slide" data-index="${i}">
-                <div class="flashcard-card quiz-card" tabindex="0">
-                    <div class="flashcard-card-inner">
-                        <div class="flashcard-card-front">
-                            <div class="flashcard-card-label">Question ${i + 1}</div>
-                            <div class="flashcard-card-text">${escHtml(q.question)}</div>
-                            <div class="quiz-options-display">
-                                ${Object.entries(opts).map(([k, v]) =>
-                                    `<div class="quiz-opt-row"><span class="quiz-opt-key">${escHtml(k)}</span><span class="quiz-opt-val">${escHtml(v)}</span></div>`
-                                ).join("")}
-                            </div>
-                            <div class="quiz-flip-hint">Tap to see answer</div>
-                        </div>
-                        <div class="flashcard-card-back">
-                            <div class="flashcard-card-label">Correct Answer</div>
-                            <div class="flashcard-card-text quiz-correct-answer">${escHtml(q.correct_option)} — ${escHtml(opts[q.correct_option] || "")}</div>
-                            ${q.explanation ? `<div class="quiz-explanation-text">${escHtml(q.explanation)}</div>` : ""}
-                        </div>
+            <div class="quiz-slide" data-index="${i}">
+                <div class="quiz-question-card">
+                    <div class="quiz-question-label">Question ${i + 1}</div>
+                    <div class="quiz-question-text">${escHtml(q.question)}</div>
+                    <div class="quiz-choices-grid">
+                        ${optPairs.map(([k, v]) => `
+                        <button class="quiz-choice-btn" data-key="${escHtml(k)}" type="button">
+                            <span class="quiz-choice-key">${escHtml(k)}.</span>
+                            <span class="quiz-choice-val">${escHtml(v)}</span>
+                        </button>`).join("")}
+                    </div>
+                    <div class="quiz-answer-reveal hidden" data-correct="${escHtml(q.correct_option)}">
+                        <div class="quiz-answer-label">CORRECT ANSWER: <span class="quiz-answer-letter">${escHtml(q.correct_option)}</span></div>
+                        ${q.explanation ? `<div class="quiz-answer-explanation">${escHtml(q.explanation)}</div>` : ""}
                     </div>
                 </div>
             </div>`;
         }).join("");
 
-        el.quizStageTrack.querySelectorAll(".quiz-card").forEach((card) => {
-            card.addEventListener("click",   () => card.classList.toggle("flipped"));
-            card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.classList.toggle("flipped"); });
+        // Bind click logic: disable all buttons after answer, highlight correct/wrong,
+        // show answer panel only when the user picks the wrong option.
+        el.quizStageTrack.querySelectorAll(".quiz-slide").forEach((slide) => {
+            const btns   = slide.querySelectorAll(".quiz-choice-btn");
+            const reveal = slide.querySelector(".quiz-answer-reveal");
+            const correct = reveal?.dataset.correct;
+
+            btns.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    if (slide.dataset.answered) return;
+                    slide.dataset.answered = "1";
+                    const chosen = btn.dataset.key;
+                    const isCorrect = chosen === correct;
+                    btns.forEach((b) => {
+                        b.disabled = true;
+                        if (b.dataset.key === correct) b.classList.add("quiz-choice-correct");
+                    });
+                    if (isCorrect) {
+                        btn.classList.add("quiz-choice-correct");
+                    } else {
+                        btn.classList.add("quiz-choice-wrong");
+                        reveal?.classList.remove("hidden");
+                    }
+                });
+            });
         });
 
-        goToQuizCard(0);
+        goToQuizCard(0, questions.length);
     }
 
-    function goToQuizCard(index) {
-        const total = state.quizzes.length;
+    function goToQuizCard(index, total) {
+        total = total ?? state.quizzes.length;
         index = Math.max(0, Math.min(index, total - 1));
         quizIndex = index;
-        el.quizStageTrack?.querySelectorAll(".flashcard-card").forEach((c) => c.classList.remove("flipped"));
-        if (el.quizStageTrack) el.quizStageTrack.style.transform = `translateX(calc(-${index} * (100% + 24px)))`;
+        if (el.quizStageTrack) {
+            // offsetWidth gives the real slide pixel width; 100% on a flex
+            // track resolves to the track's own total width, not one slide.
+            const slide = el.quizStageTrack.querySelector(".quiz-slide");
+            const slideW = slide ? slide.offsetWidth : 0;
+            el.quizStageTrack.style.transform = `translateX(${-(index * slideW)}px)`;
+        }
         if (el.quizStageCounter) el.quizStageCounter.textContent = total ? `${index + 1} / ${total}` : "";
         updateQuizNav(index, total);
     }
-    function updateQuizNav(i, t) { if (el.quizPrevBtn) el.quizPrevBtn.disabled = i <= 0 || t === 0; if (el.quizNextBtn) el.quizNextBtn.disabled = i >= t - 1 || t === 0; }
+    function updateQuizNav(i, t) {
+        if (el.quizPrevBtn) el.quizPrevBtn.disabled = i <= 0 || t === 0;
+        if (el.quizNextBtn) el.quizNextBtn.disabled = i >= t - 1 || t === 0;
+    }
     el.quizPrevBtn?.addEventListener("click", () => goToQuizCard(quizIndex - 1));
     el.quizNextBtn?.addEventListener("click", () => goToQuizCard(quizIndex + 1));
 
@@ -628,7 +679,10 @@
         el.body.classList.toggle("focus-mode-on", state.focusOn);
         state.focusOn ? showPomodoroWidget() : hidePomodoroWidget();
         updateMusicFabVisibility();
-        el.focusToggleBtn.animate([{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 300, easing: "ease-out" });
+        el.focusToggleBtn.animate(
+            [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
+            { duration: 300, easing: "ease-out" }
+        );
     }
 
     /* ── Pomodoro ───────────────────────────────────────────── */
@@ -636,26 +690,226 @@
 
     function buildPomodoroWidget() {
         const w = document.createElement("div");
-        w.id = "pomoWidget";
-        w.className = "pomo-widget hidden";
+        w.id = "pomodoroWidget";
+        w.className = "pomodoro-widget hidden";
         w.dataset.phase = "focus";
-        w.innerHTML = `...`;
+        w.innerHTML = `
+            <div class="pomo-phase-tabs">
+                <button class="pomo-tab active" data-phase="focus">Focus</button>
+                <button class="pomo-tab" data-phase="shortBreak">Short Break</button>
+                <button class="pomo-tab" data-phase="longBreak">Long Break</button>
+            </div>
+            <div class="pomo-ring-wrap">
+                <svg class="pomo-ring" viewBox="0 0 120 120">
+                    <circle class="pomo-ring-bg"   cx="60" cy="60" r="52"/>
+                    <circle class="pomo-ring-fill" cx="60" cy="60" r="52" id="pomoRingFill"/>
+                </svg>
+                <div class="pomo-ring-inner">
+                    <div class="pomo-time" id="pomoTimeDisplay">25:00</div>
+                    <div class="pomo-phase-label" id="pomoPhaseLabel">Focus Time</div>
+                </div>
+            </div>
+            <div class="pomo-controls">
+                <button class="pomo-btn pomo-reset" id="pomoResetBtn" title="Reset">
+                    <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                </button>
+                <button class="pomo-btn pomo-main" id="pomoPlayPauseBtn" title="Start / Pause">
+                    <svg viewBox="0 0 24 24" id="pomoPlayIcon"><path d="M8 5v14l11-7z"/></svg>
+                    <svg viewBox="0 0 24 24" id="pomoPauseIcon" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <button class="pomo-btn pomo-skip" id="pomoSkipBtn" title="Skip phase">
+                    <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm8.5-6L6 6v12l8.5-6zM16 6v12h2V6z"/></svg>
+                </button>
+            </div>
+            <div class="pomo-cycle-wrap">
+                <div class="pomo-cycle-dots" id="pomoCycleDots">
+                    <span class="pomo-dot"></span><span class="pomo-dot"></span>
+                    <span class="pomo-dot"></span><span class="pomo-dot"></span>
+                </div>
+                <div class="pomo-session-label">Round <span id="pomoRoundNum">1</span> / ${POMO.cyclesBeforeLong}</div>
+            </div>`;
         document.body.appendChild(w);
         return w;
     }
 
-    function showPomodoroWidget() { if (!pomoWidget) { pomoWidget = buildPomodoroWidget(); bindPomodoroEvents(); } pomoWidget.classList.remove("hidden"); requestAnimationFrame(() => pomoWidget.classList.add("visible")); renderPomodoro(); }
-    function hidePomodoroWidget() { pausePomodoro(); if (!pomoWidget) return; pomoWidget.classList.remove("visible"); setTimeout(() => pomoWidget.classList.add("hidden"), 350); }
-    function bindPomodoroEvents() { pomoWidget.querySelectorAll(".pomo-tab").forEach((tab) => tab.addEventListener("click", () => switchPhase(tab.dataset.phase))); $("pomoPlayPauseBtn").addEventListener("click", () => state.pomoRunning ? pausePomodoro() : startPomodoro()); $("pomoResetBtn").addEventListener("click", resetPomodoro); $("pomoSkipBtn").addEventListener("click", advancePhase); }
+    function showPomodoroWidget() {
+        if (!pomoWidget) { pomoWidget = buildPomodoroWidget(); bindPomodoroEvents(); }
+        pomoWidget.classList.remove("hidden");
+        requestAnimationFrame(() => pomoWidget.classList.add("visible"));
+        renderPomodoro();
+    }
+    function hidePomodoroWidget() {
+        pausePomodoro();
+        if (!pomoWidget) return;
+        pomoWidget.classList.remove("visible");
+        setTimeout(() => pomoWidget.classList.add("hidden"), 350);
+    }
+    function bindPomodoroEvents() {
+        pomoWidget.querySelectorAll(".pomo-tab").forEach((tab) =>
+            tab.addEventListener("click", () => switchPhase(tab.dataset.phase))
+        );
+        $("pomoPlayPauseBtn").addEventListener("click", () => state.pomoRunning ? pausePomodoro() : startPomodoro());
+        $("pomoResetBtn").addEventListener("click", resetPomodoro);
+        $("pomoSkipBtn").addEventListener("click",  advancePhase);
+    }
+    function switchPhase(phase) {
+        pausePomodoro();
+        state.pomoPhase = phase;
+        state.pomoSecondsLeft = POMO[phase];
+        pomoWidget.querySelectorAll(".pomo-tab").forEach((t) => t.classList.toggle("active", t.dataset.phase === phase));
+        pomoWidget.dataset.phase = phase;
+        renderPomodoro();
+    }
+    function startPomodoro() {
+        state.pomoRunning = true;
+        setPlayPauseUI(true);
+        state.pomoInterval = setInterval(() => {
+            state.pomoSecondsLeft--;
+            if (state.pomoPhase === "focus") state.totalFocusSecs++;
+            if (state.pomoSecondsLeft <= 0) onPhaseComplete();
+            else renderPomodoro();
+        }, 1000);
+    }
+    function pausePomodoro() {
+        state.pomoRunning = false;
+        clearInterval(state.pomoInterval);
+        state.pomoInterval = null;
+        setPlayPauseUI(false);
+    }
+    function resetPomodoro() {
+        pausePomodoro();
+        state.pomoSecondsLeft = POMO[state.pomoPhase];
+        renderPomodoro();
+    }
+    function advancePhase() {
+        pausePomodoro();
+        if (state.pomoPhase === "focus") {
+            state.pomoCycle++;
+            updateDots();
+            switchPhase(state.pomoCycle % POMO.cyclesBeforeLong === 0 ? "longBreak" : "shortBreak");
+        } else {
+            switchPhase("focus");
+        }
+        updateRoundLabel();
+    }
+    function onPhaseComplete() {
+        pausePomodoro();
+        playChime();
+        showNotif(state.pomoPhase === "focus" ? "🎉 Focus session complete! Time for a break." : "⚡ Break over! Ready to focus again?");
+        if (state.pomoPhase === "focus") { state.pomoCycle++; updateDots(); }
+        setTimeout(() => {
+            const next = state.pomoPhase === "focus"
+                ? (state.pomoCycle % POMO.cyclesBeforeLong === 0 ? "longBreak" : "shortBreak")
+                : "focus";
+            switchPhase(next);
+            updateRoundLabel();
+            startPomodoro();
+        }, 2200);
+    }
 
-    // ... (rest of file unchanged)
+    const PHASE_META = {
+        focus:      { label: "Focus Time",   color: "#7c4dca" },
+        shortBreak: { label: "Short Break",  color: "#1eaabb" },
+        longBreak:  { label: "Long Break",   color: "#2a9d8f" },
+    };
+    const CIRC = 2 * Math.PI * 52;
 
-    // respond to manual hash navigation
-    window.addEventListener("hashchange", () => {
-        const id = (location.hash || "").replace(/^#/, "") || "screenMenu";
-        if (id && id !== state.currentScreen) showScreen(id);
+    function renderPomodoro() {
+        const tEl = $("pomoTimeDisplay"), lEl = $("pomoPhaseLabel"), ring = $("pomoRingFill");
+        if (!tEl) return;
+        const left = state.pomoSecondsLeft, total = POMO[state.pomoPhase], meta = PHASE_META[state.pomoPhase];
+        tEl.textContent = `${pad(Math.floor(left / 60))}:${pad(left % 60)}`;
+        lEl.textContent = meta.label;
+        ring.style.strokeDasharray  = CIRC;
+        ring.style.strokeDashoffset = CIRC * (1 - Math.max(0, left / total));
+        ring.style.stroke           = meta.color;
+    }
+    function setPlayPauseUI(running) {
+        const play = $("pomoPlayIcon"), pause = $("pomoPauseIcon");
+        if (!play) return;
+        play.classList.toggle("hidden", running);
+        pause.classList.toggle("hidden", !running);
+    }
+    function updateDots() {
+        const dots = pomoWidget.querySelectorAll(".pomo-dot");
+        const filled = state.pomoCycle % POMO.cyclesBeforeLong;
+        dots.forEach((d, i) => d.classList.toggle("filled", i < filled));
+    }
+    function updateRoundLabel() {
+        const rEl = $("pomoRoundNum");
+        if (rEl) rEl.textContent = Math.min((state.pomoCycle % POMO.cyclesBeforeLong) + 1, POMO.cyclesBeforeLong);
+    }
+
+    /* ── Notifications + Sound ──────────────────────────────── */
+    function showNotif(msg) {
+        const n = document.createElement("div");
+        n.className = "pomo-notif";
+        n.textContent = msg;
+        document.body.appendChild(n);
+        requestAnimationFrame(() => n.classList.add("show"));
+        setTimeout(() => { n.classList.remove("show"); setTimeout(() => n.remove(), 400); }, 3000);
+    }
+    function playChime() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [523.25, 659.25, 783.99].forEach((freq, i) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.frequency.value = freq; osc.type = "sine";
+                const t = ctx.currentTime + i * 0.18;
+                g.gain.setValueAtTime(0.28, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+                osc.start(t); osc.stop(t + 0.5);
+            });
+        } catch (e) {}
+    }
+
+    /* ── Music ──────────────────────────────────────────────── */
+    el.musicToggleBtn.addEventListener("click", () => { state.musicOn = !state.musicOn; updateMusicFabVisibility(); });
+    el.musicHideBtn?.addEventListener("click",  () => { state.musicOn = false; updateMusicFabVisibility(); });
+
+    function updateMusicFabVisibility() {
+        const inStudy = state.currentScreen !== "screenMenu";
+        el.musicToggleBtn.classList.toggle("hidden", !inStudy);
+        el.musicToggleBtn.classList.toggle("is-playing", state.musicOn && state.isPlaying && inStudy);
+        if (!el.musicWidget) return;
+        const show = state.musicOn && inStudy;
+        el.body.classList.toggle("music-panel-visible", show);
+        if (show) {
+            el.musicWidget.classList.remove("hidden", "hiding");
+        } else {
+            el.musicWidget.classList.add("hiding");
+            setTimeout(() => { el.musicWidget.classList.add("hidden"); el.musicWidget.classList.remove("hiding"); }, 280);
+        }
+    }
+
+    el.playPauseBtn?.addEventListener("click", () => {
+        state.isPlaying = !state.isPlaying;
+        el.playIcon?.classList.toggle("hidden", state.isPlaying);
+        el.pauseIcon?.classList.toggle("hidden", !state.isPlaying);
+        if (el.progressFill) el.progressFill.style.animationPlayState = state.isPlaying ? "running" : "paused";
+        el.musicToggleBtn.classList.toggle("is-playing", state.musicOn && state.isPlaying && state.currentScreen !== "screenMenu");
     });
-    // initialize based on URL hash if present
-    const initial = (location.hash || "").replace(/^#/, "") || "screenMenu";
-    showScreen(initial);
+    el.shuffleBtn?.addEventListener("click", () => {
+        el.shuffleBtn.animate(
+            [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(180deg) scale(1.2)" }, { transform: "rotate(360deg) scale(1)" }],
+            { duration: 400, easing: "ease-in-out" }
+        );
+    });
+
+    /* ── Session save ───────────────────────────────────────── */
+    function saveFocusSession(secs) {
+        if (secs < 1) return;
+        fetch("/focus-mode/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": getCsrfToken() },
+            body: JSON.stringify({ duration: secs }),
+        }).catch(() => {});
+    }
+    window.addEventListener("beforeunload", () => {
+        if (state.focusOn && state.totalFocusSecs > 0) saveFocusSession(state.totalFocusSecs);
+    });
+
+    /* ── Init ───────────────────────────────────────────────── */
+    showScreen("screenMenu");
 })();

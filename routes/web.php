@@ -518,3 +518,5 @@ Route::prefix('admin')->group(function () {
     })->name('admin.settings');
 
 });
+Route::post  ('/focus-mode/quiz-sets',       [FocusModeController::class, 'storeQuizSet']);
+                Route::delete('/focus-mode/quiz-sets/{id}',  [FocusModeController::class, 'destroyQuizSet']);

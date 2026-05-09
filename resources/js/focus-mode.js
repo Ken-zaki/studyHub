@@ -144,6 +144,16 @@
     window.FocusMode.getCsrfToken = getCsrfToken;
     window.FocusMode.escHtml = escHtml;
     window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
+    window.FocusMode.renderQuizSlider      = function (questions) { if (typeof renderQuizSlider === 'function') return renderQuizSlider(questions); };
+    window.FocusMode.showQuizSetUI         = function () {
+        document.getElementById("quizSetActionRow")?.classList.remove("hidden");
+    };
+    window.FocusMode.hideQuizSetUI         = function () {
+        document.getElementById("quizSetActionRow")?.classList.add("hidden");
+        document.getElementById("quizStage")?.classList.add("hidden");
+        const counter = document.getElementById("quizStageCounter");
+        if (counter) { counter.classList.add("hidden"); counter.textContent = ""; }
+    };
 
     /* ── CSRF helper ────────────────────────────────────────── */
     function getCsrfToken() {
@@ -539,12 +549,20 @@
                     Accept: "application/json",
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ question, option_a: optionA, option_b: optionB, option_c: optionC, option_d: optionD, correct_option: correctOption, explanation }),
+                body: JSON.stringify({ quiz_set_id: state.activeQuizSetId || null, question, option_a: optionA, option_b: optionB, option_c: optionC, option_d: optionD, correct_option: correctOption, explanation }),
             });
             const payload = await res.json();
             if (!res.ok) throw new Error(payload?.message || "Save failed.");
-            state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
-            renderQuizSlider();
+
+            if (state.activeQuizSetId && payload.questions) {
+                // Update the active set's nested questions
+                const activeSet = (state.quizSets || []).find((s) => s.id === state.activeQuizSetId);
+                if (activeSet) activeSet.questions = payload.questions;
+                renderQuizSlider(payload.questions);
+            } else {
+                state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
+                renderQuizSlider();
+            }
             setQuizStatus("Quiz question saved!");
             el.quizForm?.reset();
             setTimeout(closeQuizModal, 800);
@@ -556,16 +574,26 @@
         }
     }
 
-    function renderQuizSlider() {
+    function renderQuizSlider(questionsOverride) {
         if (!el.quizStageTrack) return;
         quizIndex = 0;
-        if (!state.quizzes.length) {
-            el.quizStageTrack.innerHTML = `<div class="flashcard-empty-slide">No quiz questions yet.<br>Click "Create Quiz" to add one.</div>`;
-            if (el.quizStageCounter) el.quizStageCounter.textContent = "";
+        const questions = Array.isArray(questionsOverride) ? questionsOverride : state.quizzes;
+
+        // Show/hide the stage and counter alongside the slider
+        const quizStage = document.getElementById("quizStage");
+        const quizStageCounter = el.quizStageCounter;
+
+        if (!questions.length) {
+            el.quizStageTrack.innerHTML = `<div class="flashcard-empty-slide">No quiz questions yet.<br>Click "Create Quiz Questions" to add one.</div>`;
+            if (quizStageCounter) { quizStageCounter.textContent = ""; quizStageCounter.classList.add("hidden"); }
+            if (quizStage) quizStage.classList.remove("hidden");
             updateQuizNav(0, 0);
             return;
         }
-        el.quizStageTrack.innerHTML = state.quizzes.map((q, i) => {
+        if (quizStage) quizStage.classList.remove("hidden");
+        if (quizStageCounter) quizStageCounter.classList.remove("hidden");
+
+        el.quizStageTrack.innerHTML = questions.map((q, i) => {
             const opts = q.options || { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
             return `
             <div class="flashcard-slide" data-index="${i}">
@@ -596,11 +624,11 @@
             card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.classList.toggle("flipped"); });
         });
 
-        goToQuizCard(0);
+        goToQuizCard(0, questions.length);
     }
 
-    function goToQuizCard(index) {
-        const total = state.quizzes.length;
+    function goToQuizCard(index, total) {
+        total = total ?? state.quizzes.length;
         index = Math.max(0, Math.min(index, total - 1));
         quizIndex = index;
         el.quizStageTrack?.querySelectorAll(".flashcard-card").forEach((c) => c.classList.remove("flipped"));

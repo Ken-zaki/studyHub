@@ -603,3 +603,4 @@ class FocusModeController extends Controller
         ]);
     }
 }
+

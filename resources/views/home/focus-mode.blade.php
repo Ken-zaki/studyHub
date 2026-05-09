@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
     <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}?v={{ filemtime(public_path('css/focus-mode.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/flashcards.css') }}?v={{ filemtime(public_path('css/flashcards.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/quiz.css') }}?v={{ filemtime(public_path('css/quiz.css')) }}">
 </head>
 <body>
 
@@ -187,43 +188,47 @@
             </div>
         </div>
 
-        {{-- ══ SCREEN: QUIZ ══ --}}
+     {{-- ══ SCREEN: QUIZ ══ --}}
         <div class="screen screen-content hidden" id="screenQuiz">
-            <div class="study-action-row quiz-action-row">
-                <button class="menu-btn study-action-btn study-action-quiz quiz-action-btn" id="quizUploadPromptBtn" type="button">
+        
+            {{--
+                quiz-sets.js will inject:
+                · #quizSetsBrowser  (the grid + "+ Add quizzes" btn)
+                · #quizSetContent   (per-set view with back btn)
+                · .quiz-set-backdrop (the floating title input panel)
+                ...as the first children of this div at DOMContentLoaded.
+            --}}
+        
+            {{-- ── Action buttons shown once inside a set ── --}}
+            <div class="study-action-row quiz-action-row hidden" id="quizSetActionRow">
+                <button class="menu-btn study-action-btn" id="quizUploadPromptBtn" type="button">
                     <span class="menu-btn-icon">📎</span>
                     <span class="menu-btn-label">Upload Materials</span>
-                    <span class="menu-btn-desc">Add the source material for this quiz</span>
+                    <span class="menu-btn-desc">Attach a file to this quiz set</span>
                 </button>
-                <button class="menu-btn study-action-btn study-action-quiz quiz-action-btn" id="quizCreatePromptBtn" type="button">
+                <button class="menu-btn study-action-btn" id="quizCreatePromptBtn" type="button">
                     <span class="menu-btn-icon">📝</span>
-                    <span class="menu-btn-label">Create Quiz</span>
-                    <span class="menu-btn-desc">Build questions manually</span>
+                    <span class="menu-btn-label">Create Quiz Questions</span>
+                    <span class="menu-btn-desc">Add questions to this quiz set</span>
                 </button>
             </div>
-            <section class="quiz-stage" id="quizStage">
-                <button class="quiz-nav quiz-nav-left" id="quizPrevBtn" type="button" aria-label="Previous question">‹</button>
-                <div class="quiz-stage-viewport">
-                    <div class="quiz-stage-track" id="quizStageTrack"></div>
-                    <div class="quiz-stage-counter" id="quizStageCounter"></div>
+        
+            {{-- ── Quiz question slider (populated by focus-mode.js) ── --}}
+            <section class="flashcard-stage hidden" id="quizStage">
+                <button class="flashcard-nav flashcard-nav-left" id="quizPrevBtn" type="button" aria-label="Previous question">‹</button>
+                <div class="flashcard-stage-viewport">
+                    <div class="flashcard-stage-track" id="quizStageTrack"></div>
                 </div>
-                <button class="quiz-nav quiz-nav-right" id="quizNextBtn" type="button" aria-label="Next question">›</button>
+                <button class="flashcard-nav flashcard-nav-right" id="quizNextBtn" type="button" aria-label="Next question">›</button>
             </section>
-            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
-        </div>
-
-        {{-- Quiz Modal --}}
-        <div class="quiz-modal hidden" id="quizModal" aria-hidden="true">
-            <div class="quiz-modal-backdrop" id="quizModalBackdrop"></div>
-            <div class="quiz-modal-card" role="dialog" aria-modal="true" aria-labelledby="quizModalTitle">
-                <div class="quiz-modal-header">
-                    <div>
-                        <h3 class="quiz-modal-title" id="quizModalTitle">Quiz Studio</h3>
-                        <p class="quiz-modal-subtitle" id="quizModalSubtitle">Choose how you want to continue.</p>
-                    </div>
-                    <button class="quiz-modal-close" id="quizModalCloseBtn" type="button" aria-label="Close quiz studio">×</button>
-                </div>
-
+            <div class="flashcard-stage-counter hidden" id="quizStageCounter"></div>
+        
+            {{-- ── Quiz question modal (Upload / Create panes) ── --}}
+            <div class="flashcard-modal-backdrop hidden" id="quizModalBackdrop"></div>
+            <div class="flashcard-modal hidden" id="quizModal" role="dialog"
+                aria-modal="true" aria-label="Quiz Question" aria-hidden="true">
+                <button class="flashcard-modal-close" id="quizModalCloseBtn" type="button" aria-label="Close">×</button>
+        
                 <div class="quiz-modal-pane" id="quizUploadPane">
                     <div class="quiz-modal-section-title">Upload Material</div>
                     <div class="quiz-modal-help">Select a file to attach it to this quiz session.</div>
@@ -236,9 +241,9 @@
                     <div class="materials-status" id="quizMaterialsStatus"></div>
                     <div class="materials-list" id="quizMaterialsList"></div>
                 </div>
-
+        
                 <div class="quiz-modal-pane hidden" id="quizCreatePane">
-                    <div class="quiz-modal-section-title">Create Quiz Questions</div>
+                    <div class="quiz-modal-section-title">Create Quiz Question</div>
                     <form class="quiz-form" id="quizForm">
                         <label class="quiz-label" for="quizQuestion">Question</label>
                         <textarea class="quiz-textarea quiz-question" id="quizQuestion" maxlength="500" placeholder="Type the quiz question here" required></textarea>
@@ -278,12 +283,15 @@
                         </div>
                         <div class="quiz-form-actions">
                             <button class="quiz-cancel-btn" id="quizCancelBtn" type="button">Cancel</button>
-                            <button class="quiz-save-btn" id="quizSaveBtn" type="submit">Save Quiz Question</button>
+                            <button class="quiz-save-btn" id="quizSaveBtn" type="submit">Save Question</button>
                         </div>
                     </form>
                     <div class="quiz-status" id="quizStatus"></div>
                 </div>
             </div>
+        
+            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
+        
         </div>
 
     </main>
@@ -357,9 +365,11 @@
     window.__focusMaterials = @json($materials ?? []);
     window.__focusDecks     = @json($decks    ?? []);
     window.__focusQuizzes   = @json($quizzes  ?? []);
+    window.__focusQuizSets  = @json($quizSets ?? []);
 </script>
 <script src="{{ asset('js/focus-mode.js') }}"></script>
 <script src="{{ asset('js/flashcards-decks.js') }}"></script>
+<script src="{{ asset('js/quiz.js') }}"></script>
 
 </body>
-</html> 
+</html>
