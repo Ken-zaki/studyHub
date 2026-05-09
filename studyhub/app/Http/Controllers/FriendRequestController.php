@@ -18,7 +18,11 @@ class FriendRequestController extends Controller
         }
 
         $currentUserId = $this->currentUserId();
-        $provider = new SupabaseServiceProvider();
+        $provider      = new SupabaseServiceProvider();
+
+        // Load ALL profiles once — service key used inside provider, bypasses RLS
+        $allProfiles  = $provider->getAllProfiles();
+        $profilesById = $this->indexProfilesById($allProfiles);
 
         $incomingRequests = FriendRequest::query()
             ->where('receiver_id', $currentUserId)
@@ -32,23 +36,22 @@ class FriendRequestController extends Controller
             ->latest()
             ->get();
 
-        $friendIds = $this->loadFriendIds($currentUserId);
+        $friendIds          = $this->loadFriendIds($currentUserId);
         $pendingOutgoingIds = $this->pluckRequestIds($outgoingRequests->all(), 'receiver_id');
         $pendingIncomingIds = $this->pluckRequestIds($incomingRequests->all(), 'sender_id');
 
         $discoverProfiles = [];
-        $friends = [];
+        $friends          = [];
 
-        foreach ($provider->getAllProfiles() as $profile) {
-            $profileId = (string) ($profile['id'] ?? '');
+        foreach ($allProfiles as $profile) {
+            $profileId = $this->resolveProfileId($profile);
+
             if ($profileId === '' || $profileId === $currentUserId) {
                 continue;
             }
 
             if (isset($friendIds[$profileId])) {
-                $friends[] = $this->profileEntry($profile, [
-                    'relationship' => 'friends',
-                ]);
+                $friends[] = $this->profileEntry($profile, ['relationship' => 'friends']);
                 continue;
             }
 
@@ -60,11 +63,11 @@ class FriendRequestController extends Controller
         }
 
         return view('home.friend-req', [
-            'activeNav' => 'friend-requests',
-            'incomingRequests' => $this->attachProfileMetadata($incomingRequests->all(), $provider, 'sender_id'),
-            'outgoingRequests' => $this->attachProfileMetadata($outgoingRequests->all(), $provider, 'receiver_id'),
+            'activeNav'        => 'friend-requests',
+            'incomingRequests' => $this->attachProfileMetadata($incomingRequests->all(), $profilesById, 'sender_id'),
+            'outgoingRequests' => $this->attachProfileMetadata($outgoingRequests->all(), $profilesById, 'receiver_id'),
             'discoverProfiles' => $discoverProfiles,
-            'friends' => $friends,
+            'friends'          => $friends,
         ]);
     }
 
@@ -74,54 +77,79 @@ class FriendRequestController extends Controller
             return $redirect;
         }
 
-        $senderId = $this->currentUserId();
+        $senderId   = $this->currentUserId();
         $receiverId = trim($receiverId);
+        $provider   = new SupabaseServiceProvider();
+
+        // Profiles always have UUID ids (linked to auth.users).
+        // If somehow a non-UUID arrives, try resolving by email/username.
+        if (!$this->isValidUuid($receiverId)) {
+            $foundProfile = null;
+
+            // Try email first
+            $foundProfile = $provider->getProfileByEmail($receiverId);
+            
+            // Fall back to username
+            if (!$foundProfile) {
+                $foundProfile = $provider->getProfileByUsername($receiverId);
+            }
+
+            if (!$foundProfile) {
+                return back()->withErrors(['friend_request' => 'User not found.']);
+            }
+
+            $foundId = $this->resolveProfileId($foundProfile);
+            if ($foundId === '') {
+                return back()->withErrors(['friend_request' => 'User not found.']);
+            }
+
+            $receiverId = $foundId;
+        }
 
         if ($receiverId === '' || $receiverId === $senderId) {
             return back()->withErrors(['friend_request' => 'Invalid friend request target.']);
         }
 
-        $provider = new SupabaseServiceProvider();
+        // Verify receiver profile exists
+        $receiverProfile = $provider->getProfileById($receiverId);
+        if (!$receiverProfile) {
+            return back()->withErrors(['friend_request' => 'User not found.']);
+        }
 
         if (Friendship::areFriends($senderId, $receiverId)) {
             return back()->with('status', 'You are already friends.');
         }
 
-        $existingRequest = FriendRequest::query()
+        // Check exact direction: sender → receiver (any status)
+        $exactRequest = FriendRequest::query()
             ->where('sender_id', $senderId)
             ->where('receiver_id', $receiverId)
             ->first();
 
-        if ($existingRequest) {
-            if ($existingRequest->status === 'pending') {
+        if ($exactRequest) {
+            if ($exactRequest->status === 'pending') {
                 return back()->with('status', 'Friend request already sent.');
             }
-
-            $existingRequest->update([
-                'status' => 'pending',
-                'responded_at' => null,
-            ]);
-
+            // Was declined — allow resending
+            $exactRequest->update(['status' => 'pending', 'responded_at' => null]);
             return back()->with('status', 'Friend request sent.');
         }
 
-        $pendingRequest = FriendRequest::query()
-            ->between($senderId, $receiverId)
+        // Check reverse direction — only block if PENDING
+        $reverseRequest = FriendRequest::query()
+            ->where('sender_id', $receiverId)
+            ->where('receiver_id', $senderId)
             ->where('status', 'pending')
             ->first();
 
-        if ($pendingRequest) {
-            if ($pendingRequest->sender_id === $senderId) {
-                return back()->with('status', 'Friend request already sent.');
-            }
-
-            return back()->with('status', 'They already sent you a friend request.');
+        if ($reverseRequest) {
+            return back()->with('status', 'They already sent you a friend request. Check your Requests tab.');
         }
 
         FriendRequest::create([
-            'sender_id' => $senderId,
+            'sender_id'   => $senderId,
             'receiver_id' => $receiverId,
-            'status' => 'pending',
+            'status'      => 'pending',
         ]);
 
         return back()->with('status', 'Friend request sent.');
@@ -133,9 +161,7 @@ class FriendRequestController extends Controller
             return $redirect;
         }
 
-        $currentUserId = $this->currentUserId();
-
-        if ($friendRequest->receiver_id !== $currentUserId) {
+        if ($friendRequest->receiver_id !== $this->currentUserId()) {
             abort(403, 'You cannot accept this request.');
         }
 
@@ -145,32 +171,24 @@ class FriendRequestController extends Controller
 
         DB::transaction(function () use ($friendRequest) {
             $friendRequest->update([
-                'status' => 'accepted',
+                'status'       => 'accepted',
                 'responded_at' => now(),
             ]);
 
-            Friendship::firstOrCreate(
-                [
-                    'user_id' => $friendRequest->sender_id,
-                    'friend_id' => $friendRequest->receiver_id,
-                ],
-                [
-                    'accepted_at' => now(),
-                ]
-            );
+            // NOTE: friends table has no accepted_at column — only user_id + friend_id
+            Friendship::firstOrCreate([
+                'user_id'   => $friendRequest->sender_id,
+                'friend_id' => $friendRequest->receiver_id,
+            ]);
 
-            Friendship::firstOrCreate(
-                [
-                    'user_id' => $friendRequest->receiver_id,
-                    'friend_id' => $friendRequest->sender_id,
-                ],
-                [
-                    'accepted_at' => now(),
-                ]
-            );
+            Friendship::firstOrCreate([
+                'user_id'   => $friendRequest->receiver_id,
+                'friend_id' => $friendRequest->sender_id,
+            ]);
         });
 
-        return redirect()->route('friend-requests', ['tab' => 'friends'])->with('status', 'Friend request accepted.');
+        return redirect()->route('friend-requests', ['tab' => 'friends'])
+            ->with('status', 'Friend request accepted.');
     }
 
     public function decline(FriendRequest $friendRequest): RedirectResponse
@@ -179,9 +197,7 @@ class FriendRequestController extends Controller
             return $redirect;
         }
 
-        $currentUserId = $this->currentUserId();
-
-        if ($friendRequest->receiver_id !== $currentUserId) {
+        if ($friendRequest->receiver_id !== $this->currentUserId()) {
             abort(403, 'You cannot decline this request.');
         }
 
@@ -189,12 +205,10 @@ class FriendRequestController extends Controller
             return back()->with('status', 'This request has already been processed.');
         }
 
-        $friendRequest->update([
-            'status' => 'declined',
-            'responded_at' => now(),
-        ]);
+        $friendRequest->update(['status' => 'declined', 'responded_at' => now()]);
 
-        return redirect()->route('friend-requests', ['tab' => 'requests'])->with('status', 'Friend request declined.');
+        return redirect()->route('friend-requests', ['tab' => 'requests'])
+            ->with('status', 'Friend request declined.');
     }
 
     public function cancel(FriendRequest $friendRequest): RedirectResponse
@@ -203,9 +217,7 @@ class FriendRequestController extends Controller
             return $redirect;
         }
 
-        $currentUserId = $this->currentUserId();
-
-        if ($friendRequest->sender_id !== $currentUserId) {
+        if ($friendRequest->sender_id !== $this->currentUserId()) {
             abort(403, 'You can only cancel your own friend requests.');
         }
 
@@ -215,7 +227,8 @@ class FriendRequestController extends Controller
 
         $friendRequest->delete();
 
-        return redirect()->route('friend-requests', ['tab' => 'requests'])->with('status', 'Friend request cancelled.');
+        return redirect()->route('friend-requests', ['tab' => 'requests'])
+            ->with('status', 'Friend request cancelled.');
     }
 
     public function remove(string $friendId): RedirectResponse
@@ -225,7 +238,7 @@ class FriendRequestController extends Controller
         }
 
         $currentUserId = $this->currentUserId();
-        $friendId = trim($friendId);
+        $friendId      = trim($friendId);
 
         if ($friendId === '' || $friendId === $currentUserId) {
             return back()->withErrors(['friend_request' => 'Invalid friend ID.']);
@@ -247,8 +260,13 @@ class FriendRequestController extends Controller
                 ->delete();
         });
 
-        return redirect()->route('friend-requests', ['tab' => 'friends'])->with('status', 'Friend removed.');
+        return redirect()->route('friend-requests', ['tab' => 'friends'])
+            ->with('status', 'Friend removed.');
     }
+
+    // ──────────────────────────────────────────────────────────────
+    // PRIVATE HELPERS
+    // ──────────────────────────────────────────────────────────────
 
     private function currentUserId(): string
     {
@@ -260,38 +278,64 @@ class FriendRequestController extends Controller
         if ($this->currentUserId() === '') {
             return redirect()->route('login');
         }
-
         if (session('is_banned')) {
             session()->flush();
-
             return redirect()->route('login')->with('error', 'Your account has been suspended.');
         }
-
         return null;
     }
 
-    private function attachProfileMetadata(array $requests, SupabaseServiceProvider $provider, string $profileKey): array
+    private function isValidUuid(string $value): bool
     {
-        $profilesById = [];
-        $profileIds = array_values(array_filter(array_map(
-            fn ($request) => (string) ($request->{$profileKey} ?? ''),
-            $requests
-        )));
+        return (bool) preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+            $value
+        );
+    }
 
-        foreach ($provider->getAllProfiles() as $profile) {
-            $profileId = (string) ($profile['id'] ?? '');
-            if ($profileId !== '' && in_array($profileId, $profileIds, true)) {
-                $profilesById[$profileId] = $profile;
+    private function resolveProfileId(array $profile): string
+    {
+        $candidate = (string) ($profile['id'] ?? '');
+        if ($this->isValidUuid($candidate)) {
+            return $candidate;
+        }
+        foreach (['user_id', 'uid', 'uuid', 'auth_id'] as $field) {
+            $alt = (string) ($profile[$field] ?? '');
+            if ($this->isValidUuid($alt)) {
+                return $alt;
             }
+        }
+        return $candidate;
+    }
+
+    private function indexProfilesById(array $profiles): array
+    {
+        $indexed = [];
+        foreach ($profiles as $profile) {
+            $id = $this->resolveProfileId($profile);
+            if ($id !== '') {
+                $indexed[$id] = $profile;
+            }
+        }
+        return $indexed;
+    }
+
+    private function attachProfileMetadata(array $requests, array $profilesById, string $profileKey): array
+    {
+        if (empty($requests)) {
+            return [];
         }
 
         return array_map(function (FriendRequest $request) use ($profilesById, $profileKey): array {
-            $profile = $profilesById[(string) $request->{$profileKey}] ?? [];
-            return array_merge([
-                'request' => $request,
-            ], $this->profileEntry($profile, [
-                'id' => (string) ($profile['id'] ?? $request->{$profileKey}),
-            ]));
+            $userId  = (string) ($request->{$profileKey} ?? '');
+            $profile = $profilesById[$userId] ?? [];
+
+            return array_merge(
+                ['request' => $request],
+                $this->profileEntry($profile, [
+                    'id' => $userId !== '' ? $userId : (string) ($profile['id'] ?? ''),
+                ])
+            );
         }, $requests);
     }
 
@@ -309,7 +353,6 @@ class FriendRequestController extends Controller
                 $friendIds[$candidate] = true;
             }
         }
-
         return $friendIds;
     }
 
@@ -322,33 +365,47 @@ class FriendRequestController extends Controller
                 $ids[$id] = true;
             }
         }
-
         return $ids;
     }
 
     private function profileEntry(array $profile, array $extra = []): array
     {
-        $firstName = trim((string) ($profile['first_name'] ?? ''));
-        $lastName = trim((string) ($profile['last_name'] ?? ''));
-        $displayName = trim($firstName . ' ' . $lastName);
+        $profileId = $this->resolveProfileId($profile);
 
-        if ($displayName === '') {
-            $displayName = trim((string) ($profile['username'] ?? '')) ?: 'User';
+        $firstName = trim((string) ($profile['first_name'] ?? ''));
+        $lastName  = trim((string) ($profile['last_name']  ?? ''));
+        $username  = trim((string) ($profile['username']   ?? ''));
+        $email     = trim((string) ($profile['email']      ?? ''));
+
+        if ($firstName !== '' || $lastName !== '') {
+            $displayName = trim($firstName . ' ' . $lastName);
+        } elseif ($username !== '') {
+            $displayName = $username;
+        } elseif ($email !== '') {
+            $displayName = explode('@', $email)[0];
+        } else {
+            $displayName = 'Unknown User';
         }
 
-        $status = strtolower((string) ($profile['status'] ?? ''));
+        $initialsStr = mb_substr($firstName ?: $displayName, 0, 1);
+        if ($lastName !== '') {
+            $initialsStr .= mb_substr($lastName, 0, 1);
+        } elseif (mb_strlen($initialsStr) < 2 && $username !== '') {
+            $initialsStr .= mb_substr($username, 1, 1);
+        }
+
+        $status   = strtolower((string) ($profile['status'] ?? ''));
         $isActive = (bool) ($profile['is_online'] ?? false)
             || (bool) ($profile['is_active'] ?? false)
             || in_array($status, ['online', 'active'], true);
 
         return array_merge([
-            'id' => (string) ($profile['id'] ?? ''),
-            'name' => $displayName,
-            'username' => (string) ($profile['username'] ?? ''),
-            'photo' => (string) ($profile['profile_photo_url'] ?? ''),
-            'initials' => strtoupper(substr($firstName ?: $displayName, 0, 1) . substr($lastName, 0, 1)),
+            'id'        => $profileId,
+            'name'      => $displayName,
+            'username'  => $username ?: 'user',
+            'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
+            'initials'  => strtoupper($initialsStr ?: 'U'),
             'is_active' => $isActive,
         ], $extra);
     }
-
 }

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\FocusModeController;
 use App\Http\Controllers\FriendRequestController;
+use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
@@ -88,9 +89,31 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
     ];
 }
 
-// ══════════════════════════════════════════════════════════════
-// PUBLIC ROUTES (no auth required)
-// ══════════════════════════════════════════════════════════════
+// ──────────────────────────────────────────────────────────────
+// PUBLIC ROUTES (guests can access)
+// ──────────────────────────────────────────────────────────────
+
+// DEBUG ROUTE - Check all friend requests in database
+Route::get('/debug/all-requests', function () {
+    $allRequests = FriendRequest::all();
+    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
+    $userId = trim((string) session('user_id', ''));
+
+    $myIncoming = FriendRequest::where('receiver_id', $userId)->get();
+    $myOutgoing = FriendRequest::where('sender_id', $userId)->get();
+
+    return response()->json([
+        'current_session_user_id' => $userId,
+        'db_columns' => $schemaColumns,
+        'total_requests_in_db' => count($allRequests),
+        'all_requests_raw' => $allRequests->toArray(),
+        'my_incoming_count' => count($myIncoming),
+        'my_incoming' => $myIncoming->toArray(),
+        'my_outgoing_count' => count($myOutgoing),
+        'my_outgoing' => $myOutgoing->toArray(),
+        'sample_raw_query' => \DB::table('friend_requests')->get()->toArray(),
+    ]);
+});
 
 Route::get('/', fn() => redirect()->route('login'));
 
@@ -98,9 +121,18 @@ Route::get('/login',           fn() => view('auth.login'))          ->name('logi
 Route::get('/signup',          fn() => view('auth.signup'))         ->name('signup');
 Route::get('/forgot-password', fn() => view('auth.forgot-password'))->name('forgot-password');
 
-// Public resource browsing (read-only, logic handled in JS)
-Route::get('/resources/public', fn() => view('home.resources', ['activeNav' => 'resources']))
-    ->name('resources.public');
+Route::get('/dashboard', function () {
+    return view('home.dashboard');
+})->name('dashboard');
+
+// ✅ Single definition, no auth middleware (your controller handles the session check)
+Route::get('/user_dashboard', [DashboardController::class, 'user_dashboard'])->name('user_dashboard');
+
+
+// Guests can browse public resources (read-only, handled in JS)
+Route::get('/resources/public', function () {
+    return view('home.resources', ['activeNav' => 'resources']);
+})->name('resources.public');
 
 // ── SET SESSION ───────────────────────────────────────────────
 // Called from JS after Supabase login — stores user data + role
@@ -227,8 +259,11 @@ Route::get('/friend-requests',                          [FriendRequestController
 Route::post('/friend-requests/{receiverId}',            [FriendRequestController::class, 'send'])   ->name('friend-requests.send');
 Route::post('/friend-requests/{friendRequest}/accept',  [FriendRequestController::class, 'accept']) ->name('friend-requests.accept');
 Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
-Route::post('/friend-requests/{friendRequest}/cancel',  [FriendRequestController::class, 'cancel']) ->name('friend-requests.cancel');
-Route::post('/friends/{friendId}/remove',               [FriendRequestController::class, 'remove']) ->name('friends.remove');
+Route::post('/friend-requests/{friendRequest}/cancel', [FriendRequestController::class, 'cancel'])->name('friend-requests.cancel');
+Route::post('/friends/{friendId}/remove', [FriendRequestController::class, 'remove'])->name('friends.remove');
+
+// ── DIAGNOSTICS ──────────────────────────────────────────────
+Route::get('/diagnostics/friend-requests', [DiagnosticsController::class, 'friendRequests']);
 
 // ── OWN PROFILE ───────────────────────────────────────────────
 
@@ -498,7 +533,71 @@ Route::prefix('admin')->group(function () {
 
     Route::get('/settings', function () {
         if ($r = requireAdmin()) return $r;
-        return view('admin.settings');
+        return view('admin.settings', ['activeNav' => 'admin', 'activeAdmin' => 'settings']);
+
     })->name('admin.settings');
+
+// ═══════════════════════════════════════════════════════════════════
+// TEMPORARY DEBUG ROUTES — remove after fixing
+// Paste these into web.php, visit the URLs while logged in
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Visit /debug/profiles  — shows raw Supabase profile data
+Route::get('/debug/profiles', function () {
+    $provider = new \App\Providers\SupabaseServiceProvider();
+    $profiles = $provider->getAllProfiles();
+
+    return response()->json([
+        'session_user_id'  => session('user_id'),
+        'supabase_url_set' => !empty(env('SUPABASE_URL')),
+        'anon_key_set'     => !empty(env('SUPABASE_ANON_KEY')),
+        'service_key_set'  => !empty(env('SUPABASE_SERVICE_KEY')),
+        'profile_count'    => count($profiles),
+        // Shows the raw fields of the first 5 profiles — look for 'id' value type
+        'profiles_sample'  => array_map(function ($p) {
+            return [
+                'id'         => $p['id']         ?? '(missing)',
+                'first_name' => $p['first_name'] ?? '(missing)',
+                'last_name'  => $p['last_name']  ?? '(missing)',
+                'username'   => $p['username']   ?? '(missing)',
+                'email'      => $p['email']      ?? '(missing)',
+                'all_keys'   => array_keys($p),
+            ];
+        }, array_slice($profiles, 0, 5)),
+    ]);
+});
+
+// 2. Visit /debug/send/{anyUUID}  — simulates what send() does step by step
+Route::get('/debug/send/{receiverId}', function (string $receiverId) {
+    $senderId   = trim((string) session('user_id', ''));
+    $receiverId = trim($receiverId);
+
+    $isValidUuid = (bool) preg_match(
+        '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+        $receiverId
+    );
+
+    $provider = new \App\Providers\SupabaseServiceProvider();
+    $allProfiles = $provider->getAllProfiles();
+
+    // Try to find the profile with this ID
+    $matchedProfile = null;
+    foreach ($allProfiles as $p) {
+        if ((string)($p['id'] ?? '') === $receiverId) {
+            $matchedProfile = $p;
+            break;
+        }
+    }
+
+    return response()->json([
+        'sender_id'           => $senderId,
+        'receiver_id_param'   => $receiverId,
+        'is_valid_uuid'       => $isValidUuid,
+        'total_profiles'      => count($allProfiles),
+        'matched_profile'     => $matchedProfile,
+        'first_profile_id'    => $allProfiles[0]['id'] ?? '(none)',
+        'first_profile_keys'  => isset($allProfiles[0]) ? array_keys($allProfiles[0]) : [],
+    ]);
+});
 
 });
