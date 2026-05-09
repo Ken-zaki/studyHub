@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\FocusModeController;
 use App\Http\Controllers\FriendRequestController;
-use App\Http\Controllers\SearchController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
 use App\Models\FriendRequest;
@@ -12,7 +11,7 @@ use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
 
 // ══════════════════════════════════════════════════════════════
-// ROLE & AUTH HELPERS
+// AUTH & ROLE HELPERS
 // ══════════════════════════════════════════════════════════════
 
 function requireAuth() {
@@ -28,8 +27,7 @@ function requireAuth() {
 }
 
 function requireAdmin() {
-    $redirect = requireAuth();
-    if ($redirect) return $redirect;
+    if ($r = requireAuth()) return $r;
     if (!in_array(session('user_role'), ['admin', 'moderator'])) {
         abort(403, 'Admin access required.');
     }
@@ -37,8 +35,7 @@ function requireAdmin() {
 }
 
 function requireModeratorOrAdmin() {
-    $redirect = requireAuth();
-    if ($redirect) return $redirect;
+    if ($r = requireAuth()) return $r;
     if (!in_array(session('user_role'), ['admin', 'moderator'])) {
         abort(403, 'Insufficient permissions.');
     }
@@ -77,45 +74,42 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
         || in_array($status, ['online', 'active'], true);
 
     return [
-        'id'       => (string) ($profile['id'] ?? $userId),
-        'name'     => $name,
-        'username' => (string) ($profile['username'] ?? ''),
-        'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
-        'initials' => strtoupper(
-            substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)
-        ),
+        'id'        => (string) ($profile['id'] ?? $userId),
+        'name'      => $name,
+        'username'  => (string) ($profile['username'] ?? ''),
+        'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
+        'initials'  => strtoupper(substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)),
         'is_active' => $isActive,
     ];
 }
 
 // ══════════════════════════════════════════════════════════════
-// PUBLIC ROUTES (no auth required)
+// PUBLIC ROUTES  (no login required)
 // ══════════════════════════════════════════════════════════════
 
-Route::get('/', fn() => redirect()->route('login'));
+// Root — send visitors to guest landing page
+Route::get('/', fn() => redirect()->route('guest'));
 
-Route::get('/login',           fn() => view('auth.login'))          ->name('login');
-Route::get('/signup',          fn() => view('auth.signup'))         ->name('signup');
-Route::get('/forgot-password', fn() => view('auth.forgot-password'))->name('forgot-password');
+// Auth pages
+Route::get('/login',           fn() => view('auth.login'))           ->name('login');
+Route::get('/signup',          fn() => view('auth.signup'))          ->name('signup');
+Route::get('/forgot-password', fn() => view('auth.forgot-password')) ->name('forgot-password');
 
-// Public resource browsing (read-only, logic handled in JS)
-Route::get('/resources/public', fn() => view('home.resources', ['activeNav' => 'resources']))
-    ->name('resources.public');
+// ── GUEST / BROWSE ROUTES (no login required) ──────────────────
+Route::get('/browse', fn() => redirect()->route('guest.newsfeed'))->name('guest');
+Route::get('/browse/newsfeed',   fn() => view('home.guest-newsfeed'))  ->name('guest.newsfeed');
+Route::get('/browse/resources',  fn() => view('home.guest-resources')) ->name('guest.resources');
+Route::get('/browse/settings',   fn() => view('home.guest-settings'))  ->name('guest.settings');
 
-// ── SET SESSION ───────────────────────────────────────────────
-// Called from JS after Supabase login — stores user data + role
-
+// Set session — called from JS after Supabase login
 Route::post('/set-session', function (Request $request) {
     $userId       = (string) $request->input('user_id', '');
     $profilePhoto = (string) $request->input('profile_photo', '');
 
     if ($userId !== '' && $profilePhoto !== '') {
         try {
-            $provider = new SupabaseServiceProvider();
-            $provider->updateProfilePhoto($userId, $profilePhoto);
-        } catch (\Throwable $e) {
-            // Non-fatal — session still works
-        }
+            (new SupabaseServiceProvider())->updateProfilePhoto($userId, $profilePhoto);
+        } catch (\Throwable) { /* non-fatal */ }
     }
 
     session([
@@ -132,8 +126,7 @@ Route::post('/set-session', function (Request $request) {
     return response()->json(['success' => true]);
 })->name('set-session');
 
-// ── LOGOUT ────────────────────────────────────────────────────
-
+// Logout
 Route::post('/logout', function () {
     session()->flush();
     return redirect()->route('login');
@@ -186,15 +179,18 @@ Route::get('/settings', function () {
     return view('home.settings', ['activeNav' => 'settings']);
 })->name('settings');
 
-// ── FOCUS MODE ────────────────────────────────────────────────
+// Focus Mode
+Route::get('/focus-mode',                        [FocusModeController::class, 'index'])->name('focus-mode');
+Route::post('/focus-mode/session',               [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+Route::post('/focus-mode/materials',             [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
+Route::post('/focus-mode/decks',                 [FocusModeController::class, 'storeDeck'])->name('focus-mode.decks.store');
+Route::delete('/focus-mode/decks/{id}',          [FocusModeController::class, 'destroyDeck'])->name('focus-mode.decks.destroy');
+Route::post('/focus-mode/flashcards',            [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
+Route::delete('/focus-mode/flashcards/{id}',     [FocusModeController::class, 'destroyFlashcard'])->name('focus-mode.flashcards.destroy');
+Route::post('/focus-mode/quizzes',               [FocusModeController::class, 'storeQuiz'])->name('focus-mode.quizzes');
+Route::delete('/focus-mode/quizzes/{id}',        [FocusModeController::class, 'destroyQuiz'])->name('focus-mode.quizzes.destroy');
 
-Route::get('/focus-mode',             [FocusModeController::class, 'index'])        ->name('focus-mode');
-Route::post('/focus-mode/session',    [FocusModeController::class, 'storeSession']) ->name('focus-mode.session');
-Route::post('/focus-mode/materials',  [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
-Route::post('/focus-mode/flashcards', [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
-
-// ── FRIENDS ───────────────────────────────────────────────────
-
+// Friends & friend requests
 Route::get('/friends', function () {
     if ($r = requireAuth()) return $r;
 
@@ -206,23 +202,17 @@ Route::get('/friends', function () {
         ->orWhere('friend_id', $currentUserId)
         ->get(['user_id', 'friend_id']);
 
-    $friendIds = [];
+    $friends = [];
     foreach ($friendRows as $row) {
         $candidate = (string) ($row->user_id === $currentUserId ? $row->friend_id : $row->user_id);
         if ($candidate !== '' && $candidate !== $currentUserId) {
-            $friendIds[$candidate] = true;
+            $friends[] = resolveFriendProfileEntry($provider, $candidate);
         }
-    }
-
-    $friends = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        $friends[] = resolveFriendProfileEntry($provider, $friendId);
     }
 
     return view('home.friends', ['activeNav' => 'friends', 'friends' => $friends]);
 })->name('friends');
 
-// Friend requests — all handled by FriendRequestController
 Route::get('/friend-requests',                          [FriendRequestController::class, 'index'])  ->name('friend-requests');
 Route::post('/friend-requests/{receiverId}',            [FriendRequestController::class, 'send'])   ->name('friend-requests.send');
 Route::post('/friend-requests/{friendRequest}/accept',  [FriendRequestController::class, 'accept']) ->name('friend-requests.accept');
@@ -230,8 +220,7 @@ Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController
 Route::post('/friend-requests/{friendRequest}/cancel',  [FriendRequestController::class, 'cancel']) ->name('friend-requests.cancel');
 Route::post('/friends/{friendId}/remove',               [FriendRequestController::class, 'remove']) ->name('friends.remove');
 
-// ── OWN PROFILE ───────────────────────────────────────────────
-
+// Own profile
 Route::get('/profile', function () {
     if ($r = requireAuth()) return $r;
 
@@ -247,26 +236,22 @@ Route::get('/profile', function () {
 
     if ($sessionUserId !== '') {
         $result = $provider->getProfileById($sessionUserId);
-        if (is_array($result) && !isset($result['error'])) {
-            $dbProfile = $result;
-        }
+        if (is_array($result) && !isset($result['error'])) $dbProfile = $result;
     }
     if (!$dbProfile && $sessionUsername !== '') {
         $result = $provider->getProfileByUsername($sessionUsername);
-        if (is_array($result) && !isset($result['error'])) {
-            $dbProfile = $result;
-        }
+        if (is_array($result) && !isset($result['error'])) $dbProfile = $result;
     }
 
-    $firstName = trim((string) ($dbProfile['first_name']        ?? $sessionFirstName));
-    $lastName  = trim((string) ($dbProfile['last_name']         ?? $sessionLastName));
-    $username  = trim((string) ($dbProfile['username']          ?? $sessionUsername));
-    $email     = trim((string) ($dbProfile['email']             ?? ''));
-    $photoUrl  = trim((string) ($dbProfile['profile_photo_url'] ?? $sessionPhoto));
-    $userId    = trim((string) ($dbProfile['id']                ?? $sessionUserId));
-    $joinedAt  = trim((string) ($dbProfile['created_at']        ?? $dbProfile['joined_at'] ?? ''));
-    $bio       = trim((string) ($dbProfile['bio']               ?? $dbProfile['about'] ?? ''));
-    $studentTypeRaw = trim((string) ($dbProfile['student_type'] ?? $sessionStudentType));
+    $firstName      = trim((string) ($dbProfile['first_name']        ?? $sessionFirstName));
+    $lastName       = trim((string) ($dbProfile['last_name']         ?? $sessionLastName));
+    $username       = trim((string) ($dbProfile['username']          ?? $sessionUsername));
+    $email          = trim((string) ($dbProfile['email']             ?? ''));
+    $photoUrl       = trim((string) ($dbProfile['profile_photo_url'] ?? $sessionPhoto));
+    $userId         = trim((string) ($dbProfile['id']                ?? $sessionUserId));
+    $joinedAt       = trim((string) ($dbProfile['created_at']        ?? $dbProfile['joined_at'] ?? ''));
+    $bio            = trim((string) ($dbProfile['bio']               ?? $dbProfile['about'] ?? ''));
+    $studentTypeRaw = trim((string) ($dbProfile['student_type']      ?? $sessionStudentType));
 
     $studentTypeLabel = match (strtolower($studentTypeRaw)) {
         'high_school' => 'High School Student',
@@ -274,15 +259,8 @@ Route::get('/profile', function () {
         default       => 'Student type not set',
     };
 
-    $displayName = trim($firstName . ' ' . $lastName);
-    if ($displayName === '') {
-        $displayName = $username !== '' ? $username : 'StudyHub User';
-    }
-    if ($bio === '') {
-        $bio = $studentTypeLabel !== 'Student type not set'
-            ? $studentTypeLabel
-            : 'StudyHub learner';
-    }
+    $displayName = trim($firstName . ' ' . $lastName) ?: ($username ?: 'StudyHub User');
+    $bio         = $bio ?: ($studentTypeLabel !== 'Student type not set' ? $studentTypeLabel : 'StudyHub learner');
 
     $postCount      = 0;
     $friendProfiles = [];
@@ -305,13 +283,10 @@ Route::get('/profile', function () {
         if (is_array($postsResult) && !isset($postsResult['error'])) {
             $recentPosts = array_map(function (array $post): array {
                 $content = trim((string) ($post['content'] ?? ''));
-                $preview = mb_strlen($content) > 180
-                    ? mb_substr($content, 0, 180) . '…'
-                    : $content;
                 return [
                     'id'          => (string) ($post['id']          ?? ''),
                     'content'     => $content,
-                    'preview'     => $preview,
+                    'preview'     => mb_strlen($content) > 180 ? mb_substr($content, 0, 180) . '…' : $content,
                     'created_at'  => (string) ($post['created_at']  ?? ''),
                     'post_type'   => (string) ($post['post_type']   ?? 'text'),
                     'media_url'   => (string) ($post['media_url']   ?? ''),
@@ -322,54 +297,35 @@ Route::get('/profile', function () {
         }
 
         $friendRows = Friendship::query()
-            ->where('user_id', $userId)
-            ->orWhere('friend_id', $userId)
+            ->where('user_id', $userId)->orWhere('friend_id', $userId)
             ->get(['user_id', 'friend_id']);
 
         $friendIds = [];
         foreach ($friendRows as $row) {
-            $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
-            if ($candidate !== '' && $candidate !== $userId) {
-                $friendIds[$candidate] = true;
-            }
+            $c = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
+            if ($c !== '' && $c !== $userId) $friendIds[$c] = true;
         }
 
-        $allProfiles = $provider->getAllProfiles();
-        if (!empty($allProfiles) && !empty($friendIds)) {
-            foreach ($allProfiles as $profile) {
-                $pid = (string) ($profile['id'] ?? '');
-                if (!isset($friendIds[$pid])) continue;
+        foreach ($provider->getAllProfiles() as $p) {
+            $pid = (string) ($p['id'] ?? '');
+            if (!isset($friendIds[$pid])) continue;
 
-                $friendFirst = trim((string) ($profile['first_name'] ?? ''));
-                $friendLast  = trim((string) ($profile['last_name']  ?? ''));
-                $friendName  = trim($friendFirst . ' ' . $friendLast);
-                if ($friendName === '') {
-                    $friendName = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-                }
+            $ff  = trim((string) ($p['first_name'] ?? ''));
+            $fl  = trim((string) ($p['last_name']  ?? ''));
+            $fn  = trim($ff . ' ' . $fl) ?: (trim((string) ($p['username'] ?? '')) ?: 'Friend');
+            $st  = strtolower((string) ($p['status'] ?? ''));
 
-                $status   = strtolower((string) ($profile['status'] ?? ''));
-                $isActive = (bool) ($profile['is_online']  ?? false)
-                    || (bool) ($profile['is_active']       ?? false)
-                    || in_array($status, ['online', 'active'], true);
-
-                $friendProfiles[] = [
-                    'id'        => $pid,
-                    'name'      => $friendName,
-                    'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
-                    'initials'  => strtoupper(
-                        substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)
-                    ),
-                    'is_active' => $isActive,
-                ];
-            }
+            $friendProfiles[] = [
+                'id'        => $pid,
+                'name'      => $fn,
+                'photo'     => (string) ($p['profile_photo_url'] ?? ''),
+                'initials'  => strtoupper(substr($ff ?: $fn, 0, 1) . substr($fl, 0, 1)),
+                'is_active' => (bool)($p['is_online'] ?? false)
+                    || (bool)($p['is_active'] ?? false)
+                    || in_array($st, ['online', 'active'], true),
+            ];
         }
     }
-
-    $completedSessions = (int) session('focus_session_count', 0);
-    $totalFocusSeconds = (int) session('focus_total_seconds', 0);
-    $sessionMaterials  =       session('focus_materials', []);
-    $resourceCount     = is_array($sessionMaterials) ? count($sessionMaterials) : 0;
-    $activeSessions    = (int) ((bool) session('focus_mode_active', false));
 
     return view('home.profile', [
         'activeNav'   => 'profile',
@@ -390,19 +346,16 @@ Route::get('/profile', function () {
             'friends'             => $friendProfiles,
             'stats' => [
                 'posts_made'               => $postCount,
-                'resources_uploaded'       => $resourceCount,
-                'study_sessions_active'    => $activeSessions,
-                'study_sessions_completed' => $completedSessions,
-                'total_focus_seconds'      => $totalFocusSeconds,
+                'resources_uploaded'       => is_array(session('focus_materials', [])) ? count(session('focus_materials', [])) : 0,
+                'study_sessions_active'    => (int)((bool) session('focus_mode_active', false)),
+                'study_sessions_completed' => (int) session('focus_session_count', 0),
+                'total_focus_seconds'      => (int) session('focus_total_seconds', 0),
             ],
         ],
     ]);
 })->name('profile');
 
-// ── OTHER USER PROFILE ────────────────────────────────────────
-// Must be defined AFTER /profile (own profile) to avoid conflicts.
-// Accepts both UUID and username slugs.
-
+// Other user's profile — must come AFTER /profile
 Route::get('/profile/{userId}', function (string $userId) {
     if ($r = requireAuth()) return $r;
 
@@ -421,35 +374,28 @@ Route::get('/profile/{userId}', function (string $userId) {
     if (Friendship::areFriends($currentUserId, $userId)) {
         $relationshipState = 'friends';
     } else {
-        $pendingRequest = FriendRequest::query()
+        $req = FriendRequest::query()
             ->between($currentUserId, $userId)
             ->where('status', 'pending')
             ->first();
-
-        if ($pendingRequest) {
-            $pendingRequestId  = $pendingRequest->id;
-            $relationshipState = $pendingRequest->sender_id === $currentUserId
+        if ($req) {
+            $pendingRequestId  = $req->id;
+            $relationshipState = $req->sender_id === $currentUserId
                 ? 'pending_outgoing'
                 : 'pending_incoming';
         }
     }
 
     $friendRows = Friendship::query()
-        ->where('user_id', $userId)
-        ->orWhere('friend_id', $userId)
+        ->where('user_id', $userId)->orWhere('friend_id', $userId)
         ->get(['user_id', 'friend_id']);
 
-    $friendIds = [];
-    foreach ($friendRows as $row) {
-        $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
-        if ($candidate !== '' && $candidate !== $userId) {
-            $friendIds[$candidate] = true;
-        }
-    }
-
     $friendProfiles = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        $friendProfiles[] = resolveFriendProfileEntry($provider, $friendId);
+    foreach ($friendRows as $row) {
+        $c = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
+        if ($c !== '' && $c !== $userId) {
+            $friendProfiles[] = resolveFriendProfileEntry($provider, $c);
+        }
     }
 
     return view('home.profile-view', [
@@ -463,7 +409,7 @@ Route::get('/profile/{userId}', function (string $userId) {
 })->name('profile.view');
 
 // ══════════════════════════════════════════════════════════════
-// ADMIN ROUTES (admin / moderator only)
+// ADMIN ROUTES
 // ══════════════════════════════════════════════════════════════
 
 Route::prefix('admin')->group(function () {
@@ -493,8 +439,8 @@ Route::prefix('admin')->group(function () {
         return view('admin.logs');
     })->name('admin.logs');
 
-    // ── NEW: Posts Feed tab ────────────────────────────────────
-    Route::get('/posts', [AdminController::class, 'posts'])->name('admin.posts');
+    Route::get('/posts', [AdminController::class, 'posts'])
+        ->name('admin.posts');
 
     Route::get('/settings', function () {
         if ($r = requireAdmin()) return $r;

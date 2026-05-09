@@ -9,47 +9,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}?v={{ filemtime(public_path('css/focus-mode.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/flashcards.css') }}?v={{ filemtime(public_path('css/flashcards.css')) }}">
 </head>
 <body>
 
-{{-- ══════════════════════════════════════════
-     SHARED SIDEBAR + TOP BAR
-══════════════════════════════════════════ --}}
 @php $activeNav = 'focus-mode'; @endphp
 @include('layouts.sidebar')
 
-{{-- ══════════════════════════════════════════
-     FOCUS MODE MAIN CONTENT
-     margin-left handled by studyhub.css .main-content
-══════════════════════════════════════════ --}}
 <div class="fm-wrapper" id="focusModeApp">
 
     <main class="fm-main" id="mainContent">
 
-        {{-- Materials Panel (shown when inside a study screen) --}}
-        <section class="materials-panel hidden" id="materialsPanel">
-            <div class="materials-panel-header">
-                <div>
-                    <div class="materials-eyebrow">Study Materials</div>
-                    <h2 class="materials-title">Upload PDF, Word, or PowerPoint files</h2>
-                </div>
-                <button class="materials-upload-btn" id="materialsUploadBtn" type="button">Upload Material</button>
-                <input type="file" id="materialsInput" class="hidden"
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
-                    application/vnd.openxmlformats-officedocument.wordprocessingml.document,
-                    application/vnd.ms-powerpoint,
-                    application/vnd.openxmlformats-officedocument.presentationml.presentation">
-            </div>
-            <p class="materials-help" id="materialsHelp">Attach materials to the study mode you are currently using.</p>
-            <div class="materials-status" id="materialsStatus"></div>
-            <div class="materials-list" id="materialsList"></div>
-        </section>
-
         {{-- ══ SCREEN: MAIN MENU ══ --}}
         <div class="screen screen-menu" id="screenMenu">
             <div class="menu-intro">
-                <h1 class="menu-heading">What would you like to do?</h1>
+                <h1 class="menu-heading">How do we study today?</h1>
                 <p class="menu-sub">Choose a study mode to begin your session</p>
             </div>
             <div class="menu-buttons">
@@ -73,6 +48,13 @@
 
         {{-- ══ SCREEN: REVIEW MATERIAL ══ --}}
         <div class="screen screen-content hidden" id="screenReview">
+            <div class="study-action-row">
+                <button class="menu-btn study-action-btn study-action-review" id="reviewUploadBtn" type="button">
+                    <span class="menu-btn-icon">📎</span>
+                    <span class="menu-btn-label">Upload Materials</span>
+                    <span class="menu-btn-desc">Add PDFs, documents, or slide decks</span>
+                </button>
+            </div>
             <div class="content-area" id="reviewContent">
                 <p class="placeholder-text">📖 Review Material — upload a file above to get started</p>
             </div>
@@ -81,13 +63,116 @@
 
         {{-- ══ SCREEN: FLASHCARD ══ --}}
         <div class="screen screen-content hidden" id="screenFlashcard">
-            <div class="content-area flashcard-area" id="flashcardContent">
-                <div class="flashcard-builder" id="flashcardBuilder">
-                    <div class="flashcard-builder-header">
-                        <h3 class="flashcard-builder-title">Manual Flashcard Creator</h3>
-                        <button class="flashcard-create-btn" id="flashcardCreateBtn" type="button">+ Create Flashcard</button>
+
+            {{-- ── DECK BROWSER (shown when no deck is selected) ── --}}
+            <div id="deckBrowser">
+
+                {{-- "FLASHCARDS" page heading (screenshot 1 & 3) --}}
+                <h2 class="flashcard-screen-heading">Flashcards</h2>
+
+                {{-- "My Decks" section label --}}
+                <p class="deck-section-label">My Decks</p>
+
+                {{-- Deck grid — JS populates .deck-card elements here --}}
+                <div class="deck-grid" id="deckGrid">
+                    {{-- Empty state shown by JS when no decks exist --}}
+                    <p class="deck-empty-state" id="deckEmptyState">No decks created yet.</p>
+                </div>
+
+                {{-- "+ Add Decks" button (teal circle + label, below grid) --}}
+                <button class="deck-add-btn" id="deckCreateBtn" type="button">
+                    <span class="deck-add-circle" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"
+                                  fill="none" d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </span>
+                    Add Decks
+                </button>
+
+            </div>
+
+            {{-- Create deck modal — outside #deckBrowser so position:fixed is not clipped --}}
+            <div class="deck-create-backdrop hidden" id="deckModalOverlay">
+                <div class="deck-create-form" id="deckCreateForm" role="dialog"
+                     aria-modal="true" aria-labelledby="deckModalTitle">
+                    <p class="deck-modal-title" id="deckModalTitle">Deck Name</p>
+                    <input class="deck-input" id="deckNameInput" type="text"
+                           maxlength="120" placeholder="Name of deck" />
+                    <div class="deck-form-actions">
+                        <button class="deck-save-btn"   id="deckSaveBtn"   type="button">Confirm</button>
+                        <button class="deck-cancel-btn" id="deckCancelBtn" type="button">Cancel</button>
                     </div>
-                    <form class="flashcard-form hidden" id="flashcardForm">
+                    <div class="deck-status" id="deckStatus"></div>
+                </div>
+            </div>
+
+            {{-- ── DECK CONTENT (shown after a deck is selected) ── --}}
+            <div class="hidden" id="deckContent">
+                <div class="deck-content-header">
+                    <button class="back-btn deck-back-btn" id="deckBackBtn" type="button">← Back to Decks</button>
+                    <div>
+                        <h2 class="deck-content-title" id="deckContentTitle">Deck Name</h2>
+                        <p class="deck-content-desc" id="deckContentDesc"></p>
+                    </div>
+                </div>
+
+                {{-- Action buttons (kept exactly like original) --}}
+                <div class="study-action-row flashcard-action-row">
+                    <button class="menu-btn study-action-btn study-action-flashcard flashcard-action-btn" id="flashcardUploadPromptBtn" type="button">
+                        <span class="menu-btn-icon">📎</span>
+                        <span class="menu-btn-label">Upload Materials</span>
+                        <span class="menu-btn-desc">Add the source material for this study set</span>
+                    </button>
+                    <button class="menu-btn study-action-btn study-action-flashcard flashcard-action-btn" id="flashcardCreatePromptBtn" type="button">
+                        <span class="menu-btn-icon">🃏</span>
+                        <span class="menu-btn-label">Create Flashcards</span>
+                        <span class="menu-btn-desc">Build cards manually for active recall</span>
+                    </button>
+                </div>
+
+                {{-- Sliding flashcard stage (kept exactly like original) --}}
+                <section class="flashcard-stage" id="flashcardStage">
+                    <button class="flashcard-nav flashcard-nav-left" id="flashcardPrevBtn" type="button" aria-label="Previous flashcard">‹</button>
+                    <div class="flashcard-stage-viewport">
+                        <div class="flashcard-stage-track" id="flashcardStageTrack"></div>
+                        <div class="flashcard-stage-counter" id="flashcardStageCounter"></div>
+                    </div>
+                    <button class="flashcard-nav flashcard-nav-right" id="flashcardNextBtn" type="button" aria-label="Next flashcard">›</button>
+                </section>
+            </div>
+
+            <button class="back-btn" data-target="screenMenu" id="flashcardScreenBackBtn">← Back to Menu</button>
+        </div>
+
+        {{-- Flashcard Studio Modal --}}
+        <div class="flashcard-modal hidden" id="flashcardModal" aria-hidden="true">
+            <div class="flashcard-modal-backdrop" id="flashcardModalBackdrop"></div>
+            <div class="flashcard-modal-card" role="dialog" aria-modal="true" aria-labelledby="flashcardModalTitle">
+                <div class="flashcard-modal-header">
+                    <div>
+                        <h3 class="flashcard-modal-title" id="flashcardModalTitle">Flashcard Studio</h3>
+                        <p class="flashcard-modal-subtitle" id="flashcardModalSubtitle">Choose how you want to continue.</p>
+                    </div>
+                    <button class="flashcard-modal-close" id="flashcardModalCloseBtn" type="button" aria-label="Close flashcard studio">×</button>
+                </div>
+
+                <div class="flashcard-modal-pane" id="flashcardUploadPane">
+                    <div class="flashcard-modal-section-title">Upload Material</div>
+                    <div class="flashcard-modal-help">Select a file to attach it to this flashcard session.</div>
+                    <button class="materials-upload-btn" id="flashcardMaterialsUploadBtn" type="button">Upload Material</button>
+                    <input type="file" id="flashcardMaterialsInput" class="hidden"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
+                        application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                        application/vnd.ms-powerpoint,
+                        application/vnd.openxmlformats-officedocument.presentationml.presentation">
+                    <div class="materials-status" id="flashcardMaterialsStatus"></div>
+                    <div class="materials-list" id="flashcardMaterialsList"></div>
+                </div>
+
+                <div class="flashcard-modal-pane hidden" id="flashcardCreatePane">
+                    <div class="flashcard-modal-section-title">Create Flashcards</div>
+                    <form class="flashcard-form" id="flashcardForm">
                         <label class="flashcard-label" for="flashcardQuestion">Question / Front</label>
                         <input class="flashcard-input" id="flashcardQuestion" type="text" maxlength="400" placeholder="Type the question here" required>
                         <label class="flashcard-label" for="flashcardAnswer">Answer / Back</label>
@@ -98,18 +183,107 @@
                         </div>
                     </form>
                     <div class="flashcard-status" id="flashcardStatus"></div>
-                    <div class="flashcard-list" id="flashcardList"></div>
                 </div>
             </div>
-            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
         </div>
 
         {{-- ══ SCREEN: QUIZ ══ --}}
         <div class="screen screen-content hidden" id="screenQuiz">
-            <div class="content-area" id="quizContent">
-                <p class="placeholder-text">📝 Quiz — coming soon!</p>
+            <div class="study-action-row quiz-action-row">
+                <button class="menu-btn study-action-btn study-action-quiz quiz-action-btn" id="quizUploadPromptBtn" type="button">
+                    <span class="menu-btn-icon">📎</span>
+                    <span class="menu-btn-label">Upload Materials</span>
+                    <span class="menu-btn-desc">Add the source material for this quiz</span>
+                </button>
+                <button class="menu-btn study-action-btn study-action-quiz quiz-action-btn" id="quizCreatePromptBtn" type="button">
+                    <span class="menu-btn-icon">📝</span>
+                    <span class="menu-btn-label">Create Quiz</span>
+                    <span class="menu-btn-desc">Build questions manually</span>
+                </button>
             </div>
+            <section class="quiz-stage" id="quizStage">
+                <button class="quiz-nav quiz-nav-left" id="quizPrevBtn" type="button" aria-label="Previous question">‹</button>
+                <div class="quiz-stage-viewport">
+                    <div class="quiz-stage-track" id="quizStageTrack"></div>
+                    <div class="quiz-stage-counter" id="quizStageCounter"></div>
+                </div>
+                <button class="quiz-nav quiz-nav-right" id="quizNextBtn" type="button" aria-label="Next question">›</button>
+            </section>
             <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
+        </div>
+
+        {{-- Quiz Modal --}}
+        <div class="quiz-modal hidden" id="quizModal" aria-hidden="true">
+            <div class="quiz-modal-backdrop" id="quizModalBackdrop"></div>
+            <div class="quiz-modal-card" role="dialog" aria-modal="true" aria-labelledby="quizModalTitle">
+                <div class="quiz-modal-header">
+                    <div>
+                        <h3 class="quiz-modal-title" id="quizModalTitle">Quiz Studio</h3>
+                        <p class="quiz-modal-subtitle" id="quizModalSubtitle">Choose how you want to continue.</p>
+                    </div>
+                    <button class="quiz-modal-close" id="quizModalCloseBtn" type="button" aria-label="Close quiz studio">×</button>
+                </div>
+
+                <div class="quiz-modal-pane" id="quizUploadPane">
+                    <div class="quiz-modal-section-title">Upload Material</div>
+                    <div class="quiz-modal-help">Select a file to attach it to this quiz session.</div>
+                    <button class="materials-upload-btn" id="quizMaterialsUploadBtn" type="button">Upload Material</button>
+                    <input type="file" id="quizMaterialsInput" class="hidden"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
+                        application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                        application/vnd.ms-powerpoint,
+                        application/vnd.openxmlformats-officedocument.presentationml.presentation">
+                    <div class="materials-status" id="quizMaterialsStatus"></div>
+                    <div class="materials-list" id="quizMaterialsList"></div>
+                </div>
+
+                <div class="quiz-modal-pane hidden" id="quizCreatePane">
+                    <div class="quiz-modal-section-title">Create Quiz Questions</div>
+                    <form class="quiz-form" id="quizForm">
+                        <label class="quiz-label" for="quizQuestion">Question</label>
+                        <textarea class="quiz-textarea quiz-question" id="quizQuestion" maxlength="500" placeholder="Type the quiz question here" required></textarea>
+                        <div class="quiz-options-grid">
+                            <div>
+                                <label class="quiz-label" for="quizOptionA">Option A</label>
+                                <input class="quiz-input" id="quizOptionA" type="text" maxlength="400" placeholder="Answer choice A" required>
+                            </div>
+                            <div>
+                                <label class="quiz-label" for="quizOptionB">Option B</label>
+                                <input class="quiz-input" id="quizOptionB" type="text" maxlength="400" placeholder="Answer choice B" required>
+                            </div>
+                            <div>
+                                <label class="quiz-label" for="quizOptionC">Option C</label>
+                                <input class="quiz-input" id="quizOptionC" type="text" maxlength="400" placeholder="Answer choice C" required>
+                            </div>
+                            <div>
+                                <label class="quiz-label" for="quizOptionD">Option D</label>
+                                <input class="quiz-input" id="quizOptionD" type="text" maxlength="400" placeholder="Answer choice D" required>
+                            </div>
+                        </div>
+                        <div class="quiz-form-row">
+                            <div>
+                                <label class="quiz-label" for="quizCorrectOption">Correct Answer</label>
+                                <select class="quiz-input" id="quizCorrectOption" required>
+                                    <option value="" selected disabled>Select correct option</option>
+                                    <option value="A">Option A</option>
+                                    <option value="B">Option B</option>
+                                    <option value="C">Option C</option>
+                                    <option value="D">Option D</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="quiz-label" for="quizExplanation">Explanation</label>
+                                <textarea class="quiz-textarea quiz-explanation" id="quizExplanation" maxlength="1000" placeholder="Optional explanation for the correct answer"></textarea>
+                            </div>
+                        </div>
+                        <div class="quiz-form-actions">
+                            <button class="quiz-cancel-btn" id="quizCancelBtn" type="button">Cancel</button>
+                            <button class="quiz-save-btn" id="quizSaveBtn" type="submit">Save Quiz Question</button>
+                        </div>
+                    </form>
+                    <div class="quiz-status" id="quizStatus"></div>
+                </div>
+            </div>
         </div>
 
     </main>
@@ -173,12 +347,19 @@
 
 </div>
 
+<input type="file" id="materialsInput" class="hidden"
+    accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
+    application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+    application/vnd.ms-powerpoint,
+    application/vnd.openxmlformats-officedocument.presentationml.presentation">
+
 <script>
-    window.__focusMaterials  = @json($materials  ?? []);
-    window.__focusFlashcards = @json($flashcards ?? []);
+    window.__focusMaterials = @json($materials ?? []);
+    window.__focusDecks     = @json($decks    ?? []);
+    window.__focusQuizzes   = @json($quizzes  ?? []);
 </script>
 <script src="{{ asset('js/focus-mode.js') }}"></script>
+<script src="{{ asset('js/flashcards-decks.js') }}"></script>
 
-@include('layouts.admin_bar')
 </body>
 </html>

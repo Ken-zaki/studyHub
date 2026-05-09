@@ -58,7 +58,38 @@
             <div class="loading" id="loading">Logging in...</div>
         </form>
 
-        <div class="bottom-link">
+        {{-- Divider --}}
+        <div class="divider" style="
+            display: flex; align-items: center; gap: 12px;
+            margin: 16px 0; color: #9ca3af; font-size: 13px;
+        ">
+            <span style="flex:1; height:1px; background:#e5e7eb;"></span>
+            OR
+            <span style="flex:1; height:1px; background:#e5e7eb;"></span>
+        </div>
+
+        {{-- Continue as Guest --}}
+        <a href="{{ route('guest') }}" class="btn btn-guest" style="
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 11px;
+            border: 1.5px solid #e5e7eb; border-radius: 10px;
+            background: white; color: #374151;
+            font-family: inherit; font-size: 14px; font-weight: 600;
+            text-decoration: none; text-align: center;
+            transition: border-color 0.18s, color 0.18s;
+            cursor: pointer; box-sizing: border-box;
+        " onmouseover="this.style.borderColor='#1a5f7a';this.style.color='#1a5f7a';"
+           onmouseout="this.style.borderColor='#e5e7eb';this.style.color='#374151';">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor" stroke-width="2"
+                 style="width:17px;height:17px;flex-shrink:0;">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            Continue as Guest
+        </a>
+
+        <div class="bottom-link" style="margin-top: 16px;">
             Don't have an account? <a href="{{ route('signup') }}">Sign up</a>
         </div>
     </div>

@@ -9,26 +9,25 @@ class CreateFriendRequestsAndFriendsTables extends Migration
     public function up(): void
     {
         Schema::create('friend_requests', function (Blueprint $table) {
-            $table->id();
-            $table->string('sender_id');
-            $table->string('receiver_id');
-            $table->enum('status', ['pending', 'accepted', 'declined'])->default('pending');
-            $table->timestamp('responded_at')->nullable();
-            $table->timestamps();
+            $table->uuid('id')->primary();
+            $table->uuid('sender_id')->nullable();
+            $table->uuid('receiver_id')->nullable();
+            $table->text('status')->default('pending');
+            $table->timestamp('created_at')->useCurrent();
 
-            $table->unique(['sender_id', 'receiver_id']);
-            $table->index(['receiver_id', 'status']);
-            $table->index(['sender_id', 'status']);
+            // Add indexes for faster queries
+            $table->index('sender_id');
+            $table->index('receiver_id');
+            $table->index('status');
         });
 
         Schema::create('friends', function (Blueprint $table) {
-            $table->id();
-            $table->string('user_id');
-            $table->string('friend_id');
-            $table->timestamp('accepted_at')->nullable();
-            $table->timestamps();
+            $table->uuid('id')->primary();
+            $table->uuid('user_id')->nullable();
+            $table->uuid('friend_id')->nullable();
+            $table->timestamp('created_at')->useCurrent();
 
-            $table->unique(['user_id', 'friend_id']);
+            // Add indexes for faster queries
             $table->index('user_id');
             $table->index('friend_id');
         });
