@@ -13,7 +13,7 @@ class FriendRequest extends Model
     protected $keyType = 'string';
     public $incrementing = false;
     public $timestamps = true;
-    
+
     protected $fillable = [
         'sender_id',
         'receiver_id',
@@ -22,6 +22,9 @@ class FriendRequest extends Model
     ];
 
     protected $casts = [
+        'id'          => 'string',   // add this
+        'sender_id'   => 'string',   // add this
+        'receiver_id' => 'string',   // add this
         'responded_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
