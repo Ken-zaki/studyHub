@@ -1,37 +1,10 @@
 <?php
-// ─────────────────────────────────────────────────────────────
-//  FocusModeController.php  (updated — adds Quiz Set support)
-//  Place at: app/Http/Controllers/FocusModeController.php
-//
-//  WHAT'S NEW vs the original:
-//   • loadQuizSets()  — loads sets with nested questions
-//   • storeQuizSet()  — POST /focus-mode/quiz-sets
-//   • destroyQuizSet() — DELETE /focus-mode/quiz-sets/{id}
-//   • storeQuiz()  — now accepts quiz_set_id and scopes the
-//                    returned questions to that set
-//   • index()  — now passes $quizSets to the view
-//
-//  DB MIGRATION NEEDED — run once:
-//  ─────────────────────────────────────────────────────────
-//  Schema::create('focus_quiz_sets', function (Blueprint $table) {
-//      $table->string('id')->primary();
-//      $table->string('user_id');
-//      $table->string('title');
-//      $table->string('description')->default('');
-//      $table->timestamps();
-//      $table->index('user_id');
-//  });
-//
-//  Then add quiz_set_id to focus_quizzes:
-//  Schema::table('focus_quizzes', function (Blueprint $table) {
-//      $table->string('quiz_set_id')->nullable()->after('user_id');
-//      $table->index('quiz_set_id');
-//  });
-// ─────────────────────────────────────────────────────────────
 
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -42,16 +15,23 @@ class FocusModeController extends Controller
     //  Helpers
     // ─────────────────────────────────────────────────────────
 
-    /** Return the authenticated user's ID or null. */
+    /**
+     * Return the current user's ID as a string.
+     * Checks Laravel Auth first, then falls back to session('user_id').
+     * This covers both standard Auth middleware and session-based auth.
+     */
     private function userId(): ?string
     {
+        // Standard Laravel Auth (works with Sanctum, session guard, etc.)
+        if (Auth::check()) {
+            return (string) Auth::id();
+        }
+
+        // Fallback: session-based user_id (used by original implementation)
         $id = session('user_id');
         return ($id && $id !== '') ? (string) $id : null;
     }
 
-    /**
-     * Load all decks for the current user, each with its flashcards nested.
-     */
     private function loadDecks(string $userId): array
     {
         $decks = DB::table('focus_flashcard_decks')
@@ -75,9 +55,6 @@ class FocusModeController extends Controller
         return $decks;
     }
 
-    /**
-     * Load all quiz sets for the current user, each with its questions nested.
-     */
     private function loadQuizSets(string $userId): array
     {
         $sets = DB::table('focus_quiz_sets')
@@ -94,22 +71,18 @@ class FocusModeController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->get(['id', 'quiz_set_id', 'question', 'option_a', 'option_b',
                        'option_c', 'option_d', 'correct_option', 'explanation', 'created_at'])
-                ->map(function ($row) {
-                    return [
-                        'id'             => $row->id,
-                        'quiz_set_id'    => $row->quiz_set_id,
-                        'question'       => $row->question,
-                        'options'        => [
-                            'A' => $row->option_a,
-                            'B' => $row->option_b,
-                            'C' => $row->option_c,
-                            'D' => $row->option_d,
-                        ],
-                        'correct_option' => $row->correct_option,
-                        'explanation'    => $row->explanation ?? '',
-                        'created_at'     => $row->created_at,
-                    ];
-                })
+                ->map(fn ($row) => [
+                    'id'             => $row->id,
+                    'quiz_set_id'    => $row->quiz_set_id,
+                    'question'       => $row->question,
+                    'options'        => [
+                        'A' => $row->option_a, 'B' => $row->option_b,
+                        'C' => $row->option_c, 'D' => $row->option_d,
+                    ],
+                    'correct_option' => $row->correct_option,
+                    'explanation'    => $row->explanation ?? '',
+                    'created_at'     => $row->created_at,
+                ])
                 ->toArray();
         }
         unset($set);
@@ -117,9 +90,6 @@ class FocusModeController extends Controller
         return $sets;
     }
 
-    /**
-     * Load global quizzes (not set-scoped) — kept for backward compat.
-     */
     private function loadQuizzes(string $userId): array
     {
         return DB::table('focus_quizzes')
@@ -127,51 +97,60 @@ class FocusModeController extends Controller
             ->orderBy('created_at', 'asc')
             ->get(['id', 'question', 'option_a', 'option_b', 'option_c', 'option_d',
                    'correct_option', 'explanation', 'created_at'])
-            ->map(function ($row) {
-                return [
-                    'id'             => $row->id,
-                    'question'       => $row->question,
-                    'options'        => [
-                        'A' => $row->option_a,
-                        'B' => $row->option_b,
-                        'C' => $row->option_c,
-                        'D' => $row->option_d,
-                    ],
-                    'correct_option' => $row->correct_option,
-                    'explanation'    => $row->explanation ?? '',
-                    'created_at'     => $row->created_at,
-                ];
-            })
+            ->map(fn ($row) => [
+                'id'             => $row->id,
+                'question'       => $row->question,
+                'options'        => [
+                    'A' => $row->option_a, 'B' => $row->option_b,
+                    'C' => $row->option_c, 'D' => $row->option_d,
+                ],
+                'correct_option' => $row->correct_option,
+                'explanation'    => $row->explanation ?? '',
+                'created_at'     => $row->created_at,
+            ])
+            ->toArray();
+    }
+
+    private function loadMaterials(string $userId, string $screen = 'screenReview'): array
+    {
+        return DB::table('focus_materials')
+            ->where('user_id', $userId)
+            ->where('screen', $screen)
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'name', 'file_path', 'type', 'screen', 'created_at'])
+            ->map(fn ($row) => [
+                'id'         => $row->id,
+                'name'       => $row->name,
+                'file_path'  => $row->file_path,
+                'type'       => $row->type,
+                'screen'     => $row->screen,
+                'url'        => asset($row->file_path),
+                'created_at' => $row->created_at,
+            ])
             ->toArray();
     }
 
     // ─────────────────────────────────────────────────────────
-    //  Routes
+    //  Main page
     // ─────────────────────────────────────────────────────────
 
-    /**
-     * Display the Focus Mode page.
-     */
     public function index()
     {
         $userId = $this->userId();
 
+        $materials = $userId ? $this->loadMaterials($userId, 'screenReview') : [];
         $decks     = $userId ? $this->loadDecks($userId)    : [];
         $quizzes   = $userId ? $this->loadQuizzes($userId)  : [];
         $quizSets  = $userId ? $this->loadQuizSets($userId) : [];
 
-        return view('home.focus-mode', [
-            'materials' => session('focus_materials', []),
-            'decks'     => $decks,
-            'quizzes'   => $quizzes,   // kept for backward compat
-            'quizSets'  => $quizSets,  // new — passed to blade bootstrap
-        ]);
+        return view('home.focus-mode', compact('materials', 'decks', 'quizzes', 'quizSets'));
     }
 
-    /**
-     * Save a completed focus session duration (AJAX).
-     */
-    public function storeSession(Request $request)
+    // ─────────────────────────────────────────────────────────
+    //  Session tracking
+    // ─────────────────────────────────────────────────────────
+
+    public function storeSession(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'duration' => 'required|integer|min:1|max:86400',
@@ -189,52 +168,204 @@ class FocusModeController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    // ─────────────────────────────────────────────────────────
+    //  Materials
+    // ─────────────────────────────────────────────────────────
+
     /**
-     * Upload a study material file.
+     * Upload and store a study material.
+     * POST /focus-mode/materials
      */
-    public function storeMaterial(Request $request)
+    public function storeMaterial(Request $request): JsonResponse
     {
+        $userId = $this->userId();
+        if (!$userId) {
+            return response()->json(['message' => 'Not authenticated.'], 401);
+        }
+
         $validated = $request->validate([
-            'material' => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:20480',
-            'screen'   => 'required|string|in:screenReview,screenFlashcard,screenQuiz',
+            'file'   => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:20480',
+            'screen' => 'nullable|string|in:screenReview,screenFlashcard,screenQuiz',
         ]);
 
-        $userId   = $this->userId() ?: 'guest';
-        $file     = $request->file('material');
+        $file     = $request->file('file');
         $origName = $file->getClientOriginalName();
         $safeName = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
         $ext      = strtolower($file->getClientOriginalExtension());
         $fileName = now()->format('YmdHis') . '_' . $safeName . '_' . Str::random(8) . '.' . $ext;
+        $screen   = $validated['screen'] ?? 'screenReview';
 
-        $directory = public_path('uploads/focus-mode/' . $userId);
-        File::ensureDirectoryExists($directory);
-        $file->move($directory, $fileName);
+        $directory = 'uploads/focus-mode/' . $userId;
+        File::ensureDirectoryExists(public_path($directory));
+        $file->move(public_path($directory), $fileName);
 
-        $material = [
-            'id'          => (string) Str::uuid(),
-            'screen'      => $validated['screen'],
-            'name'        => $origName,
-            'url'         => asset('uploads/focus-mode/' . $userId . '/' . $fileName),
-            'type'        => $ext,
-            'uploaded_at' => now()->toDateTimeString(),
-        ];
+        $filePath = $directory . '/' . $fileName;
+        $id       = (string) Str::uuid();
+        $now      = now()->toDateTimeString();
 
-        $materials   = session('focus_materials', []);
-        $materials[] = $material;
-        session(['focus_materials' => array_slice($materials, -20)]);
+        DB::table('focus_materials')->insert([
+            'id'         => $id,
+            'user_id'    => $userId,
+            'screen'     => $screen,
+            'name'       => $origName,
+            'file_path'  => $filePath,
+            'type'       => $ext,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
         return response()->json([
-            'status'    => 'ok',
-            'material'  => $material,
-            'materials' => session('focus_materials', []),
+            'status'   => 'ok',
+            'material' => [
+                'id'         => $id,
+                'name'       => $origName,
+                'file_path'  => $filePath,
+                'type'       => $ext,
+                'screen'     => $screen,
+                'url'        => asset($filePath),
+                'created_at' => $now,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a study material and its notes.
+     * DELETE /focus-mode/materials/{id}
+     */
+    public function destroyMaterial(string $id): JsonResponse
+    {
+        $userId = $this->userId();
+        if (!$userId) {
+            return response()->json(['message' => 'Not authenticated.'], 401);
+        }
+
+        $material = DB::table('focus_materials')
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$material) {
+            return response()->json(['message' => 'Material not found.'], 404);
+        }
+
+        // Delete physical file
+        $fullPath = public_path($material->file_path);
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
+
+        // Delete notes then DB record
+        DB::table('focus_material_notes')
+            ->where('study_material_id', $id)
+            ->where('user_id', $userId)
+            ->delete();
+
+        DB::table('focus_materials')
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->delete();
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Serve the raw file for the in-page viewer.
+     * GET /focus-mode/materials/{id}/file
+     */
+    public function serveMaterial(string $id)
+    {
+        $userId = $this->userId();
+        if (!$userId) {
+            abort(401);
+        }
+
+        $material = DB::table('focus_materials')
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        abort_if(!$material, 404);
+
+        $path = public_path($material->file_path);
+        abort_unless(file_exists($path), 404);
+
+        $mime = mime_content_type($path) ?: 'application/octet-stream';
+
+        return response()->file($path, [
+            'Content-Type'              => $mime,
+            'Content-Disposition'       => 'inline; filename="' . basename($path) . '"',
+            // Allow Google Docs Viewer to embed this file
+            'Access-Control-Allow-Origin' => 'https://docs.google.com',
         ]);
     }
 
     // ─────────────────────────────────────────────────────────
-    //  Decks  (unchanged)
+    //  Notes
     // ─────────────────────────────────────────────────────────
 
-    public function storeDeck(Request $request)
+    /**
+     * GET /focus-mode/materials/{id}/notes
+     */
+    public function showNote(string $id): JsonResponse
+    {
+        $userId = $this->userId();
+        if (!$userId) {
+            return response()->json(['message' => 'Not authenticated.'], 401);
+        }
+
+        $note = DB::table('focus_material_notes')
+            ->where('user_id', $userId)
+            ->where('study_material_id', $id)
+            ->first();
+
+        return response()->json(['content' => $note?->content ?? '']);
+    }
+
+    /**
+     * POST /focus-mode/materials/{id}/notes
+     */
+    public function saveNote(Request $request, string $id): JsonResponse
+    {
+        $userId = $this->userId();
+        if (!$userId) {
+            return response()->json(['message' => 'Not authenticated.'], 401);
+        }
+
+        $validated = $request->validate([
+            'content' => 'nullable|string|max:65535',
+        ]);
+
+        $content = $validated['content'] ?? '';
+        $now     = now()->toDateTimeString();
+
+        $exists = DB::table('focus_material_notes')
+            ->where('user_id', $userId)
+            ->where('study_material_id', $id)
+            ->exists();
+
+        if ($exists) {
+            DB::table('focus_material_notes')
+                ->where('user_id', $userId)
+                ->where('study_material_id', $id)
+                ->update(['content' => $content, 'updated_at' => $now]);
+        } else {
+            DB::table('focus_material_notes')->insert([
+                'user_id'           => $userId,
+                'study_material_id' => $id,
+                'content'           => $content,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ]);
+        }
+
+        return response()->json(['ok' => true, 'content' => $content]);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  Decks
+    // ─────────────────────────────────────────────────────────
+
+    public function storeDeck(Request $request): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
@@ -258,25 +389,20 @@ class FocusModeController extends Controller
 
         return response()->json([
             'status' => 'ok',
-            'deck'   => [
-                'id'          => $id,
-                'name'        => trim($validated['name']),
-                'description' => trim((string) ($validated['description'] ?? '')),
-                'created_at'  => $now,
-                'flashcards'  => [],
-            ],
+            'deck'   => ['id' => $id, 'name' => trim($validated['name']),
+                         'description' => trim((string)($validated['description'] ?? '')),
+                         'created_at' => $now, 'flashcards' => []],
             'decks'  => $this->loadDecks($userId),
         ]);
     }
 
-    public function destroyDeck(string $id)
+    public function destroyDeck(string $id): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
 
         $deck = DB::table('focus_flashcard_decks')
             ->where('id', $id)->where('user_id', $userId)->first();
-
         if (!$deck) return response()->json(['message' => 'Deck not found.'], 404);
 
         DB::table('focus_flashcards')->where('deck_id', $id)->where('user_id', $userId)->delete();
@@ -286,10 +412,10 @@ class FocusModeController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────
-    //  Flashcards  (unchanged)
+    //  Flashcards
     // ─────────────────────────────────────────────────────────
 
-    public function storeFlashcard(Request $request)
+    public function storeFlashcard(Request $request): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
@@ -302,78 +428,60 @@ class FocusModeController extends Controller
 
         $deck = DB::table('focus_flashcard_decks')
             ->where('id', $validated['deck_id'])->where('user_id', $userId)->first();
-
         if (!$deck) return response()->json(['message' => 'Deck not found.'], 404);
 
         $id  = (string) Str::uuid();
         $now = now()->toDateTimeString();
 
         DB::table('focus_flashcards')->insert([
-            'id'         => $id,
-            'user_id'    => $userId,
+            'id'         => $id, 'user_id'  => $userId,
             'deck_id'    => $validated['deck_id'],
             'question'   => trim($validated['question']),
             'answer'     => trim($validated['answer']),
-            'created_at' => $now,
-            'updated_at' => $now,
+            'created_at' => $now, 'updated_at' => $now,
         ]);
 
-        $flashcard = [
-            'id'         => $id,
-            'deck_id'    => $validated['deck_id'],
-            'question'   => trim($validated['question']),
-            'answer'     => trim($validated['answer']),
-            'created_at' => $now,
-        ];
-
         $deckFlashcards = DB::table('focus_flashcards')
-            ->where('user_id', $userId)
-            ->where('deck_id', $validated['deck_id'])
+            ->where('user_id', $userId)->where('deck_id', $validated['deck_id'])
             ->orderBy('created_at', 'asc')
             ->get(['id', 'deck_id', 'question', 'answer', 'created_at'])
-            ->map(fn ($row) => (array) $row)
-            ->toArray();
+            ->map(fn ($r) => (array) $r)->toArray();
 
         return response()->json([
             'status'     => 'ok',
-            'flashcard'  => $flashcard,
+            'flashcard'  => ['id' => $id, 'deck_id' => $validated['deck_id'],
+                             'question' => trim($validated['question']),
+                             'answer'   => trim($validated['answer']), 'created_at' => $now],
             'flashcards' => $deckFlashcards,
         ]);
     }
 
-    public function destroyFlashcard(string $id)
+    public function destroyFlashcard(string $id): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
 
         $card = DB::table('focus_flashcards')
             ->where('id', $id)->where('user_id', $userId)->first();
-
         if (!$card) return response()->json(['message' => 'Flashcard not found.'], 404);
 
         $deckId = $card->deck_id;
         DB::table('focus_flashcards')->where('id', $id)->where('user_id', $userId)->delete();
 
         $remaining = DB::table('focus_flashcards')
-            ->where('user_id', $userId)
-            ->where('deck_id', $deckId)
+            ->where('user_id', $userId)->where('deck_id', $deckId)
             ->orderBy('created_at', 'asc')
             ->get(['id', 'deck_id', 'question', 'answer', 'created_at'])
-            ->map(fn ($row) => (array) $row)
-            ->toArray();
+            ->map(fn ($r) => (array) $r)->toArray();
 
         return response()->json(['status' => 'ok', 'flashcards' => $remaining]);
     }
 
     // ─────────────────────────────────────────────────────────
-    //  Quiz Sets  (NEW)
+    //  Quiz Sets
     // ─────────────────────────────────────────────────────────
 
-    /**
-     * Create a new quiz set.
-     * POST /focus-mode/quiz-sets
-     */
-    public function storeQuizSet(Request $request)
+    public function storeQuizSet(Request $request): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
@@ -387,68 +495,41 @@ class FocusModeController extends Controller
         $now = now()->toDateTimeString();
 
         DB::table('focus_quiz_sets')->insert([
-            'id'          => $id,
-            'user_id'     => $userId,
+            'id'          => $id, 'user_id' => $userId,
             'title'       => trim($validated['title']),
-            'description' => trim((string) ($validated['description'] ?? '')),
-            'created_at'  => $now,
-            'updated_at'  => $now,
+            'description' => trim((string)($validated['description'] ?? '')),
+            'created_at'  => $now, 'updated_at' => $now,
         ]);
 
         return response()->json([
             'status'    => 'ok',
-            'quiz_set'  => [
-                'id'          => $id,
-                'title'       => trim($validated['title']),
-                'description' => trim((string) ($validated['description'] ?? '')),
-                'created_at'  => $now,
-                'questions'   => [],  // brand-new set has no questions yet
-            ],
+            'quiz_set'  => ['id' => $id, 'title' => trim($validated['title']),
+                            'description' => trim((string)($validated['description'] ?? '')),
+                            'created_at' => $now, 'questions' => []],
             'quiz_sets' => $this->loadQuizSets($userId),
         ]);
     }
 
-    /**
-     * Delete a quiz set and all its questions.
-     * DELETE /focus-mode/quiz-sets/{id}
-     */
-    public function destroyQuizSet(string $id)
+    public function destroyQuizSet(string $id): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
 
         $set = DB::table('focus_quiz_sets')
             ->where('id', $id)->where('user_id', $userId)->first();
-
         if (!$set) return response()->json(['message' => 'Quiz set not found.'], 404);
 
-        // Delete all questions in the set, then the set itself
-        DB::table('focus_quizzes')
-            ->where('quiz_set_id', $id)
-            ->where('user_id', $userId)
-            ->delete();
+        DB::table('focus_quizzes')->where('quiz_set_id', $id)->where('user_id', $userId)->delete();
+        DB::table('focus_quiz_sets')->where('id', $id)->where('user_id', $userId)->delete();
 
-        DB::table('focus_quiz_sets')
-            ->where('id', $id)
-            ->where('user_id', $userId)
-            ->delete();
-
-        return response()->json([
-            'status'    => 'ok',
-            'quiz_sets' => $this->loadQuizSets($userId),
-        ]);
+        return response()->json(['status' => 'ok', 'quiz_sets' => $this->loadQuizSets($userId)]);
     }
 
     // ─────────────────────────────────────────────────────────
-    //  Quizzes  (updated — now scoped to a quiz set)
+    //  Quizzes
     // ─────────────────────────────────────────────────────────
 
-    /**
-     * Store a quiz question.
-     * Now accepts quiz_set_id and returns the set's questions.
-     * POST /focus-mode/quizzes
-     */
-    public function storeQuiz(Request $request)
+    public function storeQuiz(Request $request): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
@@ -465,25 +546,17 @@ class FocusModeController extends Controller
         ]);
 
         $quizSetId = $validated['quiz_set_id'] ?? null;
-
-        // If a set ID was supplied, verify it belongs to this user
         if ($quizSetId) {
             $set = DB::table('focus_quiz_sets')
-                ->where('id', $quizSetId)
-                ->where('user_id', $userId)
-                ->first();
-
-            if (!$set) {
-                return response()->json(['message' => 'Quiz set not found.'], 404);
-            }
+                ->where('id', $quizSetId)->where('user_id', $userId)->first();
+            if (!$set) return response()->json(['message' => 'Quiz set not found.'], 404);
         }
 
         $id  = (string) Str::uuid();
         $now = now()->toDateTimeString();
 
         DB::table('focus_quizzes')->insert([
-            'id'             => $id,
-            'user_id'        => $userId,
+            'id'             => $id, 'user_id' => $userId,
             'quiz_set_id'    => $quizSetId,
             'question'       => trim($validated['question']),
             'option_a'       => trim($validated['option_a']),
@@ -491,79 +564,48 @@ class FocusModeController extends Controller
             'option_c'       => trim($validated['option_c']),
             'option_d'       => trim($validated['option_d']),
             'correct_option' => $validated['correct_option'],
-            'explanation'    => trim((string) ($validated['explanation'] ?? '')),
-            'created_at'     => $now,
-            'updated_at'     => $now,
+            'explanation'    => trim((string)($validated['explanation'] ?? '')),
+            'created_at'     => $now, 'updated_at' => $now,
         ]);
 
         $quiz = [
-            'id'             => $id,
-            'quiz_set_id'    => $quizSetId,
-            'question'       => trim($validated['question']),
-            'options'        => [
-                'A' => trim($validated['option_a']),
-                'B' => trim($validated['option_b']),
-                'C' => trim($validated['option_c']),
-                'D' => trim($validated['option_d']),
-            ],
+            'id' => $id, 'quiz_set_id' => $quizSetId,
+            'question' => trim($validated['question']),
+            'options'  => ['A' => trim($validated['option_a']), 'B' => trim($validated['option_b']),
+                           'C' => trim($validated['option_c']), 'D' => trim($validated['option_d'])],
             'correct_option' => $validated['correct_option'],
-            'explanation'    => trim((string) ($validated['explanation'] ?? '')),
+            'explanation'    => trim((string)($validated['explanation'] ?? '')),
             'created_at'     => $now,
         ];
 
-        // If scoped to a set, return only that set's questions (what the slider needs)
         if ($quizSetId) {
             $setQuestions = DB::table('focus_quizzes')
-                ->where('user_id', $userId)
-                ->where('quiz_set_id', $quizSetId)
+                ->where('user_id', $userId)->where('quiz_set_id', $quizSetId)
                 ->orderBy('created_at', 'asc')
                 ->get(['id', 'quiz_set_id', 'question', 'option_a', 'option_b',
                        'option_c', 'option_d', 'correct_option', 'explanation', 'created_at'])
-                ->map(function ($row) {
-                    return [
-                        'id'             => $row->id,
-                        'quiz_set_id'    => $row->quiz_set_id,
-                        'question'       => $row->question,
-                        'options'        => [
-                            'A' => $row->option_a,
-                            'B' => $row->option_b,
-                            'C' => $row->option_c,
-                            'D' => $row->option_d,
-                        ],
-                        'correct_option' => $row->correct_option,
-                        'explanation'    => $row->explanation ?? '',
-                        'created_at'     => $row->created_at,
-                    ];
-                })
-                ->toArray();
+                ->map(fn ($r) => [
+                    'id' => $r->id, 'quiz_set_id' => $r->quiz_set_id, 'question' => $r->question,
+                    'options' => ['A' => $r->option_a, 'B' => $r->option_b,
+                                  'C' => $r->option_c, 'D' => $r->option_d],
+                    'correct_option' => $r->correct_option,
+                    'explanation'    => $r->explanation ?? '',
+                    'created_at'     => $r->created_at,
+                ])->toArray();
 
-            return response()->json([
-                'status'    => 'ok',
-                'quiz'      => $quiz,
-                'questions' => $setQuestions,  // JS updates the active set's question list
-            ]);
+            return response()->json(['status' => 'ok', 'quiz' => $quiz, 'questions' => $setQuestions]);
         }
 
-        // Fallback: no set — return all global quizzes (backward compat)
-        return response()->json([
-            'status'  => 'ok',
-            'quiz'    => $quiz,
-            'quizzes' => $this->loadQuizzes($userId),
-        ]);
+        return response()->json(['status' => 'ok', 'quiz' => $quiz, 'quizzes' => $this->loadQuizzes($userId)]);
     }
 
-    /**
-     * Delete a quiz question — owner only.
-     * DELETE /focus-mode/quizzes/{id}
-     */
-    public function destroyQuiz(string $id)
+    public function destroyQuiz(string $id): JsonResponse
     {
         $userId = $this->userId();
         if (!$userId) return response()->json(['message' => 'Not authenticated.'], 401);
 
         $quiz = DB::table('focus_quizzes')
             ->where('id', $id)->where('user_id', $userId)->first();
-
         if (!$quiz) return response()->json(['message' => 'Quiz question not found.'], 404);
 
         $quizSetId = $quiz->quiz_set_id ?? null;
@@ -571,36 +613,22 @@ class FocusModeController extends Controller
 
         if ($quizSetId) {
             $remaining = DB::table('focus_quizzes')
-                ->where('user_id', $userId)
-                ->where('quiz_set_id', $quizSetId)
+                ->where('user_id', $userId)->where('quiz_set_id', $quizSetId)
                 ->orderBy('created_at', 'asc')
                 ->get(['id', 'quiz_set_id', 'question', 'option_a', 'option_b',
                        'option_c', 'option_d', 'correct_option', 'explanation', 'created_at'])
-                ->map(function ($row) {
-                    return [
-                        'id'             => $row->id,
-                        'quiz_set_id'    => $row->quiz_set_id,
-                        'question'       => $row->question,
-                        'options'        => [
-                            'A' => $row->option_a,
-                            'B' => $row->option_b,
-                            'C' => $row->option_c,
-                            'D' => $row->option_d,
-                        ],
-                        'correct_option' => $row->correct_option,
-                        'explanation'    => $row->explanation ?? '',
-                        'created_at'     => $row->created_at,
-                    ];
-                })
-                ->toArray();
+                ->map(fn ($r) => [
+                    'id' => $r->id, 'quiz_set_id' => $r->quiz_set_id, 'question' => $r->question,
+                    'options' => ['A' => $r->option_a, 'B' => $r->option_b,
+                                  'C' => $r->option_c, 'D' => $r->option_d],
+                    'correct_option' => $r->correct_option,
+                    'explanation'    => $r->explanation ?? '',
+                    'created_at'     => $r->created_at,
+                ])->toArray();
 
             return response()->json(['status' => 'ok', 'questions' => $remaining]);
         }
 
-        return response()->json([
-            'status'  => 'ok',
-            'quizzes' => $this->loadQuizzes($userId),
-        ]);
+        return response()->json(['status' => 'ok', 'quizzes' => $this->loadQuizzes($userId)]);
     }
 }
-

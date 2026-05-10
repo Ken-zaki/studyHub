@@ -1,17 +1,14 @@
 /* ============================================================
-   QUIZ SETS — quiz-sets.css
-   Matches mockup screenshots:
-   - Screen 1: "QUIZ" heading, "My Quizzes" label, teal "+ Add quizzes"
-               button, soft pink "No quizzes created yet." empty state
-   - Screen 2: Orange square quiz-set cards in a flex grid
-   - Screen 3: Floating panel — grey input "Quiz title",
-               orange "Confirm" pill, teal "Cancel" pill
+   QUIZ SETS — quiz.css
+   Covers:
+   - Quiz set browser (grid, add button, empty state)
+   - Quiz set card (orange squares)
+   - Floating title-input panel
+   - Review panel (Q+A study cards — shown before quiz starts)
+   - "Start Quiz" button
+   - Interactive quiz panel (slider, nav, answer states)
+   - "Correct!" toast notification
    ============================================================ */
-
-/* ── Quiz screen wrapper ── */
-#quizSetsScreen {
-    width: 100%;
-}
 
 /* ── Page heading ("QUIZ") ── */
 .quiz-screen-heading {
@@ -55,10 +52,11 @@
     letter-spacing: 0.01em;
 }
 
-/* ── Quiz set card (orange square from screenshot 2) ── */
+/* ── Quiz set card (orange square) ── */
 .quiz-set-card {
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 160px;
@@ -74,6 +72,7 @@
     text-align: center;
     padding: 14px;
     box-sizing: border-box;
+    gap: 6px;
 }
 .quiz-set-card:hover {
     transform: translateY(-3px) scale(1.03);
@@ -93,7 +92,14 @@
     line-height: 1.3;
 }
 
-/* Delete button (shows on hover) */
+.quiz-set-card-count {
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(26, 26, 26, 0.6);
+}
+
+/* Delete button */
 .quiz-set-delete-btn {
     position: absolute;
     top: 7px;
@@ -175,7 +181,7 @@
     pointer-events: all;
 }
 
-/* ── Floating panel card (matches screenshot 3) ── */
+/* ── Floating panel card ── */
 .quiz-set-form {
     background: #eae7e0;
     border: none;
@@ -189,7 +195,6 @@
     box-sizing: border-box;
 }
 
-/* Text input — matches screenshot 3's grey centered input */
 .quiz-set-input {
     width: 100%;
     padding: 16px 20px;
@@ -204,22 +209,15 @@
     text-align: center;
     transition: background 0.18s;
 }
-.quiz-set-input::placeholder {
-    color: #aaa;
-    text-align: center;
-}
-.quiz-set-input:focus {
-    background: #d4d0cb;
-}
+.quiz-set-input::placeholder { color: #aaa; text-align: center; }
+.quiz-set-input:focus { background: #d4d0cb; }
 
-/* Action row — matches screenshot 3 (Confirm left, Cancel right) */
 .quiz-set-form-actions {
     display: flex;
     gap: 20px;
     justify-content: center;
 }
 
-/* Shared pill button base */
 .quiz-set-confirm-btn,
 .quiz-set-cancel-btn {
     padding: 14px 36px;
@@ -233,25 +231,11 @@
     color: #fff;
     min-width: 120px;
 }
+.quiz-set-confirm-btn { background: #f4843a; }
+.quiz-set-confirm-btn:hover { transform: translateY(-1px); opacity: 0.92; }
+.quiz-set-cancel-btn  { background: #2a9d8f; }
+.quiz-set-cancel-btn:hover  { opacity: 0.85; }
 
-/* Confirm = orange */
-.quiz-set-confirm-btn {
-    background: #f4843a;
-}
-.quiz-set-confirm-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.92;
-}
-
-/* Cancel = teal */
-.quiz-set-cancel-btn {
-    background: #2a9d8f;
-}
-.quiz-set-cancel-btn:hover {
-    opacity: 0.85;
-}
-
-/* Status text */
 .quiz-set-status {
     font-size: 13px;
     color: #2a9d8f;
@@ -261,7 +245,7 @@
 }
 .quiz-set-status.error { color: #e53e3e; }
 
-/* ── Quiz set content view (after clicking a set) ── */
+/* ── Quiz set content view header ── */
 #quizSetContent {
     width: 100%;
 }
@@ -270,7 +254,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
 }
 
@@ -293,48 +277,285 @@
     font-size: 1.3rem;
     font-weight: 800;
     color: var(--text-primary, #1a1a1a);
-    margin: 0 0 2px;
+    margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
+
 /* ============================================================
-   QUIZ QUESTION CARD — interactive slide card
-   Matches mockup: warm card bg, teal choice buttons, 2-col grid,
-   answer/explanation panel revealed only on wrong answer.
+   REVIEW PANEL — Q+A study cards (shown before starting quiz)
    ============================================================ */
 
-/* ── Override .flashcard-stage so it doesn't force 520px height ── */
-#quizStage {
-    min-height: unset !important;
-    align-items: flex-start;
+#quizReviewPanel {
+    width: 100%;
 }
 
-/* Clip off-screen slides */
-#quizStage .flashcard-stage-viewport {
+.quiz-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+/* Empty state */
+.quiz-review-empty {
+    text-align: center;
+    padding: 60px 24px 20px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #c9afc0;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Single review card ── */
+.quiz-review-card {
+    background: #f0ede8;
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ── Override .flashcard-stage-track ──
-   That rule sets position:relative, min-height:500px, perspective:1400px
-   which all break the side-by-side flex slide layout.              ── */
-#quizStageTrack {
-    position: static !important;
-    min-height: unset !important;
-    perspective: none !important;
-    display: flex !important;
-    gap: 0 !important;
+/* Question number badge */
+.quiz-review-card-number {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #b8a8b4;
+    padding: 16px 22px 0;
+}
+
+/* Question text row */
+.quiz-review-card-question {
+    background: #e8e4de;
+    margin: 10px 14px 0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a1a);
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* "Answer" label */
+.quiz-review-card-answer-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #b8a8b4;
+    padding: 14px 22px 4px;
+}
+
+/* Correct answer highlight */
+.quiz-review-card-answer {
+    background: #e8e4de;
+    margin: 0 14px;
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2a9d8f;
+    text-align: center;
+}
+
+/* Options grid inside review card */
+.quiz-review-card-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 14px 0;
+}
+
+.quiz-review-card-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e0dcd6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-primary, #1a1a1a);
+    transition: background 0.15s;
+}
+.quiz-review-card-option.is-correct {
+    background: rgba(42, 157, 143, 0.15);
+    color: #1e7a6e;
+}
+
+.quiz-review-option-key {
+    font-weight: 800;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+/* Explanation (italic, muted) */
+.quiz-review-card-explanation {
+    margin: 10px 14px 16px;
+    padding: 12px 16px;
+    background: #e8e4de;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85rem;
+    color: #666;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+/* ── Actions row: Create + Start buttons ── */
+.quiz-review-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+}
+
+.quiz-review-actions.hidden {
+    display: none;
+}
+
+.quiz-action-btn {
+    width: 270px;
+    height: 95px;
+    flex: 0 0 270px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #2a9d8f;
+    color: #fff;
+
+    border: none;
+    border-radius: 16px;
+
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+
+    cursor: pointer;
+    text-align: center;
+
+    box-sizing: border-box;
+
+    box-shadow: 0 4px 12px rgba(42, 157, 143, 0.28);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.quiz-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(42, 157, 143, 0.38);
+}
+
+.quiz-action-btn:active {
+    transform: translateY(0);
+}
+.quiz-action-btn.hidden {
+    display: none;
+}
+/* ============================================================
+   INTERACTIVE QUIZ PANEL — answerable slider
+   ============================================================ */
+
+#quizInteractivePanel {
+    width: 100%;
+}
+
+.quiz-interactive-header {
+    margin-bottom: 20px;
+}
+
+/* Slider stage */
+.quiz-interactive-stage {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.quiz-interactive-viewport {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 24px;
+}
+
+/* Track — flex row, each slide is exactly 100% of the viewport width.
+   transform: translateX(-N * 100%) moves by exactly one slide per step,
+   so it works correctly for any number of questions.                    */
+.quiz-interactive-track {
+    display: flex;
     transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
 }
 
-/* ── One slide per question ── */
-.quiz-slide {
+.quiz-interactive-slide {
+    flex: 0 0 100%;
     width: 100%;
-    flex: 0 0 100%;          /* never shrink, always full viewport width */
     box-sizing: border-box;
 }
 
-/* ── The card itself ── */
+/* Counter ("1 / 5") */
+.quiz-interactive-counter {
+    text-align: center;
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #aaa;
+    margin-top: 14px;
+    letter-spacing: 0.06em;
+}
+
+/* Nav arrow buttons */
+.quiz-nav {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ececea;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    color: var(--text-primary, #1a1a1a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s, opacity 0.18s;
+}
+.quiz-nav:hover:not(:disabled) { background: #e0e0de; }
+.quiz-nav:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Empty state for interactive panel ── */
+.quiz-interactive-empty {
+    text-align: center;
+    padding: 60px 24px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    color: #c9afc0;
+}
+
+/* ============================================================
+   QUIZ QUESTION CARD — shared between interactive panel
+   ============================================================ */
+
 .quiz-question-card {
     background: #eae7e0;
     border-radius: 24px;
@@ -347,7 +568,6 @@
     width: 100%;
 }
 
-/* ── "Question N" label ── */
 .quiz-question-label {
     font-family: "DM Sans", sans-serif;
     font-size: 0.78rem;
@@ -357,7 +577,6 @@
     color: #c9afc0;
 }
 
-/* ── Question text box ── */
 .quiz-question-text {
     background: #dedad5;
     border-radius: 14px;
@@ -374,14 +593,12 @@
     justify-content: center;
 }
 
-/* ── 2-column choices grid ── */
 .quiz-choices-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
 }
 
-/* ── Choice button (teal pill, matches mockup) ── */
 .quiz-choice-btn {
     display: flex;
     align-items: center;
@@ -406,11 +623,8 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(42, 157, 143, 0.32);
 }
-.quiz-choice-btn:disabled {
-    cursor: default;
-}
+.quiz-choice-btn:disabled { cursor: default; }
 
-/* Key letter (A., B., etc.) */
 .quiz-choice-key {
     font-weight: 800;
     font-size: 0.85rem;
@@ -418,21 +632,19 @@
     opacity: 0.9;
 }
 
-/* ── Correct answer state ── */
 .quiz-choice-btn.quiz-choice-correct {
     background: #1e8a7e;
     box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.45);
     opacity: 1 !important;
 }
 
-/* ── Wrong answer state ── */
 .quiz-choice-btn.quiz-choice-wrong {
     background: #c0392b;
     box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.35);
     opacity: 1 !important;
 }
 
-/* ── Answer reveal panel (only shown on wrong answer) ── */
+/* ── Answer reveal panel (wrong answer only) ── */
 .quiz-answer-reveal {
     background: #dedad5;
     border-radius: 14px;
@@ -442,9 +654,7 @@
     gap: 8px;
     text-align: center;
 }
-.quiz-answer-reveal.hidden {
-    display: none;
-}
+.quiz-answer-reveal.hidden { display: none; }
 
 .quiz-answer-label {
     font-family: "DM Sans", sans-serif;
@@ -455,10 +665,7 @@
     color: var(--text-secondary, #888);
 }
 
-.quiz-answer-letter {
-    color: #2a9d8f;
-    font-size: 1rem;
-}
+.quiz-answer-letter { color: #2a9d8f; font-size: 1rem; }
 
 .quiz-answer-explanation {
     font-family: "DM Sans", sans-serif;
@@ -470,12 +677,41 @@
     overflow-y: auto;
 }
 
-/* ── Responsive: 1-col on narrow screens ── */
+/* ============================================================
+   "CORRECT!" TOAST NOTIFICATION
+   Appears center-screen, green, fades in/out.
+   ============================================================ */
+
+.quiz-correct-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.88);
+    background: #27ae60;
+    color: #fff;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 22px 52px;
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(39, 174, 96, 0.4);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.quiz-correct-toast.visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* ── Responsive ── */
 @media (max-width: 560px) {
-    .quiz-choices-grid {
-        grid-template-columns: 1fr;
-    }
-    .quiz-question-card {
-        padding: 22px 18px 20px;
-    }
+    .quiz-choices-grid          { grid-template-columns: 1fr; }
+    .quiz-question-card         { padding: 22px 18px 20px; }
+    .quiz-review-card-options   { grid-template-columns: 1fr; }
+    .quiz-set-card              { width: 140px; height: 140px; }
+    .quiz-review-actions        { flex-direction: column; }
 }

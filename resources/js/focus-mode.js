@@ -144,16 +144,20 @@
     window.FocusMode.getCsrfToken = getCsrfToken;
     window.FocusMode.escHtml = escHtml;
     window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
-    window.FocusMode.renderQuizSlider      = function (questions) { if (typeof renderQuizSlider === 'function') return renderQuizSlider(questions); };
-    window.FocusMode.showQuizSetUI         = function () {
-        document.getElementById("quizSetActionRow")?.classList.remove("hidden");
+
+    // renderQuizSlider is overridden by quiz.js after it initialises.
+    // This stub is a no-op placeholder so focus-mode.js doesn't throw
+    // if handleQuizSubmit fires before quiz.js has loaded.
+    window.FocusMode.renderQuizSlider = function (questions) {
+        // quiz.js overrides this — intentional no-op stub
     };
-    window.FocusMode.hideQuizSetUI         = function () {
-        document.getElementById("quizSetActionRow")?.classList.add("hidden");
-        document.getElementById("quizStage")?.classList.add("hidden");
-        const counter = document.getElementById("quizStageCounter");
-        if (counter) { counter.classList.add("hidden"); counter.textContent = ""; }
-    };
+
+    // showQuizSetUI / hideQuizSetUI are called by quiz.js when
+    // entering / leaving a quiz set. The action-row and old slider
+    // are now managed entirely inside quiz.js injected HTML,
+    // so these stubs are intentionally empty.
+    window.FocusMode.showQuizSetUI = function () { /* handled by quiz.js */ };
+    window.FocusMode.hideQuizSetUI = function () { /* handled by quiz.js */ };
 
     /* ── CSRF helper ────────────────────────────────────────── */
     function getCsrfToken() {
@@ -558,10 +562,10 @@
                 // Update the active set's nested questions
                 const activeSet = (state.quizSets || []).find((s) => s.id === state.activeQuizSetId);
                 if (activeSet) activeSet.questions = payload.questions;
-                renderQuizSlider(payload.questions);
+                window.FocusMode.renderQuizSlider(payload.questions);
             } else {
                 state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
-                renderQuizSlider();
+                window.FocusMode.renderQuizSlider();
             }
             setQuizStatus("Quiz question saved!");
             el.quizForm?.reset();
@@ -890,5 +894,5 @@
 
     /* ── Init ───────────────────────────────────────────────── */
     showScreen("screenMenu");
-    renderQuizSlider();
+    window.FocusMode.renderQuizSlider();
 })();

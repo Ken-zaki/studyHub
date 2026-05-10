@@ -144,16 +144,20 @@
     window.FocusMode.getCsrfToken = getCsrfToken;
     window.FocusMode.escHtml = escHtml;
     window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
-    window.FocusMode.renderQuizSlider      = function (questions) { if (typeof renderQuizSlider === 'function') return renderQuizSlider(questions); };
-    window.FocusMode.showQuizSetUI         = function () {
-        document.getElementById("quizSetActionRow")?.classList.remove("hidden");
+
+    // renderQuizSlider is overridden by quiz.js after it initialises.
+    // This stub is a no-op placeholder so focus-mode.js doesn't throw
+    // if handleQuizSubmit fires before quiz.js has loaded.
+    window.FocusMode.renderQuizSlider = function (questions) {
+        // quiz.js overrides this — intentional no-op stub
     };
-    window.FocusMode.hideQuizSetUI         = function () {
-        document.getElementById("quizSetActionRow")?.classList.add("hidden");
-        document.getElementById("quizStage")?.classList.add("hidden");
-        const counter = document.getElementById("quizStageCounter");
-        if (counter) { counter.classList.add("hidden"); counter.textContent = ""; }
-    };
+
+    // showQuizSetUI / hideQuizSetUI are called by quiz.js when
+    // entering / leaving a quiz set. The action-row and old slider
+    // are now managed entirely inside quiz.js injected HTML,
+    // so these stubs are intentionally empty.
+    window.FocusMode.showQuizSetUI = function () { /* handled by quiz.js */ };
+    window.FocusMode.hideQuizSetUI = function () { /* handled by quiz.js */ };
 
     /* ── CSRF helper ────────────────────────────────────────── */
     function getCsrfToken() {
@@ -558,9 +562,11 @@
                 // Update the active set's nested questions
                 const activeSet = (state.quizSets || []).find((s) => s.id === state.activeQuizSetId);
                 if (activeSet) activeSet.questions = payload.questions;
-                renderQuizSlider(payload.questions);
+                window.FocusMode.renderQuizSlider(payload.questions);
+            } else {
+                state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
+                window.FocusMode.renderQuizSlider();
             }
-            // No fallback: quiz questions must always belong to a set
             setQuizStatus("Quiz question saved!");
             el.quizForm?.reset();
             setTimeout(closeQuizModal, 800);
@@ -593,52 +599,33 @@
 
         el.quizStageTrack.innerHTML = questions.map((q, i) => {
             const opts = q.options || { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
-            const optPairs = Object.entries(opts).filter(([, v]) => v);
             return `
-            <div class="quiz-slide" data-index="${i}">
-                <div class="quiz-question-card">
-                    <div class="quiz-question-label">Question ${i + 1}</div>
-                    <div class="quiz-question-text">${escHtml(q.question)}</div>
-                    <div class="quiz-choices-grid">
-                        ${optPairs.map(([k, v]) => `
-                        <button class="quiz-choice-btn" data-key="${escHtml(k)}" type="button">
-                            <span class="quiz-choice-key">${escHtml(k)}.</span>
-                            <span class="quiz-choice-val">${escHtml(v)}</span>
-                        </button>`).join("")}
-                    </div>
-                    <div class="quiz-answer-reveal hidden" data-correct="${escHtml(q.correct_option)}">
-                        <div class="quiz-answer-label">CORRECT ANSWER: <span class="quiz-answer-letter">${escHtml(q.correct_option)}</span></div>
-                        ${q.explanation ? `<div class="quiz-answer-explanation">${escHtml(q.explanation)}</div>` : ""}
+            <div class="flashcard-slide" data-index="${i}">
+                <div class="flashcard-card quiz-card" tabindex="0">
+                    <div class="flashcard-card-inner">
+                        <div class="flashcard-card-front">
+                            <div class="flashcard-card-label">Question ${i + 1}</div>
+                            <div class="flashcard-card-text">${escHtml(q.question)}</div>
+                            <div class="quiz-options-display">
+                                ${Object.entries(opts).map(([k, v]) =>
+                                    `<div class="quiz-opt-row"><span class="quiz-opt-key">${escHtml(k)}</span><span class="quiz-opt-val">${escHtml(v)}</span></div>`
+                                ).join("")}
+                            </div>
+                            <div class="quiz-flip-hint">Tap to see answer</div>
+                        </div>
+                        <div class="flashcard-card-back">
+                            <div class="flashcard-card-label">Correct Answer</div>
+                            <div class="flashcard-card-text quiz-correct-answer">${escHtml(q.correct_option)} — ${escHtml(opts[q.correct_option] || "")}</div>
+                            ${q.explanation ? `<div class="quiz-explanation-text">${escHtml(q.explanation)}</div>` : ""}
+                        </div>
                     </div>
                 </div>
             </div>`;
         }).join("");
 
-        // Bind click logic: disable all buttons after answer, highlight correct/wrong,
-        // show answer panel only when the user picks the wrong option.
-        el.quizStageTrack.querySelectorAll(".quiz-slide").forEach((slide) => {
-            const btns   = slide.querySelectorAll(".quiz-choice-btn");
-            const reveal = slide.querySelector(".quiz-answer-reveal");
-            const correct = reveal?.dataset.correct;
-
-            btns.forEach((btn) => {
-                btn.addEventListener("click", () => {
-                    if (slide.dataset.answered) return;
-                    slide.dataset.answered = "1";
-                    const chosen = btn.dataset.key;
-                    const isCorrect = chosen === correct;
-                    btns.forEach((b) => {
-                        b.disabled = true;
-                        if (b.dataset.key === correct) b.classList.add("quiz-choice-correct");
-                    });
-                    if (isCorrect) {
-                        btn.classList.add("quiz-choice-correct");
-                    } else {
-                        btn.classList.add("quiz-choice-wrong");
-                        reveal?.classList.remove("hidden");
-                    }
-                });
-            });
+        el.quizStageTrack.querySelectorAll(".quiz-card").forEach((card) => {
+            card.addEventListener("click",   () => card.classList.toggle("flipped"));
+            card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.classList.toggle("flipped"); });
         });
 
         goToQuizCard(0, questions.length);
@@ -648,13 +635,8 @@
         total = total ?? state.quizzes.length;
         index = Math.max(0, Math.min(index, total - 1));
         quizIndex = index;
-        if (el.quizStageTrack) {
-            // offsetWidth gives the real slide pixel width; 100% on a flex
-            // track resolves to the track's own total width, not one slide.
-            const slide = el.quizStageTrack.querySelector(".quiz-slide");
-            const slideW = slide ? slide.offsetWidth : 0;
-            el.quizStageTrack.style.transform = `translateX(${-(index * slideW)}px)`;
-        }
+        el.quizStageTrack?.querySelectorAll(".flashcard-card").forEach((c) => c.classList.remove("flipped"));
+        if (el.quizStageTrack) el.quizStageTrack.style.transform = `translateX(calc(-${index} * (100% + 24px)))`;
         if (el.quizStageCounter) el.quizStageCounter.textContent = total ? `${index + 1} / ${total}` : "";
         updateQuizNav(index, total);
     }
@@ -912,4 +894,5 @@
 
     /* ── Init ───────────────────────────────────────────────── */
     showScreen("screenMenu");
+    window.FocusMode.renderQuizSlider();
 })();

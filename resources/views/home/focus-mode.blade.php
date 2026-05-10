@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{{ asset('css/focus-mode.css') }}?v={{ filemtime(public_path('css/focus-mode.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/flashcards.css') }}?v={{ filemtime(public_path('css/flashcards.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/quiz.css') }}?v={{ filemtime(public_path('css/quiz.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/study-materials.css') }}?v={{ filemtime(public_path('css/study-materials.css')) }}">
 </head>
 <body>
 
@@ -47,19 +48,8 @@
             </div>
         </div>
 
-        {{-- ══ SCREEN: REVIEW MATERIAL ══ --}}
-        <div class="screen screen-content hidden" id="screenReview">
-            <div class="study-action-row">
-                <button class="menu-btn study-action-btn study-action-review" id="reviewUploadBtn" type="button">
-                    <span class="menu-btn-icon">📎</span>
-                    <span class="menu-btn-label">Upload Materials</span>
-                    <span class="menu-btn-desc">Add PDFs, documents, or slide decks</span>
-                </button>
-            </div>
-            <div class="content-area" id="reviewContent">
-                <p class="placeholder-text">📖 Review Material — upload a file above to get started</p>
-            </div>
-            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
+                <div class="screen screen-content hidden" id="screenReview">
+            {{-- populated by study-materials.js → buildLibraryScreen() --}}
         </div>
 
         {{-- ══ SCREEN: FLASHCARD ══ --}}
@@ -370,6 +360,7 @@
 <script src="{{ asset('js/focus-mode.js') }}"></script>
 <script src="{{ asset('js/flashcards-decks.js') }}"></script>
 <script src="{{ asset('js/quiz.js') }}"></script>
+<script src="{{ asset('js/study-materials.js') }}"></script>
 
 </body>
 </html>

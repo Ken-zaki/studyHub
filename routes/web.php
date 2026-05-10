@@ -471,15 +471,10 @@ Route::get('/profile/{userId}', function ($userId) {
 
 // ── FOCUS MODE ────────────────────────────────────────────────
 
-Route::get('/focus-mode',                        [FocusModeController::class, 'index'])->name('focus-mode');
-Route::post('/focus-mode/session',               [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
-Route::post('/focus-mode/materials',             [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
-Route::post('/focus-mode/decks',                 [FocusModeController::class, 'storeDeck'])->name('focus-mode.decks.store');
-Route::delete('/focus-mode/decks/{id}',          [FocusModeController::class, 'destroyDeck'])->name('focus-mode.decks.destroy');
-Route::post('/focus-mode/flashcards',            [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
-Route::delete('/focus-mode/flashcards/{id}',     [FocusModeController::class, 'destroyFlashcard'])->name('focus-mode.flashcards.destroy');
-Route::post('/focus-mode/quizzes',               [FocusModeController::class, 'storeQuiz'])->name('focus-mode.quizzes');
-Route::delete('/focus-mode/quizzes/{id}',        [FocusModeController::class, 'destroyQuiz'])->name('focus-mode.quizzes.destroy');
+Route::get('/focus-mode', function () {
+    if ($r = requireAuth()) return $r;
+    return (new FocusModeController())->index();
+})->name('focus-mode');
 
 // ──────────────────────────────────────────────────────────────
 // ADMIN ROUTES
@@ -518,5 +513,20 @@ Route::prefix('admin')->group(function () {
     })->name('admin.settings');
 
 });
-Route::post  ('/focus-mode/quiz-sets',       [FocusModeController::class, 'storeQuizSet']);
-                Route::delete('/focus-mode/quiz-sets/{id}',  [FocusModeController::class, 'destroyQuizSet']);
+
+// ── FOCUS MODE API ROUTES ─────────────────────────────────────
+
+Route::post('/focus-mode/session',               [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+Route::post('/focus-mode/materials',             [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
+Route::delete('/focus-mode/materials/{id}',      [FocusModeController::class, 'destroyMaterial'])->name('focus-mode.materials.destroy');
+Route::get('/focus-mode/materials/{id}/file',    [FocusModeController::class, 'serveMaterial'])->name('focus-mode.materials.file');
+Route::get('/focus-mode/materials/{id}/notes',   [FocusModeController::class, 'showNote'])->name('focus-mode.materials.notes');
+Route::post('/focus-mode/materials/{id}/notes',  [FocusModeController::class, 'saveNote'])->name('focus-mode.materials.notes.save');
+Route::post('/focus-mode/decks',                 [FocusModeController::class, 'storeDeck'])->name('focus-mode.decks.store');
+Route::delete('/focus-mode/decks/{id}',          [FocusModeController::class, 'destroyDeck'])->name('focus-mode.decks.destroy');
+Route::post('/focus-mode/flashcards',            [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
+Route::delete('/focus-mode/flashcards/{id}',     [FocusModeController::class, 'destroyFlashcard'])->name('focus-mode.flashcards.destroy');
+Route::post('/focus-mode/quiz-sets',             [FocusModeController::class, 'storeQuizSet'])->name('focus-mode.quiz-sets.store');
+Route::delete('/focus-mode/quiz-sets/{id}',      [FocusModeController::class, 'destroyQuizSet'])->name('focus-mode.quiz-sets.destroy');
+Route::post('/focus-mode/quizzes',               [FocusModeController::class, 'storeQuiz'])->name('focus-mode.quizzes');
+Route::delete('/focus-mode/quizzes/{id}',        [FocusModeController::class, 'destroyQuiz'])->name('focus-mode.quizzes.destroy');

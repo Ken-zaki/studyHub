@@ -283,7 +283,7 @@
                     <span class="menu-btn-label">Upload Materials</span>
                     <span class="menu-btn-desc">Attach a file to this quiz set</span>
                 </button>
-                <button class="menu-btn study-action-btn" id="quizCreatePromptBtn" type="button">
+                <button class="menu-btn study-action-btn" type="button">
                     <span class="menu-btn-icon">📝</span>
                     <span class="menu-btn-label">Create Quiz Questions</span>
                     <span class="menu-btn-desc">Add questions to this quiz set</span>
