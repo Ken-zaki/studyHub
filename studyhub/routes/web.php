@@ -112,8 +112,7 @@ Route::get('/debug/all-requests', function () {
     ]);
 });
 
-// Root — send visitors to guest landing page
-Route::get('/', fn() => redirect()->route('guest'));
+Route::get('/', fn() => redirect()->route('login'));
 
 // Auth pages
 Route::get('/login',           fn() => view('auth.login'))           ->name('login');
