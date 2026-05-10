@@ -14,7 +14,7 @@ class CreateFriendRequestsAndFriendsTables extends Migration
             $table->uuid('receiver_id')->nullable();
             $table->text('status')->default('pending');
             $table->timestamp('created_at')->useCurrent();
-            
+
             // Add indexes for faster queries
             $table->index('sender_id');
             $table->index('receiver_id');
@@ -26,7 +26,7 @@ class CreateFriendRequestsAndFriendsTables extends Migration
             $table->uuid('user_id')->nullable();
             $table->uuid('friend_id')->nullable();
             $table->timestamp('created_at')->useCurrent();
-            
+
             // Add indexes for faster queries
             $table->index('user_id');
             $table->index('friend_id');
