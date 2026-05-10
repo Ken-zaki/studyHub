@@ -530,3 +530,18 @@ Route::post('/focus-mode/quiz-sets',             [FocusModeController::class, 's
 Route::delete('/focus-mode/quiz-sets/{id}',      [FocusModeController::class, 'destroyQuizSet'])->name('focus-mode.quiz-sets.destroy');
 Route::post('/focus-mode/quizzes',               [FocusModeController::class, 'storeQuiz'])->name('focus-mode.quizzes');
 Route::delete('/focus-mode/quizzes/{id}',        [FocusModeController::class, 'destroyQuiz'])->name('focus-mode.quizzes.destroy');
+
+// Public — no auth needed for background music
+Route::get('focus-mode/music/stream', [FocusModeController::class, 'streamMusic'])
+     ->name('focus-mode.music.stream');
+
+// Everything else stays inside auth
+Route::prefix('focus-mode')->middleware('auth')->group(function () {
+    Route::get('tracks', [FocusModeController::class, 'tracks']);
+    
+    // Admin only
+    Route::post('music/track', [FocusModeController::class, 'setActiveTrack'])
+         ->middleware('can:admin');
+    
+    // ... your other existing focus mode routes ...
+});

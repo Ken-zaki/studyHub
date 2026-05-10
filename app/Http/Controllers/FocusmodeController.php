@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FocusTrack;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -631,4 +633,82 @@ class FocusModeController extends Controller
 
         return response()->json(['status' => 'ok', 'quizzes' => $this->loadQuizzes($userId)]);
     }
+    // Only two methods needed now
+
+public function streamMusic()
+{
+    $track = FocusTrack::where('is_active', true)->first();
+
+    if (!$track) {
+        abort(404, 'No active track found.');
+    }
+
+    // Use the public disk explicitly
+    $path = Storage::disk('public')->path($track->file_path);
+
+    if (!file_exists($path)) {
+        abort(404, 'File not found at: ' . $path);
+    }
+
+    $size = filesize($path);
+    $mime = mime_content_type($path);
+    $start = 0;
+    $end = $size - 1;
+
+    $headers = [
+        'Content-Type'   => $mime,
+        'Accept-Ranges'  => 'bytes',
+        'Content-Length' => $size,
+    ];
+
+    if (request()->hasHeader('Range')) {
+        preg_match('/bytes=(\d+)-(\d*)/', request()->header('Range'), $matches);
+        $start = (int) $matches[1];
+        $end   = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : $size - 1;
+
+        $headers['Content-Range']  = "bytes $start-$end/$size";
+        $headers['Content-Length'] = $end - $start + 1;
+
+        return response()->stream(function () use ($path, $start, $end) {
+            $fp = fopen($path, 'rb');
+            fseek($fp, $start);
+            $remaining = $end - $start + 1;
+            while ($remaining > 0 && !feof($fp)) {
+                $chunk     = fread($fp, min(8192, $remaining));
+                echo $chunk;
+                $remaining -= strlen($chunk);
+            }
+            fclose($fp);
+        }, 206, $headers);
+    }
+
+    return response()->stream(function () use ($path) {
+        $fp = fopen($path, 'rb');
+        while (!feof($fp)) echo fread($fp, 8192);
+        fclose($fp);
+    }, 200, $headers);
 }
+
+// Admin only — swap the active track
+public function setActiveTrack(Request $request) {
+    $request->validate([
+        'audio' => 'required|file|mimes:mp3,ogg,wav',
+        'title' => 'required|string|max:120',
+        'artist'=> 'nullable|string|max:120',
+    ]);
+
+    $audioPath = $request->file('audio')->store('music', 'public');
+
+    // Deactivate all, then insert the new one as the only active track
+    FocusTrack::query()->update(['is_active' => false]);
+    FocusTrack::create([
+        'title'     => $request->title,
+        'artist'    => $request->artist,
+        'file_path' => $audioPath,
+        'is_active' => true,
+    ]);
+
+    return response()->json(['message' => 'Track updated successfully.']);
+}
+}
+

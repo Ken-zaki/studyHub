@@ -48,29 +48,21 @@
             </div>
         </div>
 
-                <div class="screen screen-content hidden" id="screenReview">
+        {{-- ══ SCREEN: REVIEW ══ --}}
+        <div class="screen screen-content hidden" id="screenReview">
             {{-- populated by study-materials.js → buildLibraryScreen() --}}
         </div>
 
         {{-- ══ SCREEN: FLASHCARD ══ --}}
         <div class="screen screen-content hidden" id="screenFlashcard">
 
-            {{-- ── DECK BROWSER (shown when no deck is selected) ── --}}
+            {{-- ── DECK BROWSER ── --}}
             <div id="deckBrowser">
-
-                {{-- "FLASHCARDS" page heading (screenshot 1 & 3) --}}
                 <h2 class="flashcard-screen-heading">Flashcards</h2>
-
-                {{-- "My Decks" section label --}}
                 <p class="deck-section-label">My Decks</p>
-
-                {{-- Deck grid — JS populates .deck-card elements here --}}
                 <div class="deck-grid" id="deckGrid">
-                    {{-- Empty state shown by JS when no decks exist --}}
                     <p class="deck-empty-state" id="deckEmptyState">No decks created yet.</p>
                 </div>
-
-                {{-- "+ Add Decks" button (teal circle + label, below grid) --}}
                 <button class="deck-add-btn" id="deckCreateBtn" type="button">
                     <span class="deck-add-circle" aria-hidden="true">
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -80,10 +72,9 @@
                     </span>
                     Add Decks
                 </button>
-
             </div>
 
-            {{-- Create deck modal — outside #deckBrowser so position:fixed is not clipped --}}
+            {{-- Create deck modal --}}
             <div class="deck-create-backdrop hidden" id="deckModalOverlay">
                 <div class="deck-create-form" id="deckCreateForm" role="dialog"
                      aria-modal="true" aria-labelledby="deckModalTitle">
@@ -98,7 +89,7 @@
                 </div>
             </div>
 
-            {{-- ── DECK CONTENT (shown after a deck is selected) ── --}}
+            {{-- ── DECK CONTENT ── --}}
             <div class="hidden" id="deckContent">
                 <div class="deck-content-header">
                     <button class="back-btn deck-back-btn" id="deckBackBtn" type="button">← Back to Decks</button>
@@ -108,7 +99,6 @@
                     </div>
                 </div>
 
-                {{-- Action buttons (kept exactly like original) --}}
                 <div class="study-action-row flashcard-action-row">
                     <button class="menu-btn study-action-btn study-action-flashcard flashcard-action-btn" id="flashcardUploadPromptBtn" type="button">
                         <span class="menu-btn-icon">📎</span>
@@ -122,7 +112,6 @@
                     </button>
                 </div>
 
-                {{-- Sliding flashcard stage (kept exactly like original) --}}
                 <section class="flashcard-stage" id="flashcardStage">
                     <button class="flashcard-nav flashcard-nav-left" id="flashcardPrevBtn" type="button" aria-label="Previous flashcard">‹</button>
                     <div class="flashcard-stage-viewport">
@@ -178,18 +167,11 @@
             </div>
         </div>
 
-     {{-- ══ SCREEN: QUIZ ══ --}}
+        {{-- ══ SCREEN: QUIZ ══ --}}
         <div class="screen screen-content hidden" id="screenQuiz">
-        
-            {{--
-                quiz-sets.js will inject:
-                · #quizSetsBrowser  (the grid + "+ Add quizzes" btn)
-                · #quizSetContent   (per-set view with back btn)
-                · .quiz-set-backdrop (the floating title input panel)
-                ...as the first children of this div at DOMContentLoaded.
-            --}}
-        
-            {{-- ── Action buttons shown once inside a set ── --}}
+
+            {{-- quiz-sets.js injects #quizSetsBrowser and #quizSetContent here --}}
+
             <div class="study-action-row quiz-action-row hidden" id="quizSetActionRow">
                 <button class="menu-btn study-action-btn" id="quizUploadPromptBtn" type="button">
                     <span class="menu-btn-icon">📎</span>
@@ -202,8 +184,7 @@
                     <span class="menu-btn-desc">Add questions to this quiz set</span>
                 </button>
             </div>
-        
-            {{-- ── Quiz question slider (populated by focus-mode.js) ── --}}
+
             <section class="flashcard-stage hidden" id="quizStage">
                 <button class="flashcard-nav flashcard-nav-left" id="quizPrevBtn" type="button" aria-label="Previous question">‹</button>
                 <div class="flashcard-stage-viewport">
@@ -212,13 +193,13 @@
                 <button class="flashcard-nav flashcard-nav-right" id="quizNextBtn" type="button" aria-label="Next question">›</button>
             </section>
             <div class="flashcard-stage-counter hidden" id="quizStageCounter"></div>
-        
-            {{-- ── Quiz question modal (Upload / Create panes) ── --}}
+
+            {{-- Quiz question modal --}}
             <div class="flashcard-modal-backdrop hidden" id="quizModalBackdrop"></div>
             <div class="flashcard-modal hidden" id="quizModal" role="dialog"
                 aria-modal="true" aria-label="Quiz Question" aria-hidden="true">
                 <button class="flashcard-modal-close" id="quizModalCloseBtn" type="button" aria-label="Close">×</button>
-        
+
                 <div class="quiz-modal-pane" id="quizUploadPane">
                     <div class="quiz-modal-section-title">Upload Material</div>
                     <div class="quiz-modal-help">Select a file to attach it to this quiz session.</div>
@@ -231,7 +212,7 @@
                     <div class="materials-status" id="quizMaterialsStatus"></div>
                     <div class="materials-list" id="quizMaterialsList"></div>
                 </div>
-        
+
                 <div class="quiz-modal-pane hidden" id="quizCreatePane">
                     <div class="quiz-modal-section-title">Create Quiz Question</div>
                     <form class="quiz-form" id="quizForm">
@@ -273,68 +254,75 @@
                         </div>
                         <div class="quiz-form-actions">
                             <button class="quiz-cancel-btn" id="quizCancelBtn" type="button">Cancel</button>
-                            <button class="quiz-save-btn" id="quizSaveBtn" type="submit">Save Question</button>
+                            <button class="quiz-save-btn"   id="quizSaveBtn"   type="submit">Save Question</button>
                         </div>
                     </form>
                     <div class="quiz-status" id="quizStatus"></div>
                 </div>
             </div>
-        
+
             <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
-        
+
         </div>
 
     </main>
 
-    {{-- Music FAB --}}
-    <button class="music-toggle-fab hidden" id="musicToggleBtn" title="Open Music" aria-label="Open Music">
-        <span class="music-note music-note-1" aria-hidden="true">♪</span>
-        <span class="music-note music-note-2" aria-hidden="true">♫</span>
-        <span class="music-note music-note-3" aria-hidden="true">♬</span>
+    {{-- ══ MUSIC FAB ══ --}}
+    <button class="music-toggle-fab hidden" id="musicToggleBtn"
+            title="Toggle Focus Music" aria-label="Toggle Focus Music">
         <svg viewBox="0 0 24 24" id="musicNoteIcon">
             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
         </svg>
     </button>
 
-    {{-- Music Player Widget --}}
+    {{-- ══ MUSIC PLAYER WIDGET (on/off only) ══ --}}
     <div class="music-player-widget hidden" id="musicWidget">
-        <button class="music-hide-btn" id="musicHideBtn" title="Hide Music" aria-label="Hide Music">×</button>
+
+        {{-- Close button --}}
+        <button class="music-hide-btn" id="musicHideBtn"
+                title="Hide Music" aria-label="Hide Music">×</button>
+
+        {{-- Album art placeholder --}}
         <div class="music-album-art">
-            <div class="music-album-placeholder">🎵</div>
+            <div class="music-album-placeholder" aria-hidden="true">🎵</div>
         </div>
-        <div class="music-status">MUSIC PLAYING...</div>
+
+        {{-- Track info --}}
+        <div class="music-status">Focus Music</div>
+        <div class="music-sub-status">Playing in background</div>
+
+        {{-- Progress bar (driven by JS timeupdate, no CSS animation) --}}
         <div class="music-progress">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
         </div>
+
+        {{-- Controls: play/pause only --}}
         <div class="music-controls">
-            <button class="ctrl-btn" id="shuffleBtn" title="Shuffle">
-                <svg viewBox="0 0 24 24"><path d="M16 3h5v5l-1.5-1.5-4.5 4.5-1.5-1.5 4.5-4.5L16 3zm-7 1L3 10l2 2 6-6-2-2zm2 10l-4 4 1.5 1.5L12 16l3.5 3.5L17 18l-4-4zm6.5-1.5L16 10l-2 2 4.5 4.5L17 18h5v-5l-1.5 1.5z"/></svg>
-            </button>
-            <button class="ctrl-btn" id="prevBtn" title="Previous">
-                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-            </button>
-            <button class="ctrl-btn ctrl-play" id="playPauseBtn" title="Play/Pause">
-                <svg viewBox="0 0 24 24" id="playIcon" class="hidden"><path d="M8 5v14l11-7z"/></svg>
-                <svg viewBox="0 0 24 24" id="pauseIcon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            </button>
-            <button class="ctrl-btn" id="nextBtn" title="Next">
-                <svg viewBox="0 0 24 24"><path d="m6 18 8.5-6L6 6v12zm2.5-6L6 6v12l8.5-6zM16 6v12h2V6z"/></svg>
-            </button>
-            <button class="ctrl-btn" id="likeBtn" title="Like">
-                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <button class="ctrl-btn ctrl-play" id="playPauseBtn" title="Play / Pause" aria-label="Play or pause focus music">
+                {{-- Play icon (shown when paused) --}}
+                <svg viewBox="0 0 24 24" id="playIcon" class="hidden" aria-hidden="true">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                {{-- Pause icon (shown when playing) --}}
+                <svg viewBox="0 0 24 24" id="pauseIcon" aria-hidden="true">
+                    <rect x="6"  y="4" width="4" height="16"/>
+                    <rect x="14" y="4" width="4" height="16"/>
+                </svg>
             </button>
         </div>
+
     </div>
 
-    {{-- Focus Footer --}}
+    {{-- ══ FOCUS FOOTER ══ --}}
     <footer class="sh-footer" id="focusFooter">
         <span class="focus-label" id="focusModeLabel">Focus Mode : ON</span>
     </footer>
 
-    {{-- Focus FAB --}}
-    <button class="focus-fab" id="focusToggleBtn" title="Toggle Focus Mode" aria-pressed="false">
+    {{-- ══ FOCUS FAB ══ --}}
+    <button class="focus-fab" id="focusToggleBtn"
+            title="Toggle Focus Mode" aria-pressed="false">
         <svg class="lock-icon lock-open" viewBox="0 0 24 24" id="lockOpen">
             <path d="M12 1C9.24 1 7 3.24 7 6v1H5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2h-2V6c0-2.76-2.24-5-5-5zm0 2c1.66 0 3 1.34 3 3v1H9V6c0-1.66 1.34-3 3-3zm0 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
         </svg>
@@ -345,6 +333,7 @@
 
 </div>
 
+{{-- Hidden file input for materials panel --}}
 <input type="file" id="materialsInput" class="hidden"
     accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,
     application/vnd.openxmlformats-officedocument.wordprocessingml.document,
