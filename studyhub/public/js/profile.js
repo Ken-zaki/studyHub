@@ -17,7 +17,7 @@ const currentUser = {
 
 const profileData  = window.profileData || {};
 let editingPostId  = null;
-let followModalMode = 'followers'; // 'followers' | 'following'
+let followModalMode = 'followers';
 
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,7 +49,6 @@ function renderUserUI() {
     const fullName  = profileData.display_name || `${firstName} ${lastName}`.trim() || username || 'You';
     const initials  = mkInitials(firstName, lastName);
 
-    // Avatar
     setAvatar('profileAvatarLarge', photoUrl, fullName, initials);
     setAvatar('sidebarAvatar',      photoUrl, fullName, initials);
     setAvatar('topBarAvatar',       photoUrl, fullName, initials);
@@ -67,7 +66,7 @@ function renderUserUI() {
     if (sidebarName) sidebarName.textContent = fullName;
 }
 
-// ── LOAD POSTS (from new posts table) ────────────────────────
+// ── LOAD POSTS ────────────────────────────────────────────────
 async function loadProfilePosts() {
     const feed = document.getElementById('profileFeed');
     if (!feed || !currentUser.id) {
@@ -75,8 +74,6 @@ async function loadProfilePosts() {
         return;
     }
     try {
-        // Use service key so we can see own friends/only_me posts
-        // (anon key + RLS would block them)
         const res = await sbSvcFetch(
             `${SB_URL}/rest/v1/posts` +
             `?select=*,profiles(username,first_name,last_name,profile_photo_url)` +
@@ -115,7 +112,6 @@ function postCardHTML(post, isOwn = false) {
     const ago      = timeAgo(post.created_at);
     const visIcon  = { public:'🌐', friends:'👥', only_me:'🔒' }[post.visibility] || '🌐';
 
-    // Media
     const media  = safeJSON(post.media_urls, []);
     const files  = safeJSON(post.file_urls,  []);
     const link   = safeJSON(post.link_meta,  null);
@@ -142,17 +138,6 @@ function postCardHTML(post, isOwn = false) {
             <div class="post-link-url">${escH(link.url)}</div></a>`;
     }
 
-    const ownerMenu = isOwn ? `
-        <div class="post-menu-wrap">
-            <button class="post-menu-btn" type="button" onclick="toggleMenu('${post.id}',event)">
-                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-            </button>
-            <div class="post-dropdown" id="menu-${post.id}">
-                <button class="dropdown-item" onclick="openEditModal('${post.id}')">✏️ Edit</button>
-                <button class="dropdown-item danger" onclick="deletePost('${post.id}')">🗑️ Delete</button>
-            </div>
-        </div>` : '';
-
     return `
     <div class="post-card" id="post-${post.id}">
         <div class="post-header">
@@ -161,14 +146,33 @@ function postCardHTML(post, isOwn = false) {
                 <div class="post-author">${escH(name)} <span class="post-vis-icon" title="${post.visibility}">${visIcon}</span></div>
                 <div class="post-time">${ago}</div>
             </div>
-            ${ownerMenu}
+            ${isOwn ? `
+            <div class="post-owner-actions">
+                <button class="post-action-btn edit-btn" type="button" onclick="openEditModal('${post.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <button class="post-action-btn delete-btn" type="button" onclick="deletePost('${post.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Delete
+                </button>
+            </div>` : ''}
         </div>
         ${post.content ? `<div class="post-content"><p class="post-text">${escH(post.content)}</p></div>` : ''}
         ${mediaHTML ? `<div class="post-media">${mediaHTML}</div>` : ''}
-        <div class="post-interactions">
-            <button class="interaction-btn" onclick="likePost('${post.id}')">❤️ Like</button>
-            <button class="interaction-btn" onclick="commentPost('${post.id}')">💬 Comment</button>
-            <button class="interaction-btn" onclick="sharePost('${post.id}')">🔄 Share</button>
+        <div class="post-footer">
+            <button class="post-interact-btn" onclick="likePost('${post.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+                Like
+            </button>
+            <button class="post-interact-btn" onclick="commentPost('${post.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                Comment
+            </button>
+            <button class="post-interact-btn" onclick="sharePost('${post.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share
+            </button>
         </div>
     </div>`;
 }
@@ -195,7 +199,6 @@ async function openFollowModal(mode) {
     const list = document.getElementById('followModalList');
     list.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
     try {
-        const col    = mode === 'followers' ? 'follower_id' : 'following_id';
         const fkCol  = mode === 'followers' ? 'follower_id' : 'following_id';
         const filter = mode === 'followers'
             ? `following_id=eq.${currentUser.id}`
@@ -222,16 +225,7 @@ async function openFollowModal(mode) {
 function closeFollowModal() { document.getElementById('followModal').classList.remove('open'); }
 
 // ── EDIT / DELETE ─────────────────────────────────────────────
-function toggleMenu(postId, e) {
-    e.stopPropagation();
-    const menu = document.getElementById(`menu-${postId}`);
-    if (!menu) return;
-    const wasOpen = menu.classList.contains('open');
-    document.querySelectorAll('.post-dropdown.open').forEach(d => d.classList.remove('open'));
-    if (!wasOpen) menu.classList.add('open');
-}
 function openEditModal(postId) {
-    document.querySelectorAll('.post-dropdown.open').forEach(d => d.classList.remove('open'));
     const text = document.querySelector(`#post-${postId} .post-text`)?.textContent || '';
     editingPostId = postId;
     document.getElementById('editContent').value = text;
@@ -256,7 +250,6 @@ async function saveEdit() {
     } catch(err) { alert('Failed to edit: ' + err.message); }
 }
 async function deletePost(postId) {
-    document.querySelectorAll('.post-dropdown.open').forEach(d => d.classList.remove('open'));
     if (!confirm('Delete this post? This cannot be undone.')) return;
     try {
         const res = await fetch(`${SB_URL}/rest/v1/posts?id=eq.${postId}`, {
@@ -308,7 +301,6 @@ function sbFetch(url) {
     return fetch(url, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } });
 }
 function sbSvcFetch(url) {
-    // Use service key to bypass RLS — only use for own-user queries
     const key = SB_SVC || SB_KEY;
     return fetch(url, { headers: { 'apikey': key, 'Authorization': `Bearer ${key}` } });
 }

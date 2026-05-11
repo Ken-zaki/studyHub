@@ -132,43 +132,30 @@
 
     {{-- Sidebar footer --}}
     <div class="sidebar-footer">
-        <div style="display:flex;align-items:center;gap:10px;
-                    padding:10px 12px;border-radius:12px;
-                    background:var(--bg-hover,rgba(0,0,0,0.04));
-                    margin-bottom:10px;">
-            <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
-                        background:var(--bg-main,#f0f0f0);
-                        border:1px solid var(--border,#e5e7eb);
-                        display:flex;align-items:center;justify-content:center;">
+        {{-- Guest identity — matches .user-profile style from logged-in sidebar --}}
+        <div class="user-profile" style="cursor:default;">
+            <div class="user-avatar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     style="width:18px;height:18px;color:var(--text-light,#9ca3af);">
+                     style="width:18px;height:18px;">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
             </div>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:600;color:var(--text-primary,#1a1a1a);line-height:1.3;">Guest</div>
-                <div style="font-size:11px;color:var(--text-light,#9ca3af);line-height:1.3;">Not signed in</div>
+            <div class="user-info">
+                <div class="user-name">Guest</div>
             </div>
         </div>
-        <div style="display:flex;gap:8px;">
-            <a href="{{ route('login') }}"
-               style="flex:1;text-align:center;padding:9px 0;border-radius:10px;
-                      border:1.5px solid var(--border,#e5e7eb);background:var(--bg-card,white);
-                      color:var(--text-primary,#1a1a1a);font-size:13px;font-weight:600;
-                      text-decoration:none;transition:all 0.18s;"
-               onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)';"
-               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-primary)';">
-                Log In
-            </a>
-            <a href="{{ route('signup') }}"
-               style="flex:1;text-align:center;padding:9px 0;border-radius:10px;
-                      border:none;background:var(--primary,#1a5f7a);color:white;
-                      font-size:13px;font-weight:600;text-decoration:none;transition:opacity 0.18s;"
-               onmouseover="this.style.opacity='.85';" onmouseout="this.style.opacity='1';">
-                Sign Up
-            </a>
-        </div>
+
+        {{-- Leave Guest Mode — icon only when collapsed, full label when expanded --}}
+        <a href="{{ route('login') }}" class="nav-item guest-leave-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span class="nav-text">Leave Guest Mode</span>
+        </a>
     </div>
 </aside>
 
@@ -239,6 +226,16 @@
 }
 .nav-item--locked:hover { opacity:0.65;background:var(--bg-hover,rgba(0,0,0,0.04)); }
 .nav-lock-icon { width:13px;height:13px;margin-left:auto;flex-shrink:0;color:var(--text-light,#9ca3af); }
+
+/* Leave Guest Mode — same layout as nav-item, muted color */
+.guest-leave-btn {
+    color: var(--text-secondary, #6b7280);
+    margin-top: 4px;
+}
+.guest-leave-btn:hover {
+    color: var(--primary, #1a5f7a);
+    background: var(--bg-hover, rgba(0,0,0,0.04));
+}
 </style>
 
 <script>

@@ -34,8 +34,15 @@
                         <div class="profile-avatar-large" id="profileAvatarLarge"></div>
                     </div>
                     <div>
-                        <button class="profile-upload-btn" type="button" id="profilePhotoButton">Change photo</button>
-                        <input type="file" class="profile-photo-input" id="profilePhotoInput" accept="image/*">
+                        <button class="profile-upload-btn" type="button" id="profilePhotoButton">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            Change photo
+                        </button>
+                        {{-- Hidden: browser default file input is hidden, JS triggers it --}}
+                        <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;">
                     </div>
                 </div>
 
@@ -126,17 +133,6 @@
         </div>
         <div id="profileFeed" class="feed">
             <div class="loading"><div class="loading-spinner"></div>Loading your posts…</div>
-        </div>
-
-        <div class="profile-account-actions">
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="profile-account-btn">Change Account</button>
-            </form>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="profile-account-btn danger">Logout</button>
-            </form>
         </div>
     </div>
 </main>

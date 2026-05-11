@@ -1,5 +1,5 @@
 /* ============================================================
-   PROFILE VIEW PAGE - STYLES
+   PROFILE PAGE - STYLES
    ============================================================ */
 
 :root {
@@ -88,10 +88,19 @@ body {
 }
 .sidebar:hover .nav-badge { opacity: 1; width: auto; }
 
-.sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+/* ── SIDEBAR FOOTER ── */
+.sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .user-profile {
     display: flex; align-items: center; gap: 12px; padding: 12px;
     border-radius: 12px; transition: all 0.3s ease; cursor: pointer;
+    text-decoration: none;
 }
 .user-profile:hover { background: var(--bg-main); }
 .user-avatar {
@@ -105,6 +114,44 @@ body {
 .sidebar:hover .user-info { opacity: 1; width: auto; }
 .user-name { font-weight: 600; font-size: 14px; color: var(--text-primary); white-space: nowrap; }
 .user-status { font-size: 12px; color: var(--text-light); }
+
+/* ── SIDEBAR LOGOUT BUTTON ── */
+.sidebar-logout-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    transition: background 0.2s, color 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+}
+.sidebar-logout-btn svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+.sidebar-logout-btn .logout-text {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+.sidebar:hover .sidebar-logout-btn .logout-text {
+    opacity: 1;
+    width: auto;
+}
+.sidebar-logout-btn:hover {
+    background: rgba(220, 53, 69, 0.08);
+    color: #dc3545;
+}
 
 /* ── TOP BAR ── */
 .top-bar {
@@ -131,24 +178,10 @@ body {
     display: flex; align-items: center; justify-content: center;
     color: white; font-weight: 700; font-size: 14px;
     cursor: pointer; border: none; overflow: hidden; transition: all 0.2s ease;
+    text-decoration: none;
 }
 .top-bar-avatar:hover { opacity: 0.85; transform: scale(0.97); }
 .top-bar-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-.profile-menu-wrap { position: relative; }
-.profile-menu {
-    position: absolute; top: calc(100% + 10px); right: 0; min-width: 180px;
-    background: white; border: 1px solid var(--border); border-radius: 12px;
-    box-shadow: 0 14px 28px rgba(0,0,0,0.12); padding: 8px; display: none; z-index: 1200;
-}
-.profile-menu.open { display: block; }
-.profile-menu-item {
-    display: block; width: 100%; text-align: left; border: 0; border-radius: 10px;
-    background: transparent; color: var(--text-primary);
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
-    padding: 10px 12px; cursor: pointer; text-decoration: none;
-}
-.profile-menu-item:hover { background: var(--bg-main); color: var(--primary); }
 
 /* ── MAIN LAYOUT ── */
 .main-content {
@@ -161,7 +194,8 @@ body {
 /* ── PROFILE HERO ── */
 .profile-hero {
     background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border);
-    overflow: hidden; margin-bottom: 24px; box-shadow: 0 2px 12px var(--shadow);
+    overflow: hidden; margin-bottom: 24px;
+    box-shadow: 0 2px 16px var(--shadow-md);
 }
 .profile-cover {
     height: 140px;
@@ -218,7 +252,7 @@ body {
 .profile-meta-pill { display: inline-flex; align-items: center; gap: 6px; }
 .status-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(34,197,94,0.1); color: #22c55e; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
 
-/* ── FOLLOWERS / FOLLOWING ROW — redesigned ── */
+/* ── FOLLOWERS / FOLLOWING ROW ── */
 .profile-follow-row {
     display: flex;
     gap: 8px;
@@ -288,7 +322,14 @@ body {
 
 /* ── POST CARDS ── */
 .feed { display: flex; flex-direction: column; gap: 16px; }
-.post-card { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); padding: 24px; }
+.post-card {
+    background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); padding: 24px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.post-card:hover {
+    box-shadow: 0 8px 24px var(--shadow-md);
+    transform: translateY(-2px);
+}
 .post-header { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
 .post-avatar { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; flex-shrink: 0; overflow: hidden; }
 .post-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -308,10 +349,8 @@ body {
 .post-media-grid.count-3 .post-media-item:first-child { grid-column: 1 / -1; }
 .post-media-grid.count-4 { grid-template-columns: 1fr 1fr; }
 .post-media-item { position: relative; aspect-ratio: 4/3; overflow: hidden; background: #000; }
-.post-media-item img,
-.post-media-item video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
-.post-media-item:hover img,
-.post-media-item:hover video { transform: scale(1.03); }
+.post-media-item img, .post-media-item video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
+.post-media-item:hover img, .post-media-item:hover video { transform: scale(1.03); }
 .media-more { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: white; font-family: 'Crimson Pro', serif; }
 
 /* ── POST FILE CHIPS ── */
@@ -325,66 +364,25 @@ body {
 .post-link-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
 .post-link-url { font-size: 11px; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── FOLLOW BUTTON — redesigned ── */
+/* ── FOLLOW BUTTON ── */
 .pv-follow-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 10px 22px;
-    border-radius: 12px;
-    border: 2px solid var(--primary);
-    background: var(--primary);
-    color: white;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 22px; border-radius: 12px;
+    border: 2px solid var(--primary); background: var(--primary);
+    color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
     box-shadow: 0 2px 8px rgba(26,95,122,0.25);
 }
-.pv-follow-btn:hover {
-    background: var(--primary-dark);
-    border-color: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(26,95,122,0.35);
-}
-.pv-follow-btn.following {
-    background: white;
-    border-color: var(--border);
-    color: var(--text-secondary);
-    box-shadow: none;
-}
-.pv-follow-btn.following:hover {
-    background: #fef2f2;
-    border-color: rgba(255,107,107,0.5);
-    color: var(--accent);
-    box-shadow: none;
-}
+.pv-follow-btn:hover { background: var(--primary-dark); border-color: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(26,95,122,0.35); }
+.pv-follow-btn.following { background: white; border-color: var(--border); color: var(--text-secondary); box-shadow: none; }
+.pv-follow-btn.following:hover { background: #fef2f2; border-color: rgba(255,107,107,0.5); color: var(--accent); box-shadow: none; }
 .pv-follow-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 
-/* ── FOLLOWERS / FOLLOWING MODAL — redesigned ── */
-.follow-modal-list-wrap {
-    max-height: 420px;
-    overflow-y: auto;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.follow-modal-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px; border-radius: 12px; text-decoration: none;
-    transition: background 0.15s; cursor: pointer;
-}
+/* ── FOLLOW MODAL ── */
+.follow-modal-list-wrap { max-height: 420px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.follow-modal-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; text-decoration: none; transition: background 0.15s; cursor: pointer; }
 .follow-modal-item:hover { background: var(--bg-main); }
-.follow-modal-avatar {
-    width: 44px; height: 44px; border-radius: 12px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white; font-size: 16px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; overflow: hidden;
-}
+.follow-modal-avatar { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
 .follow-modal-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .follow-modal-info { flex: 1; min-width: 0; }
 .follow-modal-name { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -413,6 +411,13 @@ body {
 .modal-title { font-family: 'Crimson Pro', serif; font-size: 22px; font-weight: 700; }
 .modal-close { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--bg-main); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
 .modal-close:hover { background: #fee2e2; color: var(--accent); }
+.modal-textarea { width: 100%; min-height: 120px; padding: 14px; border: 2px solid var(--border); border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 15px; resize: vertical; }
+.modal-textarea:focus { outline: none; border-color: var(--primary); }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+.btn-cancel { padding: 10px 20px; border-radius: 10px; border: 1px solid var(--border); background: white; font-family: 'DM Sans', sans-serif; font-weight: 600; cursor: pointer; color: var(--text-secondary); }
+.btn-cancel:hover { background: var(--bg-main); }
+.btn-save { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+.btn-save:hover { background: var(--primary-dark); }
 
 /* ── FRIEND STATUS BANNER ── */
 .friend-status-banner { padding: 12px 16px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 12px; font-size: 14px; font-weight: 600; }
@@ -423,4 +428,72 @@ body {
     .profile-friends-scroll { max-height: 180px; }
     .profile-follow-row { flex-wrap: wrap; }
     .profile-follow-stat { flex: 1; justify-content: center; }
+}
+
+/* ── POST FOOTER (Like / Comment / Share) ── */
+.post-footer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.post-interact-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.post-interact-btn:hover {
+    background: var(--bg-main);
+    color: var(--primary);
+}
+.post-interact-btn svg {
+    flex-shrink: 0;
+}
+
+/* ── POST OWNER ACTIONS (Edit / Delete) ── */
+.post-owner-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.post-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+.post-action-btn:hover {
+    background: var(--bg-main);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+.post-action-btn.delete-btn:hover {
+    background: #fff5f5;
+    color: #dc2626;
+    border-color: #fecaca;
 }
