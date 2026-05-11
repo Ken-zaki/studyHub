@@ -159,10 +159,29 @@
                 <div class="user-status">Online</div>
             </div>
         </a>
+
+        <form method="POST" action="{{ route('logout') }}" class="sidebar-logout-form">
+            @csrf
+            <button type="submit" class="nav-item sidebar-logout-btn" aria-label="Logout">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                <span class="nav-text">Logout</span>
+            </button>
+        </form>
     </div>
 </aside>
 
 <div class="top-bar">
+    @if($currentRoute === 'focus-mode' || $activeNav === 'focus-mode')
+    <button type="button" class="top-bar-btn focus-back-btn" data-target="screenMenu" title="Back to Menu" aria-label="Back to Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+        </svg>
+    </button>
+    @endif
     <a href="{{ route('notifications') }}" class="top-bar-btn" title="Notifications">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>

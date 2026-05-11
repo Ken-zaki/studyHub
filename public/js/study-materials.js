@@ -309,27 +309,6 @@
         const notesCard = document.createElement("div");
         notesCard.className = "rmv-notes-card";
 
-        const notesNav = document.createElement("div");
-        notesNav.className = "rmv-notes-nav";
-
-        const notesPrev = document.createElement("button");
-        notesPrev.className = "rmv-nav-arrow";
-        notesPrev.id = "rmvNotesPrev";
-        notesPrev.type = "button";
-        notesPrev.title = "Notes: previous material";
-        notesPrev.textContent = "‹";
-
-        const notesNext = document.createElement("button");
-        notesNext.className = "rmv-nav-arrow";
-        notesNext.id = "rmvNotesNext";
-        notesNext.type = "button";
-        notesNext.title = "Notes: next material";
-        notesNext.textContent = "›";
-
-        notesNav.appendChild(notesPrev);
-        notesNav.appendChild(notesNext);
-        notesCard.appendChild(notesNav);
-
         const notesLabel = document.createElement("div");
         notesLabel.className = "rmv-notes-label";
         notesLabel.textContent = "Notes";
@@ -378,8 +357,6 @@
             $("rmvNotesPanel").classList.toggle("open", viewer.notesOpen);
         });
 
-        $("rmvNotesPrev").addEventListener("click", () => navigateNotes(-1));
-        $("rmvNotesNext").addEventListener("click", () => navigateNotes(+1));
         $("rmvFilePrev").addEventListener("click",  () => navigateFile(-1));
         $("rmvFileNext").addEventListener("click",  () => navigateFile(+1));
 
@@ -414,33 +391,27 @@
         showScreen("screenMaterialViewer");
     }
 
-    function navigateNotes(dir) {
-        const cur = materials[viewer.notesMaterialIndex];
-        if (cur && viewer.notesDirty[cur.id]) saveNotes(cur.id, false);
-        viewer.notesMaterialIndex = Math.max(0, Math.min(
-            viewer.notesMaterialIndex + dir, materials.length - 1
-        ));
-        loadNotes(viewer.notesMaterialIndex);
-        updateViewerNav();
-    }
-
     function navigateFile(dir) {
+        // Save dirty notes before switching
+        const cur = materials[viewer.materialIndex];
+        if (cur && viewer.notesDirty[cur.id]) saveNotes(cur.id, false);
+
         viewer.materialIndex = Math.max(0, Math.min(
             viewer.materialIndex + dir, materials.length - 1
         ));
+        // Notes always follow the file
+        viewer.notesMaterialIndex = viewer.materialIndex;
         viewer.zoom = 1.0;
         loadMaterialFile(viewer.materialIndex);
+        loadNotes(viewer.materialIndex);
         updateViewerNav();
     }
 
     function updateViewerNav() {
         const total = materials.length;
         const fi    = viewer.materialIndex;
-        const ni    = viewer.notesMaterialIndex;
-        if ($("rmvFilePrev"))  $("rmvFilePrev").disabled  = fi <= 0;
-        if ($("rmvFileNext"))  $("rmvFileNext").disabled  = fi >= total - 1;
-        if ($("rmvNotesPrev")) $("rmvNotesPrev").disabled = ni <= 0;
-        if ($("rmvNotesNext")) $("rmvNotesNext").disabled = ni >= total - 1;
+        if ($("rmvFilePrev")) $("rmvFilePrev").disabled = fi <= 0;
+        if ($("rmvFileNext")) $("rmvFileNext").disabled = fi >= total - 1;
         const title = $("rmvTitle");
         if (title && materials[fi]) title.textContent = materials[fi].name.toUpperCase();
     }
@@ -459,27 +430,37 @@
         if (iframeWrap)  iframeWrap.classList.add("hidden");
         if (loader)      loader.classList.remove("hidden");
 
-        const fileUrl  = window.location.origin + "/focus-mode/materials/" + m.id + "/file";
-        const gdocsUrl = "https://docs.google.com/viewer?url=" +
-            encodeURIComponent(fileUrl) + "&embedded=true";
+        const fileUrl = m.url || (window.location.origin + "/focus-mode/materials/" + m.id + "/file");
+        const isSameOrigin = fileUrl.startsWith(window.location.origin);
+        const isPdf = (m.type || "").toLowerCase() === "pdf" || fileUrl.toLowerCase().endsWith('.pdf');
 
         if (!iframe) return;
         iframe.src = "";
 
+        const finishLoad = () => {
+            if (loader)     loader.classList.add("hidden");
+            if (iframeWrap) iframeWrap.classList.remove("hidden");
+            applyZoom(1.0);
+        };
+
+        // If the file is same-origin (served by this app) or a PDF, load directly in the iframe.
+        // Google Docs Viewer cannot access localhost/private URLs, which caused "No preview available".
+        if (isSameOrigin || isPdf) {
+            setTimeout(() => {
+                iframe.src = fileUrl;
+                iframe.onload = finishLoad;
+                // Fallback if onload doesn't fire
+                setTimeout(() => { if (loader && !loader.classList.contains("hidden")) finishLoad(); }, 12000);
+            }, 60);
+            return;
+        }
+
+        // Otherwise attempt Google Docs Viewer for public remote URLs
+        const gdocsUrl = "https://docs.google.com/viewer?url=" + encodeURIComponent(fileUrl) + "&embedded=true";
         setTimeout(() => {
             iframe.src = gdocsUrl;
-            iframe.onload = () => {
-                if (loader)     loader.classList.add("hidden");
-                if (iframeWrap) iframeWrap.classList.remove("hidden");
-                applyZoom(1.0);
-            };
-            // Safety fallback if onload doesn't fire (cross-origin quirk)
-            setTimeout(() => {
-                if (loader && !loader.classList.contains("hidden")) {
-                    loader.classList.add("hidden");
-                    if (iframeWrap) iframeWrap.classList.remove("hidden");
-                }
-            }, 12000);
+            iframe.onload = finishLoad;
+            setTimeout(() => { if (loader && !loader.classList.contains("hidden")) finishLoad(); }, 12000);
         }, 60);
     }
 
@@ -499,17 +480,20 @@
     }
 
     /* ── Notes ───────────────────────────────────────────────────── */
-    async function loadNotes(idx) {
+   async function loadNotes(idx) {
         const m  = materials[idx];
         if (!m) return;
         const ta = $("rmvNotesTextarea");
         if (!ta) return;
 
+        // Always clear so previous file's notes never show
+        ta.value = "";
+
         if (viewer.notesCache[m.id] !== undefined) {
             ta.value = viewer.notesCache[m.id];
             return;
         }
-        ta.value = "";
+
         try {
             const res  = await fetch("/focus-mode/materials/" + m.id + "/notes", {
                 headers: { Accept: "application/json" },

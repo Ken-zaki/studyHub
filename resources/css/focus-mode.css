@@ -194,7 +194,62 @@
 .deck-add-circle svg {
     width: 22px;
     height: 22px;
-    fill: #1a1a1a;
+}
+.deck-add-circle svg path {
+    stroke: #ffffff !important;
+}
+
+.flashcard-action-row {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 8px;
+}
+.flashcard-action-btn {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    padding: 0.55rem 1.3rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: #2a9d8f;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(42, 157, 143, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.flashcard-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(42, 157, 143, 0.34);
+}
+.flashcard-action-btn:active {
+    transform: translateY(0);
+}
+.flashcard-action-btn .menu-btn-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+.flashcard-action-btn .menu-btn-label,
+.flashcard-action-btn .menu-btn-desc {
+    color: #fff;
+}
+.flashcard-action-btn .menu-btn-label {
+    font-size: 0.95rem;
+    line-height: 1.1;
+}
+.flashcard-action-btn .menu-btn-desc {
+    display: none;
 }
 
 /* ── Modal backdrop ── */

@@ -26,7 +26,7 @@
         {{-- ══ SCREEN: MAIN MENU ══ --}}
         <div class="screen screen-menu" id="screenMenu">
             <div class="menu-intro">
-                <h1 class="menu-heading">How do we study today?</h1>
+                <h1 class="menu-heading">Hi! You have entered Focus Mode!</h1>
                 <p class="menu-sub">Choose a study mode to begin your session</p>
             </div>
             <div class="menu-buttons">
@@ -66,7 +66,7 @@
                 <button class="deck-add-btn" id="deckCreateBtn" type="button">
                     <span class="deck-add-circle" aria-hidden="true">
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"
+                            <path stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"
                                   fill="none" d="M12 5v14M5 12h14"/>
                         </svg>
                     </span>
@@ -99,19 +99,13 @@
                     </div>
                 </div>
 
-                <div class="study-action-row flashcard-action-row">
-                    <button class="menu-btn study-action-btn study-action-flashcard flashcard-action-btn" id="flashcardUploadPromptBtn" type="button">
-                        <span class="menu-btn-icon">📎</span>
-                        <span class="menu-btn-label">Upload Materials</span>
-                        <span class="menu-btn-desc">Add the source material for this study set</span>
-                    </button>
-                    <button class="menu-btn study-action-btn study-action-flashcard flashcard-action-btn" id="flashcardCreatePromptBtn" type="button">
-                        <span class="menu-btn-icon">🃏</span>
-                        <span class="menu-btn-label">Create Flashcards</span>
-                        <span class="menu-btn-desc">Build cards manually for active recall</span>
-                    </button>
+                <div class="rm-library-header">
+                    <span class="rm-library-label">My Flashcards</span>
+                    <div style="display:flex; gap: 10px;">
+                        <button class="rm-upload-btn" id="flashcardUploadPromptBtn" type="button">Upload Materials</button>
+                        <button class="rm-upload-btn" id="flashcardCreatePromptBtn" type="button">Create Flashcards</button>
+                    </div>
                 </div>
-
                 <section class="flashcard-stage" id="flashcardStage">
                     <button class="flashcard-nav flashcard-nav-left" id="flashcardPrevBtn" type="button" aria-label="Previous flashcard">‹</button>
                     <div class="flashcard-stage-viewport">
@@ -122,7 +116,6 @@
                 </section>
             </div>
 
-            <button class="back-btn" data-target="screenMenu" id="flashcardScreenBackBtn">← Back to Menu</button>
         </div>
 
         {{-- Flashcard Studio Modal --}}
@@ -261,8 +254,6 @@
                 </div>
             </div>
 
-           <button class="back-btn" id="quizScreenMenuBackBtn" data-target="screenMenu">← Back to Menu</button>
-
         </div>
 
     </main>
@@ -285,9 +276,9 @@
         <button class="music-hide-btn" id="musicHideBtn"
                 title="Hide Music" aria-label="Hide Music">×</button>
 
-        {{-- Album art placeholder --}}
+        {{-- Album art --}}
         <div class="music-album-art">
-            <div class="music-album-placeholder" aria-hidden="true">🎵</div>
+            <img src="{{ asset('images/cat.gif') }}" alt="Cat Gif" style="width:100%; height:100%; object-fit:cover; border-radius:14px;">
         </div>
 
         {{-- Track info --}}

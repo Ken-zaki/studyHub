@@ -533,10 +533,13 @@
 
             "    <!-- REVIEW PANEL -->",
             '    <div id="quizReviewPanel">',
-            '        <div class="quiz-review-actions">',
-            '            <button class="quiz-action-btn" id="quizReviewCreateBtn" type="button">Create Quiz Questions</button>',
-            '            <button class="quiz-action-btn" id="quizStartBtn" type="button">Start Quiz</button>',
-            "        </div>",
+            '        <div class="rm-library-header">',
+            '            <span class="rm-library-label">My Quiz Questions</span>',
+            '            <div style="display:flex; gap: 10px;">',
+            '                <button class="rm-upload-btn" id="quizReviewCreateBtn" type="button">Create Quiz Questions</button>',
+            '                <button class="rm-upload-btn" id="quizStartBtn" type="button">Start Quiz</button>',
+            '            </div>',
+            '        </div>',
             '        <div class="quiz-review-list" id="quizReviewList"></div>',
             "    </div>",
 

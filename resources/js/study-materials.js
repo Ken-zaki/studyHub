@@ -459,27 +459,33 @@
         if (iframeWrap)  iframeWrap.classList.add("hidden");
         if (loader)      loader.classList.remove("hidden");
 
-        const fileUrl  = window.location.origin + "/focus-mode/materials/" + m.id + "/file";
-        const gdocsUrl = "https://docs.google.com/viewer?url=" +
-            encodeURIComponent(fileUrl) + "&embedded=true";
+        const fileUrl = m.url || (window.location.origin + "/focus-mode/materials/" + m.id + "/file");
+        const isSameOrigin = fileUrl.startsWith(window.location.origin);
+        const isPdf = (m.type || "").toLowerCase() === "pdf" || fileUrl.toLowerCase().endsWith('.pdf');
 
         if (!iframe) return;
         iframe.src = "";
 
+        const finishLoad = () => {
+            if (loader)     loader.classList.add("hidden");
+            if (iframeWrap) iframeWrap.classList.remove("hidden");
+            applyZoom(1.0);
+        };
+
+        if (isSameOrigin || isPdf) {
+            setTimeout(() => {
+                iframe.src = fileUrl;
+                iframe.onload = finishLoad;
+                setTimeout(() => { if (loader && !loader.classList.contains("hidden")) finishLoad(); }, 12000);
+            }, 60);
+            return;
+        }
+
+        const gdocsUrl = "https://docs.google.com/viewer?url=" + encodeURIComponent(fileUrl) + "&embedded=true";
         setTimeout(() => {
             iframe.src = gdocsUrl;
-            iframe.onload = () => {
-                if (loader)     loader.classList.add("hidden");
-                if (iframeWrap) iframeWrap.classList.remove("hidden");
-                applyZoom(1.0);
-            };
-            // Safety fallback if onload doesn't fire (cross-origin quirk)
-            setTimeout(() => {
-                if (loader && !loader.classList.contains("hidden")) {
-                    loader.classList.add("hidden");
-                    if (iframeWrap) iframeWrap.classList.remove("hidden");
-                }
-            }, 12000);
+            iframe.onload = finishLoad;
+            setTimeout(() => { if (loader && !loader.classList.contains("hidden")) finishLoad(); }, 12000);
         }, 60);
     }
 

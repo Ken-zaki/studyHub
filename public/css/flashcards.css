@@ -112,8 +112,8 @@
     align-self: stretch;
 }
 .deck-card:nth-child(3n+1) .deck-card-accent { background: var(--accent-orange); }
-.deck-card:nth-child(3n+2) .deck-card-accent { background: var(--accent-yellow); }
-.deck-card:nth-child(3n+3) .deck-card-accent { background: var(--accent-teal); }
+.deck-card:nth-child(3n+2) .deck-card-accent { background: var(--accent-orange); }
+.deck-card:nth-child(3n+3) .deck-card-accent { background: var(--accent-orange); }
 
 /* Card body */
 .deck-card-body {
@@ -186,7 +186,7 @@
     font-family: "DM Sans", sans-serif;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #1a5f7a;
     transition: opacity 0.18s;
     margin-top: 4px;
 }
@@ -203,6 +203,7 @@
     flex-shrink: 0;
     box-shadow: 0 3px 10px rgba(42,157,143,0.35);
     transition: transform 0.18s, box-shadow 0.18s;
+    background-color: #1a5f7a;
 }
 .deck-add-btn:hover .deck-add-circle {
     transform: scale(1.08);
@@ -211,7 +212,9 @@
 .deck-add-circle svg {
     width: 22px;
     height: 22px;
-    fill: #1a1a1a;
+}
+.deck-add-circle svg path {
+    stroke: #ffffff !important;
 }
 
 

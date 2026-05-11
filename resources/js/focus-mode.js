@@ -77,7 +77,6 @@
         deckContentDesc:        $("deckContentDesc"),
         flashcardScreenBackBtn: $("flashcardScreenBackBtn"),
         // Flashcard action buttons (inside deck content)
-        flashcardUploadPromptBtn: $("flashcardUploadPromptBtn"),
         flashcardCreatePromptBtn: $("flashcardCreatePromptBtn"),
         // Flashcard slider
         flashcardStageTrack:    $("flashcardStageTrack"),
@@ -204,7 +203,7 @@
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
     // Back buttons → navigate to target screen
-    document.querySelectorAll(".back-btn[data-target]").forEach((btn) =>
+    document.querySelectorAll(".focus-back-btn[data-target], .back-btn[data-target]").forEach((btn) =>
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
 
@@ -307,7 +306,6 @@
         el.flashcardModal.setAttribute("aria-hidden", "true");
     }
 
-    el.flashcardUploadPromptBtn?.addEventListener("click", () => openFlashcardModal("upload"));
     el.flashcardCreatePromptBtn?.addEventListener("click", () => openFlashcardModal("create"));
     el.flashcardModalCloseBtn?.addEventListener("click",  closeFlashcardModal);
     el.flashcardModalBackdrop?.addEventListener("click",  closeFlashcardModal);

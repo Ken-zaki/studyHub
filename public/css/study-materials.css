@@ -31,7 +31,7 @@
 }
 
 .rm-upload-btn {
-    background: #5bbfb5;
+    background: #1a5f7a;
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -42,7 +42,7 @@
     cursor: pointer;
     transition: background .2s, transform .15s;
 }
-.rm-upload-btn:hover  { background: #3fa89e; }
+.rm-upload-btn:hover  { background: #417184; }
 .rm-upload-btn:active { transform: scale(.97); }
 
 .rm-upload-status {
@@ -135,19 +135,29 @@
 
 /* ═══════════════════════════════════════════════════════════════════
    VIEWER SCREEN
-   The screen itself is position:relative so absolute children work.
-   Do NOT force display here — let the app's .hidden toggle handle it.
+   Uses position:fixed so it escapes fm-main's padding/max-width
+   and fills the full available area below the topbar and right of
+   the collapsed sidebar — matching the fm-wrapper layout exactly.
    ═══════════════════════════════════════════════════════════════════ */
 #screenMaterialViewer {
-    position: relative !important;
-    width: 100%;
-    height: 100%;
+    position: fixed !important;
+    top: var(--topbar-height, 64px);
+    left: var(--sidebar-collapsed, 80px);
+    right: 0;
+    bottom: 0;
+    /* override fm-main's width/height so they don't constrain us */
+    width: auto !important;
+    height: auto !important;
     overflow: hidden;
     background: #1a1a1a;
+    /* sit above normal screen content, below modals (z-index 2000+) */
+    z-index: 500;
 }
 
-/* When the app removes .hidden it typically shows as block or flex.
-   We need it to fill its parent either way. */
+#screenMaterialViewer.hidden {
+    display: none !important;
+}
+
 #screenMaterialViewer:not(.hidden) {
     display: block;
 }
@@ -179,6 +189,9 @@
     justify-content: center;
     background: #1a1a1a;
     z-index: 5;
+}
+.rmv-loader.hidden {
+    display: none !important;
 }
 .rmv-loader-spinner {
     width: 36px;
@@ -284,7 +297,7 @@
     left: 0;
     bottom: 0;
     z-index: 15;
-    width: 280px;
+    width: 400px;
     display: flex;
     flex-direction: column;
     padding: .6rem 0 .6rem .6rem;
@@ -329,14 +342,13 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: rgba(18,18,18,.82);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,.1);
+    background: #fef9c3;
+    border: 1px solid #f0d060;
     border-radius: 12px;
     min-height: 0;
     position: relative;
     margin-right: 24px;
+    box-shadow: 2px 4px 12px rgba(0,0,0,0.25);
 }
 
 .rmv-notes-nav {
@@ -350,7 +362,7 @@
     font-family: 'DM Sans', sans-serif;
     font-size: .7rem;
     font-weight: 600;
-    color: rgba(255,255,255,.35);
+    color: #a08000;
     padding: .1rem .75rem .3rem;
     flex-shrink: 0;
     letter-spacing: .08em;
@@ -364,7 +376,7 @@
     resize: none;
     font-family: 'DM Sans', sans-serif;
     font-size: .88rem;
-    color: rgba(255,255,255,.88);
+    color: #333333;
     padding: .25rem .75rem 3.5rem;
     outline: none;
     line-height: 1.6;
@@ -461,5 +473,9 @@
 
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 700px) {
+    #screenMaterialViewer {
+        /* sidebar collapses/hides on mobile so start from left edge */
+        left: 0;
+    }
     .rmv-notes-panel { width: 82vw; }
 }

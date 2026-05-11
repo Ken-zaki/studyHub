@@ -137,7 +137,7 @@
     font-family: "DM Sans", sans-serif;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary, #1a1a1a);
+    color: #1a5f7a;
     transition: opacity 0.18s;
     margin-top: 4px;
 }
@@ -147,7 +147,7 @@
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    background: #2a9d8f;
+    background: #1a5f7a;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -168,7 +168,7 @@
 .quiz-set-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(10, 10, 10, 0.25);
+    background: rgba(10, 10, 10, 0.55);
     z-index: 2100;
     display: flex;
     align-items: center;
@@ -312,7 +312,7 @@
 
 /* ── Single review card ── */
 .quiz-review-card {
-    background: #f0ede8;
+    background: #fafafa;
     border-radius: 20px;
     padding: 0;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
@@ -322,10 +322,8 @@
 }
 
 /* Delete button — top right corner */
-.quiz-review-card > .quiz-review-card-delete-btn {
-    position: absolute;
-    top: 10px;
-    right: 12px;
+.quiz-review-card-delete-btn {
+    position: static;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -341,6 +339,7 @@
     transition: color 0.15s, background 0.15s, transform 0.12s;
     z-index: 2;
 }
+
 .quiz-review-card-delete-btn:hover {
     color: #e53e3e;
     background: #fff0f0;
@@ -354,12 +353,12 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: #b8a8b4;
-    padding: 16px 22px 0;
+    padding: 0;
 }
 
 /* Question text row */
 .quiz-review-card-question {
-    background: #e8e4de;
+    background: #f4f3f2;
     margin: 10px 14px 0;
     border-radius: 12px;
     padding: 16px 20px;
@@ -384,7 +383,7 @@
 
 /* Correct answer highlight */
 .quiz-review-card-answer {
-    background: #e8e4de;
+    background: #f4f3f2;
     margin: 0 14px;
     border-radius: 12px;
     padding: 14px 20px;
@@ -407,7 +406,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #e0dcd6;
+    background: #fffefc;
     border-radius: 10px;
     padding: 10px 14px;
     font-family: "DM Sans", sans-serif;
@@ -432,7 +431,7 @@
 .quiz-review-card-explanation {
     margin: 10px 14px 16px;
     padding: 12px 16px;
-    background: #e8e4de;
+    background: #f4f3f2;
     border-radius: 10px;
     font-family: "DM Sans", sans-serif;
     font-size: 0.85rem;

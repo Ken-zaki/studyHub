@@ -77,7 +77,6 @@
         deckContentDesc:             $("deckContentDesc"),
         flashcardScreenBackBtn:      $("flashcardScreenBackBtn"),
         // Flashcard action buttons
-        flashcardUploadPromptBtn:    $("flashcardUploadPromptBtn"),
         flashcardCreatePromptBtn:    $("flashcardCreatePromptBtn"),
         // Flashcard slider
         flashcardStageTrack:         $("flashcardStageTrack"),
@@ -171,14 +170,27 @@
        SCREEN NAVIGATION
     ═══════════════════════════════════════════════════════════ */
     function showScreen(id) {
-        // Restrict navigation while focus mode is on; derive allowed targets from menu
+        // Restrict navigation while focus mode is on; derive allowed targets from menu.
+        // screenMaterialViewer is always allowed so the file viewer works in focus mode.
         if (state.focusOn) {
             const menu = document.getElementById('screenMenu');
-            let allowed = ["screenMenu", "screenReview", "screenFlashcard", "screenQuiz"];
+            let allowed = [
+                "screenMenu",
+                "screenReview",
+                "screenFlashcard",
+                "screenQuiz",
+                "screenMaterialViewer", // ← FIXED: viewer must always be reachable
+            ];
             if (menu) {
                 const btns = Array.from(menu.querySelectorAll('.menu-btn[data-target]'));
                 const targets = btns.map(b => b.getAttribute('data-target')).filter(Boolean);
-                if (targets.length) allowed = Array.from(new Set(["screenMenu", ...targets]));
+                if (targets.length) {
+                    allowed = Array.from(new Set([
+                        "screenMenu",
+                        "screenMaterialViewer", // always keep viewer allowed
+                        ...targets,
+                    ]));
+                }
             }
             if (!allowed.includes(id)) return;
         }
@@ -194,7 +206,7 @@
     document.querySelectorAll(".menu-btn[data-target]").forEach((btn) =>
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
-    document.querySelectorAll(".back-btn[data-target]").forEach((btn) =>
+    document.querySelectorAll(".focus-back-btn[data-target], .back-btn[data-target]").forEach((btn) =>
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
 
@@ -206,7 +218,9 @@
 
     function updateMaterialsPanelVisibility() {
         if (!el.materialsPanel) return;
-        const inStudy = state.currentScreen !== "screenMenu";
+        // Hide the materials panel when on the menu or when the full-screen viewer is open
+        const inStudy = state.currentScreen !== "screenMenu"
+                     && state.currentScreen !== "screenMaterialViewer"; // ← FIXED
         el.materialsPanel.classList.toggle("hidden", !inStudy);
         if (inStudy) renderMaterialsPanel();
         else setMaterialsStatus("");
@@ -294,7 +308,6 @@
         el.flashcardModal.setAttribute("aria-hidden", "true");
     }
 
-    el.flashcardUploadPromptBtn?.addEventListener("click", () => openFlashcardModal("upload"));
     el.flashcardCreatePromptBtn?.addEventListener("click", () => openFlashcardModal("create"));
     el.flashcardModalCloseBtn?.addEventListener("click",   closeFlashcardModal);
     el.flashcardModalBackdrop?.addEventListener("click",   closeFlashcardModal);
@@ -953,36 +966,27 @@
     ═══════════════════════════════════════════════════════════ */
     const bgAudio = new Audio();
     bgAudio.src     = "/focus-mode/music/stream";
-    bgAudio.loop    = true;    // loops the track forever
-    bgAudio.preload = "none";  // don't fetch until the user turns music on
+    bgAudio.loop    = true;
+    bgAudio.preload = "none";
 
-    // Keep progress bar in sync with playback position
     bgAudio.addEventListener("timeupdate", () => {
         if (!bgAudio.duration || !el.progressFill) return;
         const pct = (bgAudio.currentTime / bgAudio.duration) * 100;
-        el.progressFill.style.width          = `${pct}%`;
-        el.progressFill.style.animation      = "none"; // disable CSS keyframe animation
-        el.progressFill.style.transition     = "width 1s linear";
+        el.progressFill.style.width      = `${pct}%`;
+        el.progressFill.style.animation  = "none";
+        el.progressFill.style.transition = "width 1s linear";
     });
 
-    // Reset bar when a new load starts
     bgAudio.addEventListener("loadstart", () => {
         if (el.progressFill) el.progressFill.style.width = "0%";
     });
 
-    bgAudio.addEventListener("play",  () => {
-        el.musicToggleBtn?.classList.add("is-playing");
-    });
-    bgAudio.addEventListener("pause", () => {
-        el.musicToggleBtn?.classList.remove("is-playing");
-    });
-    bgAudio.addEventListener("ended", () => {
-        el.musicToggleBtn?.classList.remove("is-playing");
-    });
+    bgAudio.addEventListener("play",  () => { el.musicToggleBtn?.classList.add("is-playing"); });
+    bgAudio.addEventListener("pause", () => { el.musicToggleBtn?.classList.remove("is-playing"); });
+    bgAudio.addEventListener("ended", () => { el.musicToggleBtn?.classList.remove("is-playing"); });
+
     function startMusic() {
         bgAudio.play().catch((err) => {
-            // Autoplay may be blocked on first interaction — that's fine,
-            // the user clicked the FAB so the browser should allow it.
             console.warn("Music play blocked:", err);
         });
         state.isPlaying = true;
@@ -998,21 +1002,19 @@
     function syncPlayPauseIcons() {
         el.playIcon?.classList.toggle("hidden",  state.isPlaying);
         el.pauseIcon?.classList.toggle("hidden", !state.isPlaying);
-        // ← No musicToggleBtn is-playing here — bgAudio events handle it
     }
 
-    // FAB toggle (show/hide the music widget panel)
+    // FAB toggle — show/hide the music widget panel
     el.musicToggleBtn.addEventListener("click", () => {
         state.musicOn = !state.musicOn;
         updateMusicFabVisibility();
     });
 
-    // × button inside the widget
+    // × button inside the widget — hide panel but keep music playing
     el.musicHideBtn?.addEventListener("click", () => {
-    state.musicOn = false;
-    // Don't stop music — just hide the panel, music keeps playing
-    updateMusicFabVisibility();
-});
+        state.musicOn = false;
+        updateMusicFabVisibility();
+    });
 
     // Play / Pause button inside the widget
     el.playPauseBtn?.addEventListener("click", () => {
@@ -1024,26 +1026,26 @@
     });
 
     function updateMusicFabVisibility() {
-    // Show FAB on ALL screens (including menu)
-    el.musicToggleBtn.classList.remove("hidden");
-    // ← DELETE the is-playing toggle line — bgAudio events handle this now
+        // Show FAB on ALL screens (including menu and viewer)
+        el.musicToggleBtn.classList.remove("hidden");
 
-    if (!el.musicWidget) return;
+        if (!el.musicWidget) return;
 
-    const show = state.musicOn;
-    el.body.classList.toggle("music-panel-visible", show);
+        const show = state.musicOn;
+        el.body.classList.toggle("music-panel-visible", show);
 
-    if (show) {
-        el.musicWidget.classList.remove("hidden", "hiding");
-        if (bgAudio.paused) startMusic();
-    } else {
-        el.musicWidget.classList.add("hiding");
-        setTimeout(() => {
-            el.musicWidget.classList.add("hidden");
-            el.musicWidget.classList.remove("hiding");
-        }, 280);
+        if (show) {
+            el.musicWidget.classList.remove("hidden", "hiding");
+            if (bgAudio.paused) startMusic();
+        } else {
+            el.musicWidget.classList.add("hiding");
+            setTimeout(() => {
+                el.musicWidget.classList.add("hidden");
+                el.musicWidget.classList.remove("hiding");
+            }, 280);
+        }
     }
-}
+
     /* ── Session save ───────────────────────────────────────── */
     function saveFocusSession(secs) {
         if (secs < 1) return;

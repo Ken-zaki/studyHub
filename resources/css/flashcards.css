@@ -185,7 +185,9 @@
 .deck-add-circle svg {
     width: 22px;
     height: 22px;
-    fill: #1a1a1a;
+}
+.deck-add-circle svg path {
+    stroke: #ffffff !important;
 }
 
 /* ── Modal backdrop ── */

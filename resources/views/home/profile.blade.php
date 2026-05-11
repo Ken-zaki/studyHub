@@ -133,10 +133,6 @@
                 @csrf
                 <button type="submit" class="profile-account-btn">Change Account</button>
             </form>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="profile-account-btn danger">Logout</button>
-            </form>
         </div>
     </div>
 </main>
