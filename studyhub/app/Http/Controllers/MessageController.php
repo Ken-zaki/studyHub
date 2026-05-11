@@ -58,6 +58,16 @@ class MessageController extends Controller
             );
     }
 
+    /** POST a notification row, ignoring duplicates */
+    private function pushNotification(array $data): void
+    {
+        Http::withoutVerifying()
+            ->withHeaders(array_merge($this->supabaseHeaders(), [
+                'Prefer' => 'resolution=ignore-duplicates',
+            ]))
+            ->post($this->supabaseUrl() . '/rest/v1/notifications', $data);
+    }
+
     // ── Session auth helpers ───────────────────────────────────
 
     private function userId(): ?string
@@ -275,6 +285,35 @@ class MessageController extends Controller
             $message['first_name']        = $p['first_name']        ?? '';
             $message['last_name']         = $p['last_name']         ?? '';
             $message['profile_photo_url'] = $p['profile_photo_url'] ?? '';
+
+            // Build sender display name
+            $firstName  = trim($p['first_name'] ?? '');
+            $lastName   = trim($p['last_name']  ?? '');
+            $senderName = trim($firstName . ' ' . $lastName);
+            if ($senderName === '') {
+                $senderName = $p['username'] ?? 'Someone';
+            }
+
+            // Build message preview (first 20 chars)
+            $preview = mb_substr($request->message, 0, 20);
+            if (mb_strlen($request->message) > 20) {
+                $preview .= '…';
+            }
+
+            // Push notification to the receiver
+            $this->pushNotification([
+                'id'          => Str::uuid()->toString(),
+                'user_id'     => $receiverId,
+                'source_type' => 'message',
+                'source_id'   => $message['id'],
+                'trigger'     => 'new_message',
+                'title'       => $senderName . ' sent you a message',
+                'body'        => $preview,
+                'icon'        => '💬',
+                'urgency'     => 'info',
+                'read'        => false,
+                'created_at'  => now()->toISOString(),
+            ]);
         }
 
         return response()->json(['message' => $message]);
@@ -349,8 +388,8 @@ class MessageController extends Controller
 
         $counts = [];
         foreach ($rows as $row) {
-            $sid            = $row['sender_id'];
-            $counts[$sid]   = ($counts[$sid] ?? 0) + 1;
+            $sid          = $row['sender_id'];
+            $counts[$sid] = ($counts[$sid] ?? 0) + 1;
         }
 
         return response()->json(['counts' => $counts]);
