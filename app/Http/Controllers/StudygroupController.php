@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StudyGroup;
 use App\Models\StudyGroupMember;
+use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,62 +51,23 @@ class StudyGroupController extends Controller
             }
         }
 
-        // Query friend IDs from Supabase (useServiceKey: true to bypass RLS)
-        $friendsAsUser   = $provider->queryTable('friends', [
-            'select'  => 'friend_id',
-            'user_id' => 'eq.' . $userId,
-        ], true);
+        // Get friends from the local 'friends' table using Eloquent
+        // Friends where this user is the initiator
+        $friendsAsUser = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
+        
+        // Friends where this user is the recipient
+        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
 
-        $friendsAsFriend = $provider->queryTable('friends', [
-            'select'    => 'user_id',
-            'friend_id' => 'eq.' . $userId,
-        ], true);
-
-        // Collect all unique friend IDs
-        $friendIds = [];
-        if (is_array($friendsAsUser)) {
-            foreach ($friendsAsUser as $row) {
-                $id = (string) ($row['friend_id'] ?? '');
-                if ($id !== '') $friendIds[$id] = true;
-            }
-        }
-        if (is_array($friendsAsFriend)) {
-            foreach ($friendsAsFriend as $row) {
-                $id = (string) ($row['user_id'] ?? '');
-                if ($id !== '') $friendIds[$id] = true;
-            }
-        }
-
-        // Also check user_friends table
-        $userFriendsAsUser   = $provider->queryTable('user_friends', [
-            'select'  => 'friend_id',
-            'user_id' => 'eq.' . $userId,
-        ], true);
-
-        $userFriendsAsFriend = $provider->queryTable('user_friends', [
-            'select'    => 'user_id',
-            'friend_id' => 'eq.' . $userId,
-        ], true);
-
-        if (is_array($userFriendsAsUser)) {
-            foreach ($userFriendsAsUser as $row) {
-                $id = (string) ($row['friend_id'] ?? '');
-                if ($id !== '') $friendIds[$id] = true;
-            }
-        }
-        if (is_array($userFriendsAsFriend)) {
-            foreach ($userFriendsAsFriend as $row) {
-                $id = (string) ($row['user_id'] ?? '');
-                if ($id !== '') $friendIds[$id] = true;
-            }
-        }
+        // Combine and get unique friend IDs
+        $friendIds = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
 
         // Build friends array from cached profiles
         $friends = [];
-        foreach (array_keys($friendIds) as $friendId) {
+        foreach ($friendIds as $friendId) {
+            $friendId = (string) $friendId;
+            
             // Always add friend to list, even if profile is not found
             if (!isset($profilesById[$friendId])) {
-                // Create minimal profile from ID
                 $friends[] = [
                     'id'       => $friendId,
                     'name'     => 'Friend',
@@ -137,10 +99,9 @@ class StudyGroupController extends Controller
         }
 
         // Debug: Log what we're getting
-        \Log::info('StudyGroup index - Friend IDs found: ' . count($friendIds), [
-            'friend_ids' => array_keys($friendIds),
+        \Log::info('StudyGroup index - Friend IDs found from friends table: ' . count($friendIds), [
+            'friend_ids' => $friendIds,
             'friends_count' => count($friends),
-            'all_profiles_count' => count($profilesById),
         ]);
 
         return view('home.study-groups', compact('groups', 'friends'));
@@ -227,6 +188,123 @@ class StudyGroupController extends Controller
                 'subject' => $group->subject,
             ],
         ]);
+    }
+
+    /**
+     * Delete a study group.
+     */
+    public function destroy(string $groupId)
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === '') {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        // Find the group
+        $group = StudyGroup::find($groupId);
+
+        if (!$group) {
+            return response()->json(['error' => 'Group not found'], 404);
+        }
+
+        // Check if user is the creator (admin)
+        if ($group->created_by !== $userId) {
+            return response()->json(['error' => 'Only the group creator can delete the group'], 403);
+        }
+
+        try {
+            // Delete all members
+            StudyGroupMember::where('group_id', $groupId)->delete();
+
+            // Delete the group
+            $group->delete();
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Failed to delete group: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get friends as JSON (for AJAX modal population).
+     * Uses the local 'friends' table (Friendship model)
+     */
+    public function getFriends()
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === '') {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $provider = new SupabaseServiceProvider();
+
+        // Load ALL profiles once
+        $allProfiles  = $provider->getAllProfiles();
+        $profilesById = [];
+        foreach ($allProfiles as $profile) {
+            $id = (string) ($profile['id'] ?? '');
+            if ($id !== '') {
+                $profilesById[$id] = $profile;
+            }
+        }
+
+        // Get friends from the local 'friends' table using Eloquent
+        // Friends where this user is the initiator
+        $friendsAsUser = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
+        
+        // Friends where this user is the recipient
+        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
+
+        // Combine and get unique friend IDs
+        $friendIds = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
+
+        // Build friends array from cached profiles
+        $friends = [];
+        foreach ($friendIds as $friendId) {
+            $friendId = (string) $friendId;
+            
+            // Always add friend to list, even if profile is not found
+            if (!isset($profilesById[$friendId])) {
+                $friends[] = [
+                    'id'       => $friendId,
+                    'name'     => 'Friend',
+                    'username' => '',
+                    'photo'    => '',
+                    'initials' => 'FR',
+                ];
+                continue;
+            }
+
+            $profile  = $profilesById[$friendId];
+            $firstName = trim((string) ($profile['first_name'] ?? ''));
+            $lastName  = trim((string) ($profile['last_name']  ?? ''));
+            $name      = trim($firstName . ' ' . $lastName);
+
+            if ($name === '') {
+                $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
+            }
+
+            $friends[] = [
+                'id'       => $friendId,
+                'name'     => $name,
+                'username' => (string) ($profile['username'] ?? ''),
+                'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
+                'initials' => strtoupper(
+                    substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)
+                ),
+            ];
+        }
+
+        \Log::info('GetFriends - Friend IDs found from friends table: ' . count($friendIds), [
+            'friend_ids' => $friendIds,
+            'friends_count' => count($friends),
+        ]);
+
+        return response()->json(['friends' => $friends]);
     }
 
     /**

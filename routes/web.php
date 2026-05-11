@@ -469,7 +469,9 @@ Route::get('/calendar', function () {
 
 // ── STUDY GROUPS ──────────────────────────────────────────────
 Route::get('/study-groups', [StudyGroupController::class, 'index'])->name('study-groups');
+Route::get('/study-groups/api/friends', [StudyGroupController::class, 'getFriends'])->name('study-groups.friends');
 Route::post('/study-groups', [StudyGroupController::class, 'store'])->name('study-groups.store');
+Route::delete('/study-groups/{groupId}', [StudyGroupController::class, 'destroy'])->name('study-groups.destroy');
 Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])->name('study-groups.messages');
 Route::post('/study-groups/{groupId}/messages', [StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
 

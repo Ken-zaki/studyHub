@@ -125,6 +125,23 @@
         .sg-chat-header-info { flex: 1; }
         .sg-chat-header-name { font-weight: 600; font-size: 0.95rem; color: #e8e6e1; }
         .sg-chat-header-members { font-size: 0.74rem; color: #6b7280; }
+        .sg-chat-header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn-delete-group {
+            padding: 6px 12px;
+            background: #ef4444;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background .2s;
+            font-weight: 500;
+        }
+        .btn-delete-group:hover { background: #dc2626; }
         /* ── MESSAGES ── */
         .sg-messages {
             flex: 1;
@@ -343,6 +360,9 @@
             <div class="sg-chat-header-info">
                 <div class="sg-chat-header-name" id="chatGroupName"></div>
                 <div class="sg-chat-header-members" id="chatGroupMembers"></div>
+            </div>
+            <div class="sg-chat-header-actions">
+                <button class="btn-delete-group" onclick="deleteGroup()" title="Delete this group">Delete</button>
             </div>
         </div>
 
@@ -590,8 +610,52 @@ document.getElementById('btnOpenModal').onclick = () => {
     document.getElementById('groupNameInput').value    = '';
     document.getElementById('groupSubjectInput').value = '';
     document.querySelectorAll('#friendList input[type="checkbox"]').forEach(c => c.checked = false);
+    
+    // Load friends dynamically via AJAX
+    loadFriendsForModal();
+    
     document.getElementById('modalBackdrop').classList.add('open');
 };
+
+function loadFriendsForModal() {
+    const friendListDiv = document.getElementById('friendList');
+    friendListDiv.innerHTML = '<div style="padding: 10px; color: #9ca3af;">Loading friends...</div>';
+    
+    fetch('/study-groups/api/friends')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.friends || data.friends.length === 0) {
+                friendListDiv.innerHTML = '<div class="no-msg">No friends to add yet.</div>';
+                return;
+            }
+            
+            let html = '';
+            data.friends.forEach(friend => {
+                const photoHtml = friend.photo 
+                    ? `<img src="${escHtml(friend.photo)}" alt="">` 
+                    : friend.initials;
+                
+                html += `
+                    <label class="friend-item" for="friend_${friend.id}">
+                        <input type="checkbox" id="friend_${friend.id}" value="${friend.id}">
+                        <div class="friend-avatar">
+                            ${photoHtml}
+                        </div>
+                        <div>
+                            <div class="friend-name">${escHtml(friend.name)}</div>
+                            <div class="friend-username">@${escHtml(friend.username || 'friend')}</div>
+                        </div>
+                    </label>
+                `;
+            });
+            
+            friendListDiv.innerHTML = html;
+        })
+        .catch(err => {
+            console.error('Failed to load friends:', err);
+            friendListDiv.innerHTML = '<div class="no-msg">Failed to load friends.</div>';
+        });
+}
 
 function closeModal() {
     document.getElementById('modalBackdrop').classList.remove('open');
@@ -638,6 +702,50 @@ function createGroup() {
         }
     })
     .catch(() => alert('Failed to create group.'));
+}
+
+function deleteGroup() {
+    if (!activeGroupId) return;
+    
+    if (!confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
+        return;
+    }
+
+    fetch(`/study-groups/${activeGroupId}`, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-TOKEN': CSRF }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Remove group from list
+            const groupEl = document.querySelector(`[data-group-id="${activeGroupId}"]`);
+            if (groupEl) groupEl.remove();
+            
+            // Reset chat panel
+            activeGroupId = null;
+            clearInterval(pollInterval);
+            document.getElementById('chatEmpty').style.display = 'flex';
+            document.getElementById('chatHeader').style.display = 'none';
+            document.getElementById('messagesBox').style.display = 'none';
+            document.getElementById('inputArea').style.display = 'none';
+            
+            // Show empty message if no groups left
+            if (document.querySelectorAll('.sg-group-item').length === 0) {
+                const noMsg = document.createElement('div');
+                noMsg.className = 'no-msg';
+                noMsg.style.marginTop = '24px';
+                noMsg.textContent = 'No groups yet. Hit + to create one!';
+                document.getElementById('groupList').appendChild(noMsg);
+            }
+        } else {
+            alert(data.error || 'Failed to delete group.');
+        }
+    })
+    .catch(err => {
+        console.error('Delete failed:', err);
+        alert('Failed to delete group.');
+    });
 }
 
 // ── LIGHTBOX ──────────────────────────────────────────────────
