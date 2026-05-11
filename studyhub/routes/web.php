@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FocusModeController;
 use App\Http\Controllers\FriendRequestController;
 use App\Http\Controllers\DiagnosticsController;
@@ -187,11 +188,11 @@ Route::post('/debug/study-groups-test', function (Request $request) {
 
 Route::get('/debug/my-friends-for-groups', function () {
     $userId = session('user_id');
-    
+
     $friendsAsUser = \DB::table('friends')
         ->where('user_id', $userId)
         ->get();
-    
+
     $friendsAsFriend = \DB::table('friends')
         ->where('friend_id', $userId)
         ->get();
@@ -403,9 +404,13 @@ Route::get('/signup', function () {
     return view('auth.signup');
 })->name('signup');
 
-Route::get('/forgot-password', function () {
-    return view('auth.forgot-password');
-})->name('forgot-password');
+// Forgot Password Routes
+Route::get('/forgot-password',  [AuthController::class, 'showForgotPassword'])->name('forgot-password');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.forgot');
+Route::get('/verify-otp',       [AuthController::class, 'showVerifyOtp'])->name('password.verify');
+Route::post('/verify-otp',      [AuthController::class, 'verifyOtp'])->name('password.verify.post');
+Route::get('/reset-password',   [AuthController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->name('password.reset.post');
 
 // Guests can browse public resources (read-only, handled in JS)
 Route::get('/resources/public', function () {

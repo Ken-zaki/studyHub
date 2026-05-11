@@ -210,4 +210,112 @@ class AuthController extends Controller
             abort(redirect()->route('login'));
         }
     }
+
+    // ──────────────────────────────────────────────
+    // FORGOT PASSWORD (POST)
+    // Sends OTP code to user's email via Supabase
+    // ──────────────────────────────────────────────
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $response = Http::withHeaders([
+            'apikey'       => env('SUPABASE_ANON_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post(env('SUPABASE_URL') . '/auth/v1/otp', [
+            'email' => $request->email,
+            'create_user' => false,
+        ]);
+
+        // Always show success to avoid email enumeration
+        return back()->with('success', 'If that email exists, a reset code has been sent.');
+    }
+
+    // ──────────────────────────────────────────────
+    // SHOW VERIFY OTP PAGE
+    // ──────────────────────────────────────────────
+    public function showVerifyOtp()
+    {
+        return view('auth.verify-otp');
+    }
+
+    // ──────────────────────────────────────────────
+    // VERIFY OTP (POST)
+    // Validates the code and stores access token
+    // ──────────────────────────────────────────────
+    public function verifyOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+        ]);
+
+        $response = Http::withHeaders([
+            'apikey'       => env('SUPABASE_ANON_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post(env('SUPABASE_URL') . '/auth/v1/verify', [
+            'type'  => 'recovery',
+            'token' => $request->token,
+            'email' => $request->email,
+        ]);
+
+        if ($response->failed()) {
+            return back()->withErrors(['token' => 'Invalid or expired code. Please try again.']);
+        }
+
+        // Store access token so user can set a new password
+        Session::put('reset_access_token', $response->json()['access_token']);
+        Session::put('reset_email', $request->email);
+
+        return redirect()->route('password.reset');
+    }
+
+    // ──────────────────────────────────────────────
+    // SHOW NEW PASSWORD PAGE
+    // ──────────────────────────────────────────────
+    public function showResetPassword()
+    {
+        if (!Session::has('reset_access_token')) {
+            return redirect()->route('login');
+        }
+
+        return view('auth.reset-password');
+    }
+
+    // ──────────────────────────────────────────────
+    // RESET PASSWORD (POST)
+    // Updates the user's password using the access token
+    // ──────────────────────────────────────────────
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $accessToken = Session::get('reset_access_token');
+
+        if (!$accessToken) {
+            return redirect()->route('login')->withErrors(['token' => 'Session expired. Please start again.']);
+        }
+
+        $response = Http::withHeaders([
+            'apikey'        => env('SUPABASE_ANON_KEY'),
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Content-Type'  => 'application/json',
+        ])->put(env('SUPABASE_URL') . '/auth/v1/user', [
+            'password' => $request->password,
+        ]);
+
+        if ($response->failed()) {
+            return back()->withErrors(['password' => 'Failed to reset password. Please try again.']);
+        }
+
+        // Clean up reset session keys
+        Session::forget(['reset_access_token', 'reset_email']);
+
+        return redirect()->route('login')->with('success', 'Password reset! Please log in.');
+    }
 }
+
