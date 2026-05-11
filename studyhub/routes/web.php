@@ -93,7 +93,7 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
 // DEBUG ROUTE - Check all friend requests in database
 Route::get('/debug/all-requests', function () {
     $allRequests = FriendRequest::all();
-    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
+    $schemaColumns = DB::getSchemaBuilder()->getColumnListing('friend_requests');
     $userId = trim((string) session('user_id', ''));
 
     $myIncoming = FriendRequest::where('receiver_id', $userId)->get();
@@ -108,7 +108,7 @@ Route::get('/debug/all-requests', function () {
         'my_incoming' => $myIncoming->toArray(),
         'my_outgoing_count' => count($myOutgoing),
         'my_outgoing' => $myOutgoing->toArray(),
-        'sample_raw_query' => \DB::table('friend_requests')->get()->toArray(),
+        'sample_raw_query' => DB::table('friend_requests')->get()->toArray(),
     ]);
 });
 
