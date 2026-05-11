@@ -190,6 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     redraw();
     renderTaskManager();
+    initNotifications();
 });
 
 // ═══════════════════════════════════════════════════════════════════
