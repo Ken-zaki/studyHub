@@ -8,6 +8,8 @@ use App\Providers\SupabaseServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class FriendRequestController extends Controller
 {
@@ -88,7 +90,7 @@ class FriendRequestController extends Controller
 
             // Try email first
             $foundProfile = $provider->getProfileByEmail($receiverId);
-            
+
             // Fall back to username
             if (!$foundProfile) {
                 $foundProfile = $provider->getProfileByUsername($receiverId);
@@ -132,6 +134,10 @@ class FriendRequestController extends Controller
             }
             // Was declined — allow resending
             $exactRequest->update(['status' => 'pending', 'responded_at' => null]);
+
+            // Notify the receiver about the re-sent request
+            $this->pushFriendRequestNotification($senderId, $receiverId, $provider);
+
             return back()->with('status', 'Friend request sent.');
         }
 
@@ -151,6 +157,9 @@ class FriendRequestController extends Controller
             'receiver_id' => $receiverId,
             'status'      => 'pending',
         ]);
+
+        // Notify the receiver
+        $this->pushFriendRequestNotification($senderId, $receiverId, $provider);
 
         return back()->with('status', 'Friend request sent.');
     }
@@ -186,6 +195,33 @@ class FriendRequestController extends Controller
                 'friend_id' => $friendRequest->sender_id,
             ]);
         });
+
+        // Notify the original sender that their request was accepted
+        $provider     = new SupabaseServiceProvider();
+        $accepterProf = $provider->getProfileById($friendRequest->receiver_id);
+
+        if ($accepterProf) {
+            $firstName    = trim($accepterProf['first_name'] ?? '');
+            $lastName     = trim($accepterProf['last_name']  ?? '');
+            $accepterName = trim($firstName . ' ' . $lastName);
+            if ($accepterName === '') {
+                $accepterName = $accepterProf['username'] ?? 'Someone';
+            }
+
+            $this->pushNotification([
+                'id'          => Str::uuid()->toString(),
+                'user_id'     => $friendRequest->sender_id,
+                'source_type' => 'friend_request',
+                'source_id'   => $friendRequest->receiver_id,
+                'trigger'     => 'friend_request_accepted',
+                'title'       => 'You and ' . $accepterName . ' are now friends! 🎉',
+                'body'        => 'Start a conversation',
+                'icon'        => '🎉',
+                'urgency'     => 'info',
+                'read'        => false,
+                'created_at'  => now()->toISOString(),
+            ]);
+        }
 
         return redirect()->route('friend-requests', ['tab' => 'friends'])
             ->with('status', 'Friend request accepted.');
@@ -262,6 +298,68 @@ class FriendRequestController extends Controller
 
         return redirect()->route('friend-requests', ['tab' => 'friends'])
             ->with('status', 'Friend removed.');
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // NOTIFICATION HELPERS
+    // ──────────────────────────────────────────────────────────────
+
+    private function supabaseUrl(): string
+    {
+        return rtrim(env('SUPABASE_URL'), '/');
+    }
+
+    private function supabaseHeaders(): array
+    {
+        return [
+            'apikey'        => env('SUPABASE_SERVICE_KEY'),
+            'Authorization' => 'Bearer ' . env('SUPABASE_SERVICE_KEY'),
+            'Content-Type'  => 'application/json',
+            'Prefer'        => 'return=representation',
+        ];
+    }
+
+    private function pushNotification(array $data): void
+    {
+        Http::withoutVerifying()
+            ->withHeaders(array_merge($this->supabaseHeaders(), [
+                'Prefer' => 'resolution=ignore-duplicates',
+            ]))
+            ->post($this->supabaseUrl() . '/rest/v1/notifications', $data);
+    }
+
+    /**
+     * Notify $receiverId that $senderId sent them a friend request.
+     * Extracted so it can be reused for both new and re-sent requests.
+     */
+    private function pushFriendRequestNotification(
+        string $senderId,
+        string $receiverId,
+        SupabaseServiceProvider $provider
+    ): void {
+        $senderProfile = $provider->getProfileById($senderId);
+        if (!$senderProfile) return;
+
+        $firstName  = trim($senderProfile['first_name'] ?? '');
+        $lastName   = trim($senderProfile['last_name']  ?? '');
+        $senderName = trim($firstName . ' ' . $lastName);
+        if ($senderName === '') {
+            $senderName = $senderProfile['username'] ?? 'Someone';
+        }
+
+        $this->pushNotification([
+            'id'          => Str::uuid()->toString(),
+            'user_id'     => $receiverId,
+            'source_type' => 'friend_request',
+            'source_id'   => $senderId,
+            'trigger'     => 'friend_request_received',
+            'title'       => $senderName . ' sent you a friend request',
+            'body'        => 'Tap to view their profile',
+            'icon'        => '🤝',
+            'urgency'     => 'info',
+            'read'        => false,
+            'created_at'  => now()->toISOString(),
+        ]);
     }
 
     // ──────────────────────────────────────────────────────────────

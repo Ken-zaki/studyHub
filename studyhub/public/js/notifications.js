@@ -1,20 +1,18 @@
 // ================================================================
-// notifications.js — StudyHub Notification System (FIXED)
+// notifications.js — StudyHub Notification System
 //
-// Fixes applied:
-//  1. overdue trigger now has a dedup window (only fires once per item)
-//  2. Prefer header moved out of _headers() — only sent on INSERT, not PATCH
-//  3. Bell selector made more robust (falls back through multiple strategies)
-//  4. SB_SVC write calls replaced with SB_ANON + RLS (safer, works without svc key)
-//  5. windowMs check is now symmetric — prevents double-firing near boundaries
-//  6. _tick() guards against running before UID is available
+// Handles:
+//  • Scheduled event/task reminders (day_before, 3hr, 1hr, 30min, overdue)
+//  • Real-time: new direct messages    (source_type = "message")
+//  • Real-time: friend request received (trigger = "friend_request_received")
+//  • Real-time: friend request accepted (trigger = "friend_request_accepted")
 // ================================================================
 
 const NOTIF = {
     checkMs: 60_000,
     maxPanel: 30,
     table: "notifications",
-    windowMs: 90_000, // ±90s window for non-overdue triggers
+    windowMs: 90_000, // ±90s window for non-overdue scheduled triggers
 
     triggers: [
         {
@@ -44,10 +42,11 @@ function initNotifications() {
 }
 
 // ================================================================
-// TICK
+// TICK — only handles scheduled event/task reminders
+// Real-time notifications (messages, friend requests) are inserted
+// server-side in PHP; we just poll and render them here.
 // ================================================================
 async function _tick() {
-    // Guard: don't run if UID isn't set yet
     if (typeof UID === "undefined" || !UID) return;
 
     const nowMs = Date.now();
@@ -99,9 +98,6 @@ async function _tick() {
             let shouldFire = false;
 
             if (trig.key === "overdue") {
-                // FIX: only fire overdue within a window JUST AFTER the due time
-                // (i.e. 0 to windowMs after due), not forever.
-                // This prevents re-inserting every tick for old overdue items.
                 const msSinceDue = nowMs - item.dueMs;
                 shouldFire = msSinceDue >= 0 && msSinceDue <= NOTIF.windowMs;
             } else {
@@ -138,10 +134,6 @@ async function _tick() {
 // ================================================================
 // SUPABASE HELPERS
 // ================================================================
-
-// FIX: Removed "Prefer: resolution=ignore-duplicates" from the shared
-// headers function — it caused problems on PATCH requests.
-// It's now only added in _sbInsert where it actually belongs.
 function _headers(write = false) {
     const key =
         write && typeof SB_SVC !== "undefined" && SB_SVC ? SB_SVC : SB_ANON;
@@ -158,14 +150,12 @@ async function _sbInsert(rows) {
     try {
         const res = await fetch(`${SB_URL}/rest/v1/${NOTIF.table}`, {
             method: "POST",
-            // FIX: ignore-duplicates header only here, not in PATCH
             headers: {
                 ..._headers(true),
                 Prefer: "resolution=ignore-duplicates",
             },
             body: JSON.stringify(rows),
         });
-        // Non-ok but not a duplicate error → log it so you can debug
         if (!res.ok && res.status !== 409) {
             const err = await res.json().catch(() => ({}));
             console.warn("[notifications] insert failed:", res.status, err);
@@ -184,7 +174,6 @@ async function _loadAndRender() {
         if (res.ok) {
             _cached = await res.json();
         } else {
-            // Log so you can see RLS / table-missing errors
             const err = await res.json().catch(() => ({}));
             console.warn("[notifications] load failed:", res.status, err);
         }
@@ -199,7 +188,7 @@ async function _sbPatch(filter, data) {
     try {
         const res = await fetch(`${SB_URL}/rest/v1/${NOTIF.table}?${filter}`, {
             method: "PATCH",
-            headers: _headers(true), // no ignore-duplicates here
+            headers: _headers(true),
             body: JSON.stringify(data),
         });
         if (!res.ok) {
@@ -296,14 +285,19 @@ function _renderList() {
                 n.urgency === "urgent" ? "#dc2626" : "var(--primary,#1a5f7a)";
             const bg = n.read ? "transparent" : "rgba(26,95,122,0.045)";
             const ago = _timeAgo(new Date(n.created_at));
-            return `<div onclick="markNotifRead('${n.id}')" style="
+            const clickUrl = _notifClickUrl(n);
+            const clickJs = clickUrl
+                ? `markNotifRead('${n.id}'); window.location='${clickUrl}';`
+                : `markNotifRead('${n.id}')`;
+
+            return `<div onclick="${clickJs}" style="
                 display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
                 border-bottom:1px solid var(--border,rgba(0,0,0,.06));
                 border-left:3px solid ${n.read ? "transparent" : border};
                 background:${bg};cursor:pointer;transition:background .12s;"
                 onmouseenter="this.style.background='rgba(26,95,122,0.07)'"
                 onmouseleave="this.style.background='${bg}'">
-                <div style="font-size:22px;flex-shrink:0;line-height:1.2;margin-top:1px;">${n.icon}</div>
+                <div style="font-size:22px;flex-shrink:0;line-height:1.2;margin-top:1px;">${n.icon || "🔔"}</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:13px;font-weight:${n.read ? "500" : "700"};
                         color:var(--text-primary,#111);
@@ -328,6 +322,32 @@ function _renderList() {
             </div>`;
         })
         .join("");
+}
+
+// ================================================================
+// CLICK-THROUGH URLS
+// Map notification types to meaningful navigation targets.
+// ================================================================
+function _notifClickUrl(n) {
+    switch (n.source_type) {
+        case "message":
+            // source_id is the message id; navigate to the conversation with the sender
+            // Adjust the URL pattern to match your routes.
+            return n.source_id ? `/messages` : null;
+
+        case "friend_request":
+            if (n.trigger === "friend_request_received") {
+                return `/friend-requests?tab=requests`;
+            }
+            if (n.trigger === "friend_request_accepted") {
+                // source_id is the accepter's user id
+                return `/messages`;
+            }
+            return `/friend-requests`;
+
+        default:
+            return null;
+    }
 }
 
 // ================================================================
@@ -364,14 +384,11 @@ function _updateBadge() {
 
 // ================================================================
 // WIRE BELL
-// FIX: more robust selector strategy; adds data-notif-bell attribute
-// so the outside-click handler can identify the bell correctly.
 // ================================================================
 function _wireBell() {
-    // Try multiple strategies to find the bell link
     let bellLink =
-        document.querySelector('a[href*="notification"]') || // href contains "notification"
-        document.querySelector(".top-bar-btn"); // fallback to first .top-bar-btn
+        document.querySelector('a[href*="notification"]') ||
+        document.querySelector(".top-bar-btn");
 
     if (!bellLink) {
         console.warn(
@@ -380,7 +397,6 @@ function _wireBell() {
         return;
     }
 
-    // Mark it so the outside-click handler can identify it
     bellLink.setAttribute("data-notif-bell", "true");
     bellLink.style.position = "relative";
 
@@ -389,7 +405,6 @@ function _wireBell() {
         _toggleDropdown(bellLink);
     });
 
-    // Replace static dot with live badge
     const staticDot = bellLink.querySelector(".notif-dot");
     const badge = document.createElement("span");
     badge.id = "notifCountBadge";
@@ -415,7 +430,7 @@ function _toggleDropdown(anchor) {
 }
 
 // ================================================================
-// CONTENT BUILDERS
+// CONTENT BUILDERS (scheduled event/task notifications)
 // ================================================================
 function _buildTitle(item, trig) {
     if (trig.key === "overdue") return `⚠️ Overdue: ${item.title}`;
@@ -466,17 +481,20 @@ function _catLabel(cat) {
 function _priIcon(pri) {
     return { high: "🔴", medium: "🟡", low: "🟢" }[pri] || "✅";
 }
+
 function _fmt12(t) {
     if (!t) return "";
     const [h, m] = t.split(":").map(Number);
     return `${h === 0 ? 12 : h > 12 ? h - 12 : h}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
+
 function _esc(s) {
     if (s == null) return "";
     const d = document.createElement("div");
     d.textContent = String(s);
     return d.innerHTML;
 }
+
 function _timeAgo(date) {
     const diff = Math.floor((Date.now() - date) / 1000);
     if (diff < 10) return "just now";
