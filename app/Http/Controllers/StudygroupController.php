@@ -103,7 +103,16 @@ class StudyGroupController extends Controller
         // Build friends array from cached profiles
         $friends = [];
         foreach (array_keys($friendIds) as $friendId) {
+            // Always add friend to list, even if profile is not found
             if (!isset($profilesById[$friendId])) {
+                // Create minimal profile from ID
+                $friends[] = [
+                    'id'       => $friendId,
+                    'name'     => 'Friend',
+                    'username' => '',
+                    'photo'    => '',
+                    'initials' => 'FR',
+                ];
                 continue;
             }
 
