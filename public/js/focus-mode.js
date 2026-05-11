@@ -26,6 +26,7 @@
         pomoInterval: null,
         pomoRunning: false,
         pomoCycle: 0,
+        pomoPosition: null,
         totalFocusSecs: 0,
         materials: Array.isArray(window.__focusMaterials) ? window.__focusMaterials : [],
         decks: Array.isArray(window.__focusDecks) ? window.__focusDecks : [],
@@ -170,6 +171,18 @@
        SCREEN NAVIGATION
     ═══════════════════════════════════════════════════════════ */
     function showScreen(id) {
+        // Restrict navigation while focus mode is on; derive allowed targets from menu
+        if (state.focusOn) {
+            const menu = document.getElementById('screenMenu');
+            let allowed = ["screenMenu", "screenReview", "screenFlashcard", "screenQuiz"];
+            if (menu) {
+                const btns = Array.from(menu.querySelectorAll('.menu-btn[data-target]'));
+                const targets = btns.map(b => b.getAttribute('data-target')).filter(Boolean);
+                if (targets.length) allowed = Array.from(new Set(["screenMenu", ...targets]));
+            }
+            if (!allowed.includes(id)) return;
+        }
+
         document.querySelectorAll(".screen").forEach((s) => s.classList.add("hidden"));
         const t = document.getElementById(id);
         if (t) t.classList.remove("hidden");
@@ -407,6 +420,7 @@
         el.flashcardStageTrack.innerHTML = cards.map((c, i) => `
             <div class="flashcard-slide" data-index="${i}">
                 <div class="flashcard-card" tabindex="0" aria-label="Card ${i + 1}: click to flip">
+                    <button class="flashcard-card-delete-btn" type="button" data-flashcard-id="${escHtml(c.id || ('local-' + i))}" aria-label="Delete flashcard ${i + 1}">🗑</button>
                     <div class="flashcard-card-inner">
                         <div class="flashcard-card-front">
                             <div class="flashcard-card-label">Question</div>
@@ -423,6 +437,43 @@
         el.flashcardStageTrack.querySelectorAll(".flashcard-card").forEach((card) => {
             card.addEventListener("click",   () => card.classList.toggle("flipped"));
             card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.classList.toggle("flipped"); });
+        });
+
+        el.flashcardStageTrack.querySelectorAll(".flashcard-card-delete-btn").forEach((btn) => {
+            btn.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                const fid = btn.dataset.flashcardId;
+                if (!fid) return;
+                if (!confirm("Delete this flashcard? This cannot be undone.")) return;
+                try {
+                    if (String(fid).startsWith('local-')) {
+                        const deck = state.decks.find((d) => d.id === state.activeDeckId);
+                        if (deck) {
+                            deck.flashcards = (deck.flashcards || []).filter((f, idx) => {
+                                const idOrLocal = f.id || ('local-' + idx);
+                                return String(idOrLocal) !== String(fid);
+                            });
+                            renderFlashcardSlider(deck.flashcards || []);
+                        }
+                        return;
+                    }
+                    const res = await fetch(`/focus-mode/flashcards/${fid}`, {
+                        method: "DELETE",
+                        headers: { "X-CSRF-TOKEN": getCsrfToken(), Accept: "application/json" },
+                    });
+                    if (!res.ok) {
+                        const p = await res.json().catch(() => ({}));
+                        throw new Error(p?.message || "Delete failed.");
+                    }
+                    const deck = state.decks.find((d) => d.id === state.activeDeckId);
+                    if (deck) {
+                        deck.flashcards = (deck.flashcards || []).filter((f) => String(f.id) !== String(fid));
+                        renderFlashcardSlider(deck.flashcards || []);
+                    }
+                } catch (err) {
+                    alert(err.message || "Could not delete flashcard.");
+                }
+            });
         });
 
         goToCard(0, cards.length);
@@ -640,6 +691,9 @@
         el.body.classList.toggle("focus-mode-on", state.focusOn);
         state.focusOn ? showPomodoroWidget() : hidePomodoroWidget();
         updateMusicFabVisibility();
+        if (state.focusOn) {
+            showScreen('screenMenu');
+        }
         el.focusToggleBtn.animate(
             [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
             { duration: 300, easing: "ease-out" }
@@ -655,6 +709,10 @@
         w.className = "pomodoro-widget hidden";
         w.dataset.phase = "focus";
         w.innerHTML = `
+            <div class="pomo-drag-handle" id="pomoDragHandle" role="button" tabindex="0" aria-label="Drag pomodoro timer">
+                <span class="pomo-drag-label">Pomodoro Timer</span>
+                <span class="pomo-drag-grip" aria-hidden="true">⋮⋮</span>
+            </div>
             <div class="pomo-phase-tabs">
                 <button class="pomo-tab active" data-phase="focus">Focus</button>
                 <button class="pomo-tab" data-phase="shortBreak">Short Break</button>
@@ -693,8 +751,72 @@
         return w;
     }
 
+    function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    function applyPomodoroPosition() {
+        if (!pomoWidget || !state.pomoPosition) return;
+        const { left, top } = state.pomoPosition;
+        pomoWidget.style.left = `${left}px`;
+        pomoWidget.style.top = `${top}px`;
+        pomoWidget.style.right = "auto";
+        pomoWidget.style.bottom = "auto";
+    }
+
+    function bindPomodoroDrag() {
+        const handle = $("pomoDragHandle");
+        if (!handle || !pomoWidget) return;
+
+        let pointerId = null;
+        let offsetX = 0;
+        let offsetY = 0;
+        let widgetWidth = 0;
+        let widgetHeight = 0;
+
+        const onMove = (event) => {
+            if (pointerId !== event.pointerId) return;
+            const maxLeft = Math.max(8, window.innerWidth - widgetWidth - 8);
+            const maxTop = Math.max(8, window.innerHeight - widgetHeight - 8);
+            const left = clamp(event.clientX - offsetX, 8, maxLeft);
+            const top = clamp(event.clientY - offsetY, 8, maxTop);
+            state.pomoPosition = { left, top };
+            pomoWidget.style.left = `${left}px`;
+            pomoWidget.style.top = `${top}px`;
+            pomoWidget.style.right = "auto";
+            pomoWidget.style.bottom = "auto";
+        };
+
+        const endDrag = (event) => {
+            if (pointerId !== event.pointerId) return;
+            pointerId = null;
+            pomoWidget.classList.remove("is-dragging");
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", endDrag);
+            window.removeEventListener("pointercancel", endDrag);
+        };
+
+        handle.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0) return;
+            if (!pomoWidget || pomoWidget.classList.contains("hidden")) return;
+            const rect = pomoWidget.getBoundingClientRect();
+            pointerId = event.pointerId;
+            offsetX = event.clientX - rect.left;
+            offsetY = event.clientY - rect.top;
+            widgetWidth = rect.width;
+            widgetHeight = rect.height;
+            pomoWidget.classList.add("is-dragging");
+            handle.setPointerCapture?.(event.pointerId);
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", endDrag);
+            window.addEventListener("pointercancel", endDrag);
+            event.preventDefault();
+        });
+    }
+
     function showPomodoroWidget() {
         if (!pomoWidget) { pomoWidget = buildPomodoroWidget(); bindPomodoroEvents(); }
+        applyPomodoroPosition();
         pomoWidget.classList.remove("hidden");
         requestAnimationFrame(() => pomoWidget.classList.add("visible"));
         renderPomodoro();
@@ -706,6 +828,7 @@
         setTimeout(() => pomoWidget.classList.add("hidden"), 350);
     }
     function bindPomodoroEvents() {
+        bindPomodoroDrag();
         pomoWidget.querySelectorAll(".pomo-tab").forEach((tab) =>
             tab.addEventListener("click", () => switchPhase(tab.dataset.phase))
         );
@@ -847,6 +970,15 @@
         if (el.progressFill) el.progressFill.style.width = "0%";
     });
 
+    bgAudio.addEventListener("play",  () => {
+        el.musicToggleBtn?.classList.add("is-playing");
+    });
+    bgAudio.addEventListener("pause", () => {
+        el.musicToggleBtn?.classList.remove("is-playing");
+    });
+    bgAudio.addEventListener("ended", () => {
+        el.musicToggleBtn?.classList.remove("is-playing");
+    });
     function startMusic() {
         bgAudio.play().catch((err) => {
             // Autoplay may be blocked on first interaction — that's fine,
@@ -866,8 +998,7 @@
     function syncPlayPauseIcons() {
         el.playIcon?.classList.toggle("hidden",  state.isPlaying);
         el.pauseIcon?.classList.toggle("hidden", !state.isPlaying);
-        const inStudy = state.currentScreen !== "screenMenu";
-        el.musicToggleBtn?.classList.toggle("is-playing", state.musicOn && state.isPlaying && inStudy);
+        // ← No musicToggleBtn is-playing here — bgAudio events handle it
     }
 
     // FAB toggle (show/hide the music widget panel)
@@ -878,10 +1009,10 @@
 
     // × button inside the widget
     el.musicHideBtn?.addEventListener("click", () => {
-        state.musicOn = false;
-        stopMusic();
-        updateMusicFabVisibility();
-    });
+    state.musicOn = false;
+    // Don't stop music — just hide the panel, music keeps playing
+    updateMusicFabVisibility();
+});
 
     // Play / Pause button inside the widget
     el.playPauseBtn?.addEventListener("click", () => {
@@ -893,30 +1024,26 @@
     });
 
     function updateMusicFabVisibility() {
-        const inStudy = state.currentScreen !== "screenMenu";
+    // Show FAB on ALL screens (including menu)
+    el.musicToggleBtn.classList.remove("hidden");
+    // ← DELETE the is-playing toggle line — bgAudio events handle this now
 
-        // Hide the FAB entirely when on the main menu
-        el.musicToggleBtn.classList.toggle("hidden", !inStudy);
-        el.musicToggleBtn.classList.toggle("is-playing", state.musicOn && state.isPlaying && inStudy);
+    if (!el.musicWidget) return;
 
-        if (!el.musicWidget) return;
+    const show = state.musicOn;
+    el.body.classList.toggle("music-panel-visible", show);
 
-        const show = state.musicOn && inStudy;
-        el.body.classList.toggle("music-panel-visible", show);
-
-        if (show) {
-            el.musicWidget.classList.remove("hidden", "hiding");
-            startMusic();   // begin playing as soon as the panel opens
-        } else {
-            stopMusic();
-            el.musicWidget.classList.add("hiding");
-            setTimeout(() => {
-                el.musicWidget.classList.add("hidden");
-                el.musicWidget.classList.remove("hiding");
-            }, 280);
-        }
+    if (show) {
+        el.musicWidget.classList.remove("hidden", "hiding");
+        if (bgAudio.paused) startMusic();
+    } else {
+        el.musicWidget.classList.add("hiding");
+        setTimeout(() => {
+            el.musicWidget.classList.add("hidden");
+            el.musicWidget.classList.remove("hiding");
+        }, 280);
     }
-
+}
     /* ── Session save ───────────────────────────────────────── */
     function saveFocusSession(secs) {
         if (secs < 1) return;

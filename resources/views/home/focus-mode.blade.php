@@ -261,7 +261,7 @@
                 </div>
             </div>
 
-            <button class="back-btn" data-target="screenMenu">← Back to Menu</button>
+           <button class="back-btn" id="quizScreenMenuBackBtn" data-target="screenMenu">← Back to Menu</button>
 
         </div>
 
@@ -269,11 +269,14 @@
 
     {{-- ══ MUSIC FAB ══ --}}
     <button class="music-toggle-fab hidden" id="musicToggleBtn"
-            title="Toggle Focus Music" aria-label="Toggle Focus Music">
-        <svg viewBox="0 0 24 24" id="musicNoteIcon">
-            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-        </svg>
-    </button>
+        title="Toggle Focus Music" aria-label="Toggle Focus Music">
+    <svg viewBox="0 0 24 24" id="musicNoteIcon">
+        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+    </svg>
+    <span class="music-note music-note-1" aria-hidden="true">♪</span>
+    <span class="music-note music-note-2" aria-hidden="true">♫</span>
+    <span class="music-note music-note-3" aria-hidden="true">♩</span>
+</button>
 
     {{-- ══ MUSIC PLAYER WIDGET (on/off only) ══ --}}
     <div class="music-player-widget hidden" id="musicWidget">

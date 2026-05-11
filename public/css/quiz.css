@@ -20,6 +20,7 @@
     text-transform: uppercase;
     color: var(--text-primary, #1a1a1a);
     margin: 0 0 32px;
+    margin-top: -100px;
 }
 
 /* ── "My Quizzes" section label ── */
@@ -315,9 +316,34 @@
     border-radius: 20px;
     padding: 0;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
+}
+
+/* Delete button — top right corner */
+.quiz-review-card > .quiz-review-card-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #bdbdbd;
+    border-radius: 8px;
+    transition: color 0.15s, background 0.15s, transform 0.12s;
+    z-index: 2;
+}
+.quiz-review-card-delete-btn:hover {
+    color: #e53e3e;
+    background: #fff0f0;
 }
 
 /* Question number badge */

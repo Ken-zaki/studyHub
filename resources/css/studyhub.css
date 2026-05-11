@@ -132,6 +132,12 @@ body {
 
 /* Footer / User Profile */
 .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+
+/* When focus mode is active, keep the sidebar collapsed and disable interaction */
+.focus-mode-on .sidebar { width: var(--sidebar-collapsed) !important; }
+.focus-mode-on .sidebar:hover { width: var(--sidebar-collapsed) !important; }
+.focus-mode-on .sidebar, .focus-mode-on .sidebar * { pointer-events: none; }
+.focus-mode-on .right-sidebar, .focus-mode-on .res-detail-sidebar { display: none !important; }
 .user-profile {
     display: flex; align-items: center; gap: 12px;
     padding: 12px; border-radius: 12px;

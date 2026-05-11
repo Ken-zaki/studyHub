@@ -399,3 +399,125 @@
     font-style: italic;
     font-family: "DM Sans", sans-serif;
 }
+
+/* ── MUSIC FAB ── */
+.music-toggle-fab {
+    position: fixed;
+    /* Positioned on the left side */
+    bottom: calc(var(--footer-h) + 80px);
+    left: 24px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    transition: transform 0.22s, border-color 0.22s, background 0.22s;
+    z-index: 180;
+}
+.music-toggle-fab:hover {
+    transform: translateY(-1px);
+    border-color: var(--primary);
+}
+.music-toggle-fab svg {
+    width: 22px;
+    height: 22px;
+    fill: var(--primary);
+    position: relative;
+    z-index: 2;
+}
+
+.music-note {
+    position: absolute;
+    color: var(--secondary);
+    font-size: 0.9rem;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+.music-note-1 {
+    top: -10px;
+    right: -8px;
+}
+.music-note-2 {
+    top: 2px;
+    left: -12px;
+}
+.music-note-3 {
+    bottom: -11px;
+    right: 1px;
+}
+
+.music-toggle-fab.is-playing .music-note {
+    opacity: 1;
+}
+.music-toggle-fab.is-playing .music-note-1 {
+    animation: noteFloatOne 1.9s ease-in-out infinite;
+}
+.music-toggle-fab.is-playing .music-note-2 {
+    animation: noteFloatTwo 2.1s ease-in-out infinite 0.15s;
+}
+.music-toggle-fab.is-playing .music-note-3 {
+    animation: noteFloatThree 2.3s ease-in-out infinite 0.3s;
+}
+
+@keyframes noteFloatOne {
+    0%, 100% {
+        transform: translate(0, 0) scale(0.85);
+        opacity: 0;
+    }
+    20% { opacity: 1; }
+    50% {
+        transform: translate(-4px, -14px) scale(1.1);
+        opacity: 1;
+    }
+    80% { opacity: 0.7; }
+}
+@keyframes noteFloatTwo {
+    0%, 100% {
+        transform: translate(0, 0) scale(0.8) rotate(-8deg);
+        opacity: 0;
+    }
+    18% { opacity: 1; }
+    55% {
+        transform: translate(6px, -18px) scale(1.12) rotate(6deg);
+        opacity: 1;
+    }
+    82% { opacity: 0.65; }
+}
+@keyframes noteFloatThree {
+    0%, 100% {
+        transform: translate(0, 0) scale(0.78) rotate(6deg);
+        opacity: 0;
+    }
+    22% { opacity: 1; }
+    52% {
+        transform: translate(-2px, -22px) scale(1.15) rotate(-4deg);
+        opacity: 1;
+    }
+    86% { opacity: 0.6; }
+}
+
+/* ── MUSIC PLAYER WIDGET ── */
+.music-player-widget {
+    position: fixed;
+    bottom: calc(var(--footer-h) + 130px);
+    left: 24px;
+    width: 260px;
+    background: linear-gradient(160deg, #1c6c88 0%, var(--primary) 100%);
+    color: #fff;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 12px 26px rgba(20, 77, 97, 0.32);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 179;
+}

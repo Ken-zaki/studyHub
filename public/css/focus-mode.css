@@ -28,12 +28,10 @@
     padding: 32px 28px;
     max-width: 900px;
     margin: 0 auto;
-    transition: padding-left 0.28s ease;
+    transition: padding-right 0.28s ease;
 }
 
-body.music-panel-visible .fm-main {
-    padding-left: 300px;
-}
+
 
 body.focus-mode-on .fm-main {
     padding-bottom: calc(var(--footer-h) + 20px);
@@ -1525,6 +1523,45 @@ body.modal-open {
     opacity: 1;
     transform: translateY(0) scale(1);
     pointer-events: auto;
+}
+
+.pomodoro-widget.is-dragging {
+    transition: none;
+}
+
+.pomo-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.pomodoro-widget.is-dragging .pomo-drag-handle {
+    cursor: grabbing;
+}
+
+.pomo-drag-label {
+    pointer-events: none;
+}
+
+.pomo-drag-grip {
+    pointer-events: none;
+    font-size: 0.9rem;
+    line-height: 1;
+    letter-spacing: -0.08em;
+    opacity: 0.7;
 }
 
 .pomo-phase-tabs {

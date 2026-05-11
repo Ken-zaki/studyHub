@@ -341,3 +341,28 @@
     margin: 0;
     font-family: "DM Sans", sans-serif;
 }
+
+/* ── Flashcard viewer: ensure delete button can sit above the card */
+.flashcard-card {
+    position: relative;
+}
+
+.flashcard-card-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #bdbdbd;
+    border-radius: 8px;
+    transition: color 0.15s, background 0.15s, transform 0.12s;
+    z-index: 3;
+}
+.flashcard-card-delete-btn:hover { color: #e53e3e; background: #fff0f0; }
