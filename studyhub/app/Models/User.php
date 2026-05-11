@@ -71,4 +71,27 @@ class User extends Authenticatable
         return $this->belongsToMany(self::class, 'friends', 'user_id', 'friend_id')
             ->withTimestamps();
     }
+
+    /**
+     * Get all friends (bidirectional lookup).
+     * This method handles both directions of the friendship relationship.
+     */
+    public function getAllFriends()
+    {
+        $userId = $this->id;
+        
+        // Get all friends where this user is the initiator OR the recipient
+        return self::where(function ($query) use ($userId) {
+            // Friends where I'm the user_id
+            $query->whereHas('friendshipsSent', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+            // OR friends where I'm the friend_id
+            ->orWhereHas('friendshipsReceived', function ($q) use ($userId) {
+                $q->where('friend_id', $userId);
+            });
+        })
+        ->where('id', '!=', $userId)
+        ->get();
+    }
 }
