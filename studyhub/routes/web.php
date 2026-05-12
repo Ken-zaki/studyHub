@@ -8,7 +8,9 @@ use App\Http\Controllers\FriendRequestController;
 use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NewsfeedController;
 use App\Http\Controllers\StudyGroupController;
+use App\Http\Controllers\OgPreviewController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
@@ -468,10 +470,11 @@ Route::get('/dashboard', function () {
     return view('home.dashboard', ['activeNav' => 'dashboard']);
 })->name('dashboard');
 
-Route::get('/newsfeed', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.newsfeed', ['activeNav' => 'newsfeed']);
-})->name('newsfeed');
+// Newsfeed page — loads friend IDs server-side (bypasses RLS)
+Route::get('/newsfeed', [NewsfeedController::class, 'index'])->name('newsfeed');
+
+// OG metadata preview — used by the link preview feature
+Route::get('/api/og-preview', [NewsfeedController::class, 'ogPreview'])->name('og.preview');
 
 Route::get('/calendar', function () {
     if ($r = requireAuth()) return $r;

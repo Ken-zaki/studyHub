@@ -9,10 +9,52 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class FriendRequestController extends Controller
 {
+    // ──────────────────────────────────────────────────────────────
+    // SUPABASE LOW-LEVEL HELPERS
+    // (retained from v1 for direct REST calls that bypass Eloquent,
+    //  e.g. the explicit user_friends upsert in accept())
+    // ──────────────────────────────────────────────────────────────
+
+    private function sbUrl(): string
+    {
+        return rtrim(env('SUPABASE_URL'), '/') . '/rest/v1/';
+    }
+
+    private function sbHeaders(): array
+    {
+        return [
+            'apikey'        => env('SUPABASE_SERVICE_KEY'),
+            'Authorization' => 'Bearer ' . env('SUPABASE_SERVICE_KEY'),
+            'Content-Type'  => 'application/json',
+            'Prefer'        => 'return=representation',
+        ];
+    }
+
+    private function sbPost(string $table, array $data, array $extraHeaders = []): bool
+    {
+        $response = Http::withoutVerifying()
+            ->withHeaders(array_merge($this->sbHeaders(), $extraHeaders))
+            ->post($this->sbUrl() . $table, $data);
+        return !$response->failed();
+    }
+
+    private function sbDelete(string $table, array $match): bool
+    {
+        $response = Http::withoutVerifying()
+            ->withHeaders($this->sbHeaders())
+            ->delete($this->sbUrl() . $table . '?' . http_build_query($match));
+        return !$response->failed();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // ROUTES
+    // ──────────────────────────────────────────────────────────────
+
     public function index()
     {
         if ($redirect = $this->requireAuth()) {
@@ -22,7 +64,7 @@ class FriendRequestController extends Controller
         $currentUserId = $this->currentUserId();
         $provider      = new SupabaseServiceProvider();
 
-        // Load ALL profiles once — service key used inside provider, bypasses RLS
+        // Load ALL profiles once — service key bypasses RLS
         $allProfiles  = $provider->getAllProfiles();
         $profilesById = $this->indexProfilesById($allProfiles);
 
@@ -73,6 +115,8 @@ class FriendRequestController extends Controller
         ]);
     }
 
+    // ── Send friend request ───────────────────────────────────────
+
     public function send(Request $request, string $receiverId): RedirectResponse
     {
         if ($redirect = $this->requireAuth()) {
@@ -83,18 +127,10 @@ class FriendRequestController extends Controller
         $receiverId = trim($receiverId);
         $provider   = new SupabaseServiceProvider();
 
-        // Profiles always have UUID ids (linked to auth.users).
-        // If somehow a non-UUID arrives, try resolving by email/username.
+        // If not a UUID, try resolving by email or username
         if (!$this->isValidUuid($receiverId)) {
-            $foundProfile = null;
-
-            // Try email first
-            $foundProfile = $provider->getProfileByEmail($receiverId);
-
-            // Fall back to username
-            if (!$foundProfile) {
-                $foundProfile = $provider->getProfileByUsername($receiverId);
-            }
+            $foundProfile = $provider->getProfileByEmail($receiverId)
+                         ?? $provider->getProfileByUsername($receiverId);
 
             if (!$foundProfile) {
                 return back()->withErrors(['friend_request' => 'User not found.']);
@@ -112,9 +148,8 @@ class FriendRequestController extends Controller
             return back()->withErrors(['friend_request' => 'Invalid friend request target.']);
         }
 
-        // Verify receiver profile exists
-        $receiverProfile = $provider->getProfileById($receiverId);
-        if (!$receiverProfile) {
+        // Verify receiver exists
+        if (!$provider->getProfileById($receiverId)) {
             return back()->withErrors(['friend_request' => 'User not found.']);
         }
 
@@ -134,14 +169,11 @@ class FriendRequestController extends Controller
             }
             // Was declined — allow resending
             $exactRequest->update(['status' => 'pending', 'responded_at' => null]);
-
-            // Notify the receiver about the re-sent request
             $this->pushFriendRequestNotification($senderId, $receiverId, $provider);
-
             return back()->with('status', 'Friend request sent.');
         }
 
-        // Check reverse direction — only block if PENDING
+        // Block if a reverse pending request already exists
         $reverseRequest = FriendRequest::query()
             ->where('sender_id', $receiverId)
             ->where('receiver_id', $senderId)
@@ -158,11 +190,15 @@ class FriendRequestController extends Controller
             'status'      => 'pending',
         ]);
 
-        // Notify the receiver
         $this->pushFriendRequestNotification($senderId, $receiverId, $provider);
 
         return back()->with('status', 'Friend request sent.');
     }
+
+    // ── Accept friend request ─────────────────────────────────────
+    // FIX (from v1): explicitly insert BOTH directions into user_friends
+    // via direct Supabase REST calls, because the DB trigger does not
+    // fire when updates are made through the service-key REST API.
 
     public function accept(FriendRequest $friendRequest): RedirectResponse
     {
@@ -178,27 +214,37 @@ class FriendRequestController extends Controller
             return back()->with('status', 'This request has already been processed.');
         }
 
-        DB::transaction(function () use ($friendRequest) {
+        $senderId   = $friendRequest->sender_id;
+        $receiverId = $friendRequest->receiver_id;
+
+        DB::transaction(function () use ($friendRequest, $senderId, $receiverId) {
             $friendRequest->update([
                 'status'       => 'accepted',
                 'responded_at' => now(),
             ]);
 
-            // NOTE: friends table has no accepted_at column — only user_id + friend_id
-            Friendship::firstOrCreate([
-                'user_id'   => $friendRequest->sender_id,
-                'friend_id' => $friendRequest->receiver_id,
-            ]);
-
-            Friendship::firstOrCreate([
-                'user_id'   => $friendRequest->receiver_id,
-                'friend_id' => $friendRequest->sender_id,
-            ]);
+            // Eloquent upsert via Friendship model
+            Friendship::firstOrCreate(['user_id' => $senderId,   'friend_id' => $receiverId]);
+            Friendship::firstOrCreate(['user_id' => $receiverId, 'friend_id' => $senderId]);
         });
 
-        // Notify the original sender that their request was accepted
+        // Belt-and-suspenders: also push both rows directly to user_friends
+        // via Supabase REST so the friendship exists even if the DB trigger
+        // or Eloquent observer is not wired up. ON CONFLICT → ignore duplicates.
+        $upsertHeaders = ['Prefer' => 'resolution=ignore-duplicates,return=representation'];
+
+        $this->sbPost('user_friends', ['user_id' => $senderId,   'friend_id' => $receiverId], $upsertHeaders);
+        $this->sbPost('user_friends', ['user_id' => $receiverId, 'friend_id' => $senderId],   $upsertHeaders);
+
+        Log::info('[FriendRequest] Accepted and user_friends populated', [
+            'request_id' => $friendRequest->id,
+            'sender'     => $senderId,
+            'receiver'   => $receiverId,
+        ]);
+
+        // Notify the original sender
         $provider     = new SupabaseServiceProvider();
-        $accepterProf = $provider->getProfileById($friendRequest->receiver_id);
+        $accepterProf = $provider->getProfileById($receiverId);
 
         if ($accepterProf) {
             $firstName    = trim($accepterProf['first_name'] ?? '');
@@ -210,9 +256,9 @@ class FriendRequestController extends Controller
 
             $this->pushNotification([
                 'id'          => Str::uuid()->toString(),
-                'user_id'     => $friendRequest->sender_id,
+                'user_id'     => $senderId,
                 'source_type' => 'friend_request',
-                'source_id'   => $friendRequest->receiver_id,
+                'source_id'   => $receiverId,
                 'trigger'     => 'friend_request_accepted',
                 'title'       => 'You and ' . $accepterName . ' are now friends! 🎉',
                 'body'        => 'Start a conversation',
@@ -226,6 +272,8 @@ class FriendRequestController extends Controller
         return redirect()->route('friend-requests', ['tab' => 'friends'])
             ->with('status', 'Friend request accepted.');
     }
+
+    // ── Decline friend request ────────────────────────────────────
 
     public function decline(FriendRequest $friendRequest): RedirectResponse
     {
@@ -243,9 +291,21 @@ class FriendRequestController extends Controller
 
         $friendRequest->update(['status' => 'declined', 'responded_at' => now()]);
 
+        // Clean up any stale user_friends rows just in case
+        $this->sbDelete('user_friends', [
+            'user_id'   => 'eq.' . $friendRequest->sender_id,
+            'friend_id' => 'eq.' . $friendRequest->receiver_id,
+        ]);
+        $this->sbDelete('user_friends', [
+            'user_id'   => 'eq.' . $friendRequest->receiver_id,
+            'friend_id' => 'eq.' . $friendRequest->sender_id,
+        ]);
+
         return redirect()->route('friend-requests', ['tab' => 'requests'])
             ->with('status', 'Friend request declined.');
     }
+
+    // ── Cancel outgoing friend request ────────────────────────────
 
     public function cancel(FriendRequest $friendRequest): RedirectResponse
     {
@@ -266,6 +326,8 @@ class FriendRequestController extends Controller
         return redirect()->route('friend-requests', ['tab' => 'requests'])
             ->with('status', 'Friend request cancelled.');
     }
+
+    // ── Remove friend ─────────────────────────────────────────────
 
     public function remove(string $friendId): RedirectResponse
     {
@@ -295,6 +357,16 @@ class FriendRequestController extends Controller
                 ->where('friend_id', $currentUserId)
                 ->delete();
         });
+
+        // Also remove from user_friends table directly (mirrors accept() logic)
+        $this->sbDelete('user_friends', [
+            'user_id'   => 'eq.' . $currentUserId,
+            'friend_id' => 'eq.' . $friendId,
+        ]);
+        $this->sbDelete('user_friends', [
+            'user_id'   => 'eq.' . $friendId,
+            'friend_id' => 'eq.' . $currentUserId,
+        ]);
 
         return redirect()->route('friend-requests', ['tab' => 'friends'])
             ->with('status', 'Friend removed.');
@@ -328,10 +400,6 @@ class FriendRequestController extends Controller
             ->post($this->supabaseUrl() . '/rest/v1/notifications', $data);
     }
 
-    /**
-     * Notify $receiverId that $senderId sent them a friend request.
-     * Extracted so it can be reused for both new and re-sent requests.
-     */
     private function pushFriendRequestNotification(
         string $senderId,
         string $receiverId,
