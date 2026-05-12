@@ -351,6 +351,12 @@ function _notifClickUrl(n) {
                 ? `/study-groups#${n.source_id}`
                 : `/study-groups`;
 
+        case "post":
+            return n.source_id ? `/newsfeed#post-${n.source_id}` : `/newsfeed`;
+
+        case "follow":
+            return `/profile/${n.source_id}`;
+
         default:
             return null;
     }
