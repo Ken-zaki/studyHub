@@ -54,7 +54,7 @@ class StudyGroupController extends Controller
         // Get friends from the local 'friends' table using Eloquent
         // Friends where this user is the initiator
         $friendsAsUser = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
-        
+
         // Friends where this user is the recipient
         $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
 
@@ -65,7 +65,7 @@ class StudyGroupController extends Controller
         $friends = [];
         foreach ($friendIds as $friendId) {
             $friendId = (string) $friendId;
-            
+
             // Always add friend to list, even if profile is not found
             if (!isset($profilesById[$friendId])) {
                 $friends[] = [
@@ -255,7 +255,7 @@ class StudyGroupController extends Controller
         // Get friends from the local 'friends' table using Eloquent
         // Friends where this user is the initiator
         $friendsAsUser = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
-        
+
         // Friends where this user is the recipient
         $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
 
@@ -266,7 +266,7 @@ class StudyGroupController extends Controller
         $friends = [];
         foreach ($friendIds as $friendId) {
             $friendId = (string) $friendId;
-            
+
             // Always add friend to list, even if profile is not found
             if (!isset($profilesById[$friendId])) {
                 $friends[] = [
@@ -348,6 +348,11 @@ class StudyGroupController extends Controller
 
             $profile = $profileCache[$senderId] ?? null;
 
+            // Log just the profile keys so we can see what fields exist
+            if ($profile) {
+                \Log::info('Profile keys: ' . implode(', ', array_keys($profile)));
+            }
+
             return [
                 'id'           => $row->id,
                 'user_id'      => $row->user_id,
@@ -355,7 +360,12 @@ class StudyGroupController extends Controller
                 'created_at'   => $row->created_at,
                 'sender_first' => $profile['first_name'] ?? null,
                 'sender_last'  => $profile['last_name']  ?? null,
-                'sender_photo' => $profile['profile_photo_url'] ?? null,
+                // Try common field name variations
+                'sender_photo' => $profile['profile_photo_url']
+                            ?? $profile['avatar_url']
+                            ?? $profile['photo_url']
+                            ?? $profile['avatar']
+                            ?? null,
                 'attachments'  => DB::table('group_message_attachments')
                     ->where('message_id', $row->id)
                     ->get()
@@ -411,8 +421,8 @@ class StudyGroupController extends Controller
         foreach ($request->file('attachments', []) as $file) {
             $isImage = str_starts_with($file->getMimeType(), 'image/');
             $folder  = $isImage ? 'group_images' : 'group_files';
-            $path    = $file->store("public/{$folder}");
-            $url     = Storage::url($path);
+            $path = $file->store($folder, 'public');
+            $url  = asset('storage/' . $path);
 
             DB::table('group_message_attachments')->insert([
                 'id'              => (string) Str::uuid(),
