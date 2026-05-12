@@ -9,7 +9,7 @@
 // ================================================================
 
 const NOTIF = {
-    checkMs: 60_000,
+    checkMs: 5_000, // check every 5 seconds for upcoming triggers
     maxPanel: 30,
     table: "notifications",
     windowMs: 90_000, // ±90s window for non-overdue scheduled triggers
@@ -39,6 +39,7 @@ function initNotifications() {
     _wireBell();
     _tick();
     setInterval(_tick, NOTIF.checkMs);
+    setInterval(_loadAndRender, 5_000); // poll for new notifs every 5s
 }
 
 // ================================================================
@@ -344,6 +345,11 @@ function _notifClickUrl(n) {
                 return `/messages`;
             }
             return `/friend-requests`;
+
+        case "study_group":
+            return n.source_id
+                ? `/study-groups#${n.source_id}`
+                : `/study-groups`;
 
         default:
             return null;

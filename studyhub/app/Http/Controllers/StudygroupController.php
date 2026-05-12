@@ -181,6 +181,29 @@ class StudyGroupController extends Controller
             ]);
         }
 
+        $notifRows = [];
+        foreach (($request->input('members') ?? []) as $memberId) {
+            $memberId = (string) $memberId;
+            if ($memberId === '' || $memberId === $userId) continue;
+
+            // Get adder's name from Supabase
+            $adderProfile = (new SupabaseServiceProvider())->getProfileById($userId);
+            $adderName = trim(($adderProfile['first_name'] ?? '') . ' ' . ($adderProfile['last_name'] ?? ''));
+            if (!$adderName) $adderName = $adderProfile['username'] ?? 'Someone';
+
+            $notifRows[] = [
+                'user_id'     => $memberId,
+                'source_type' => 'study_group',
+                'source_id'   => $group->id,
+                'trigger'     => 'added_to_group',
+                'title'       => "👥 {$adderName} added you to a study group",
+                'body'        => $group->name . ($group->subject ? " · {$group->subject}" : ''),
+                'icon'        => '👥',
+                'urgency'     => 'info',
+            ];
+        }
+        $this->insertNotifications($notifRows);
+
         return response()->json([
             'group' => [
                 'id'      => $group->id,
@@ -348,11 +371,6 @@ class StudyGroupController extends Controller
 
             $profile = $profileCache[$senderId] ?? null;
 
-            // Log just the profile keys so we can see what fields exist
-            if ($profile) {
-                \Log::info('Profile keys: ' . implode(', ', array_keys($profile)));
-            }
-
             return [
                 'id'           => $row->id,
                 'user_id'      => $row->user_id,
@@ -409,6 +427,35 @@ class StudyGroupController extends Controller
 
         $msgId = (string) Str::uuid();
 
+        // Notify all group members except sender
+        $members = StudyGroupMember::where('group_id', $groupId)
+            ->where('user_id', '!=', $userId)
+            ->pluck('user_id');
+
+        $group = StudyGroup::find($groupId);
+        $senderProfile = (new SupabaseServiceProvider())->getProfileById($userId);
+        $senderName = trim(($senderProfile['first_name'] ?? '') . ' ' . ($senderProfile['last_name'] ?? ''));
+        if (!$senderName) $senderName = $senderProfile['username'] ?? 'Someone';
+
+        $preview = $request->input('message') ?
+            Str::limit($request->input('message'), 60) :
+            '📎 Sent an attachment';
+
+        $notifRows = [];
+        foreach ($members as $memberId) {
+            $notifRows[] = [
+                'user_id'     => (string) $memberId,
+                'source_type' => 'study_group',
+                'source_id'   => $groupId,
+                'trigger'     => 'new_group_message' . $msgId,
+                'title'       => "💬 New message in {$group->name}",
+                'body'        => "{$senderName}: {$preview}",
+                'icon'        => '💬',
+                'urgency'     => 'info',
+            ];
+        }
+        $this->insertNotifications($notifRows);
+
         DB::table('group_messages')->insert([
             'id'         => $msgId,
             'group_id'   => $groupId,
@@ -438,5 +485,40 @@ class StudyGroupController extends Controller
         }
 
         return response()->json(['ok' => true, 'message_id' => $msgId]);
+    }
+
+    /**
+     * Insert a Supabase notification for one or more users.
+     */
+    private function insertNotifications(array $rows): void
+    {
+        $url    = config('services.supabase.url');
+        $svcKey = config('services.supabase.service_key');
+
+        if (!$url || !$svcKey || empty($rows)) return;
+
+        foreach ($rows as &$row) {
+            $row['id']         = (string) Str::uuid();
+            $row['read']       = false;
+            $row['created_at'] = now()->toIso8601String();
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withoutVerifying()
+                ->withHeaders([
+                    'apikey'        => $svcKey,
+                    'Authorization' => "Bearer {$svcKey}",
+                    'Content-Type'  => 'application/json',
+                    'Prefer'        => 'return=minimal',
+                ])->post("{$url}/rest/v1/notifications", $rows);
+
+            \Log::info('Notification insert', [
+                'rows'      => count($rows),
+                'http_code' => $response->status(),
+                'response'  => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to insert notifications: ' . $e->getMessage());
+        }
     }
 }
