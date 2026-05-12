@@ -1235,6 +1235,20 @@
         @endif
     </script>
 
+    {{-- ── NOTIFICATIONS ── --}}
+    <script>
+        const SB_URL = '{{ config('services.supabase.url') }}';
+        const SB_ANON = '{{ config('services.supabase.anon_key') }}';
+        const SB_SVC = '{{ config('services.supabase.service_key') }}';
+        const UID = '{{ session('user_id') }}';
+    </script>
+
+    <script src="{{ asset('js/notifications.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => initNotifications());
+    </script>
+
 </body>
 
 </html>

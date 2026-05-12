@@ -227,6 +227,7 @@ class SupabaseServiceProvider
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_TIMEOUT        => 10,
         ]);
 
         if ($body !== null && in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
