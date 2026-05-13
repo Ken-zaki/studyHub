@@ -2,7 +2,7 @@
 // notifications.js — StudyHub Notification System
 //
 // Handles:
-//  • Scheduled event/task reminders (day_before, 3hr, 1hr, 30min, overdue)
+//  • Scheduled event/task reminders (day_before, 12hr, 1hr, 30min, overdue, 1hr_after)
 //  • Real-time: new direct messages    (source_type = "message")
 //  • Real-time: friend request received (trigger = "friend_request_received")
 //  • Real-time: friend request accepted (trigger = "friend_request_accepted")
@@ -20,10 +20,20 @@ const NOTIF = {
             label: "1 day before",
             offsetMs: 24 * 60 * 60 * 1000,
         },
+        {
+            key: "12hr",
+            label: "12 hours before",
+            offsetMs: 12 * 60 * 60 * 1000,
+        },
         { key: "3hr", label: "3 hours before", offsetMs: 3 * 60 * 60 * 1000 },
         { key: "1hr", label: "1 hour before", offsetMs: 1 * 60 * 60 * 1000 },
         { key: "30min", label: "30 min before", offsetMs: 30 * 60 * 1000 },
         { key: "overdue", label: "Overdue", offsetMs: 0 },
+        {
+            key: "1hr_after",
+            label: "1 hour after",
+            offsetMs: -1 * 60 * 60 * 1000,
+        },
     ],
 };
 
@@ -69,7 +79,10 @@ async function _tick() {
             : new Date(`${dateStr}T23:59:00`).getTime();
         candidates.push({
             source_type: "event",
-            source_id: String(ev.id),
+            source_id:
+                ev.is_recurring && ev.recur_days?.length
+                    ? `${ev.id}_${dateStr}`
+                    : String(ev.id),
             title: ev.title,
             category: ev.category,
             dueMs,
@@ -99,8 +112,14 @@ async function _tick() {
             let shouldFire = false;
 
             if (trig.key === "overdue") {
+                // Fires once, within the first 90s after due time
                 const msSinceDue = nowMs - item.dueMs;
                 shouldFire = msSinceDue >= 0 && msSinceDue <= NOTIF.windowMs;
+            } else if (trig.key === "1hr_after") {
+                const fireAtMs = item.dueMs - trig.offsetMs; // dueMs - (-3600000) = dueMs + 1hr
+                shouldFire =
+                    nowMs >= fireAtMs && // only fire AFTER the time has passed
+                    nowMs - fireAtMs <= NOTIF.windowMs;
             } else {
                 const fireAtMs = item.dueMs - trig.offsetMs;
                 shouldFire = Math.abs(nowMs - fireAtMs) <= NOTIF.windowMs;
@@ -118,7 +137,9 @@ async function _tick() {
                 body: _buildBody(item, dueDate),
                 icon: _itemIcon(item),
                 urgency:
-                    trig.key === "overdue" || item.priority === "high"
+                    trig.key === "overdue" ||
+                    trig.key === "1hr_after" ||
+                    item.priority === "high"
                         ? "urgent"
                         : "info",
             });
@@ -327,36 +348,24 @@ function _renderList() {
 
 // ================================================================
 // CLICK-THROUGH URLS
-// Map notification types to meaningful navigation targets.
 // ================================================================
 function _notifClickUrl(n) {
     switch (n.source_type) {
         case "message":
-            // source_id is the message id; navigate to the conversation with the sender
-            // Adjust the URL pattern to match your routes.
             return n.source_id ? `/messages` : null;
-
         case "friend_request":
-            if (n.trigger === "friend_request_received") {
+            if (n.trigger === "friend_request_received")
                 return `/friend-requests?tab=requests`;
-            }
-            if (n.trigger === "friend_request_accepted") {
-                // source_id is the accepter's user id
-                return `/messages`;
-            }
+            if (n.trigger === "friend_request_accepted") return `/messages`;
             return `/friend-requests`;
-
         case "study_group":
             return n.source_id
                 ? `/study-groups#${n.source_id}`
                 : `/study-groups`;
-
         case "post":
             return n.source_id ? `/newsfeed#post-${n.source_id}` : `/newsfeed`;
-
         case "follow":
             return `/profile/${n.source_id}`;
-
         default:
             return null;
     }
@@ -446,6 +455,7 @@ function _toggleDropdown(anchor) {
 // ================================================================
 function _buildTitle(item, trig) {
     if (trig.key === "overdue") return `⚠️ Overdue: ${item.title}`;
+    if (trig.key === "1hr_after") return `🕐 1 hour ago: ${item.title}`;
     const prefix = item.source_type === "task" ? "✅" : "📅";
     return `${prefix} ${trig.label}: ${item.title}`;
 }

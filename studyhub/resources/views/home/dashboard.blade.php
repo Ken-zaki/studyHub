@@ -201,10 +201,6 @@
                     <label class="form-label">Date <span style="color:#dc2626">*</span></label>
                     <input type="date" class="form-input" id="evDate">
                 </div>
-                <div id="timeFieldTodo" class="form-group">
-                    <label class="form-label">Due Time (optional)</label>
-                    <input type="time" class="form-input" id="evTimeTodo">
-                </div>
                 <div id="timeFieldClass" class="form-group" style="display:none;">
                     <label class="form-label">Start Time <span style="color:#dc2626">*</span></label>
                     <input type="time" class="form-input" id="evTimeStart">

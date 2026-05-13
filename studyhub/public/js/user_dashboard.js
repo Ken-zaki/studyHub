@@ -1673,18 +1673,14 @@ function openEvModal(id = null, prefill = null) {
         document.getElementById("evDesc").value = ev.description || "";
         updateModalFields();
         const st = ev.event_time ? ev.event_time.slice(0, 5) : "";
-        const et = ev.end_time ? ev.end_time.slice(0, 5) : "";
         if (ev.category === "todo")
             document.getElementById("evTimeTodo").value = st;
         else if (ev.category === "class") {
             document.getElementById("evTimeStart").value = st;
-            document.getElementById("evTimeEnd").value = et;
         } else if (ev.category === "group") {
             document.getElementById("evTimeStartGroup").value = st;
-            document.getElementById("evTimeEndGroup").value = et;
         } else if (ev.category === "event") {
             document.getElementById("evTimeStartEvent").value = st;
-            document.getElementById("evTimeEndEvent").value = et;
         }
         document.getElementById("evRecur").checked = !!ev.is_recurring;
         if (ev.is_recurring) {
@@ -1725,11 +1721,8 @@ function resetForm() {
         "evDesc",
         "evTimeTodo",
         "evTimeStart",
-        "evTimeEnd",
         "evTimeStartGroup",
-        "evTimeEndGroup",
         "evTimeStartEvent",
-        "evTimeEndEvent",
         "evRecurEnd",
         "evDate",
     ].forEach((id) => {
@@ -1759,17 +1752,14 @@ async function saveEv() {
         startTime = document.getElementById("evTimeTodo").value || null;
     if (cat === "class") {
         startTime = document.getElementById("evTimeStart").value || null;
-        endTime = document.getElementById("evTimeEnd").value || null;
     } else if (cat === "group") {
         startTime = document.getElementById("evTimeStartGroup").value || null;
-        endTime = document.getElementById("evTimeEndGroup").value || null;
     } else if (cat === "event") {
         startTime = document.getElementById("evTimeStartEvent").value || null;
-        endTime = document.getElementById("evTimeEndEvent").value || null;
     }
 
-    if (cat === "class" && (!startTime || !endTime))
-        return alert("Class requires both start and end time.");
+    if (cat === "class" && !startTime)
+        return alert("Class requires a start time.");
     if (cat === "group" && !startTime)
         return alert("Study group requires a start time.");
 
