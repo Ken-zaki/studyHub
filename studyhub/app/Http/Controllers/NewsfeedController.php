@@ -22,7 +22,6 @@ class NewsfeedController extends Controller
 
     /**
      * Query Supabase REST API using the SERVICE KEY (bypasses RLS).
-     * Returns the decoded JSON array, or [] on failure.
      */
     private function supabaseQuery(string $table, array $params = []): array
     {
@@ -51,55 +50,9 @@ class NewsfeedController extends Controller
 
     public function index(Request $request)
     {
-        $userId = session('user_id');
-
-        $friendIds = [];
-
-        if ($userId) {
-            // Use the SERVICE KEY to bypass RLS entirely.
-            // PostgREST `or` filter must be passed as a raw query string
-            // because Laravel's Http::get() would double-encode the parentheses.
-            $url = $this->supabaseUrl()
-                . '/rest/v1/user_friends'
-                . '?select=user_id,friend_id'
-                . '&or=(user_id.eq.' . $userId . ',friend_id.eq.' . $userId . ')';
-
-            try {
-                $response = Http::withoutVerifying()
-                    ->withHeaders([
-                        'apikey'        => $this->supabaseServiceKey(),
-                        'Authorization' => 'Bearer ' . $this->supabaseServiceKey(),
-                        'Content-Type'  => 'application/json',
-                    ])->get($url);
-
-                if ($response->failed()) {
-                    Log::error('[Supabase] user_friends query failed', [
-                        'status' => $response->status(),
-                        'body'   => $response->body(),
-                    ]);
-                } else {
-                    $rows = $response->json() ?? [];
-                    foreach ($rows as $row) {
-                        $other = ($row['user_id'] === $userId)
-                            ? $row['friend_id']
-                            : $row['user_id'];
-                        $friendIds[] = $other;
-                    }
-                    $friendIds = array_values(array_unique($friendIds));
-                    Log::info('[Newsfeed] friendIds resolved', [
-                        'userId'    => $userId,
-                        'count'     => count($friendIds),
-                        'friendIds' => $friendIds,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('[Supabase] user_friends exception', ['msg' => $e->getMessage()]);
-            }
-        }
-
-        return view('home.newsfeed', [
-            'friendIds' => $friendIds,
-        ]);
+        // Friends tab removed — no need to resolve friend IDs server-side.
+        // The following tab still works via client-side followingSet (anon key, open SELECT).
+        return view('home.newsfeed');
     }
 
     // ── OG Preview ────────────────────────────────────────────────
@@ -135,7 +88,6 @@ class NewsfeedController extends Controller
                         ?: $this->extractMeta($html, 'description')
                         ?: null;
 
-            // Make relative image URLs absolute
             if ($image && !preg_match('/^https?:\/\//', $image)) {
                 $parsed = parse_url($url);
                 $base   = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? '');
@@ -158,7 +110,6 @@ class NewsfeedController extends Controller
 
     private function extractMeta(string $html, string $property): ?string
     {
-        // property/name attribute first, then content
         if (preg_match(
             '/<meta[^>]+(?:property|name)=["\']'
             . preg_quote($property, '/')
@@ -168,7 +119,6 @@ class NewsfeedController extends Controller
             return trim($m[1]);
         }
 
-        // content attribute first (reversed order)
         if (preg_match(
             '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']'
             . preg_quote($property, '/')

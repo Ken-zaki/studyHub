@@ -11,6 +11,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NewsfeedController;
 use App\Http\Controllers\StudyGroupController;
 use App\Http\Controllers\CalendarShareController;
+use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\OgPreviewController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
@@ -471,10 +472,11 @@ Route::get('/dashboard', function () {
     return view('home.dashboard', ['activeNav' => 'dashboard']);
 })->name('dashboard');
 
-// Newsfeed page — loads friend IDs server-side (bypasses RLS)
+// Newsfeed page
 Route::get('/newsfeed', [NewsfeedController::class, 'index'])->name('newsfeed');
-
-// OG metadata preview — used by the link preview feature
+ 
+// OG metadata proxy — fetches link previews server-side to
+// avoid CORS issues when the composer previews a pasted URL.
 Route::get('/api/og-preview', [NewsfeedController::class, 'ogPreview'])->name('og.preview');
 
 Route::get('/calendar', function () {
@@ -506,10 +508,34 @@ Route::post('/calendar/sharing/revoke/{recipientId}', [CalendarShareController::
 Route::post('/calendar/sharing/revoke-received/{ownerId}', [CalendarShareController::class, 'revokeReceivedShare'])->name('calendar.sharing.revoke-received');
 Route::post('/calendar/sharing/group/{groupId}',  [CalendarShareController::class, 'shareWithGroup'])     ->name('calendar.sharing.group');
 
-Route::get('/resources', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.resources', ['activeNav' => 'resources']);
-})->name('resources');
+// Page
+Route::get('/resources', [ResourceController::class, 'index'])->name('resources');
+ 
+// Feed & discovery (used by newsfeed sidebar + resources page)
+Route::get('/api/resources',          [ResourceController::class, 'list']);
+Route::get('/api/resources/trending', [ResourceController::class, 'trending']);
+Route::get('/api/resources/my-uploads',[ResourceController::class, 'myUploads']);
+Route::get('/api/resources/{id}',     [ResourceController::class, 'show']);
+ 
+// CRUD
+Route::post  ('/api/resources',        [ResourceController::class, 'store']);
+Route::put   ('/api/resources/{id}',   [ResourceController::class, 'update']);
+Route::delete('/api/resources/{id}',   [ResourceController::class, 'destroy']);
+ 
+// Ratings & comments
+Route::post  ('/api/resources/{id}/rate',          [ResourceController::class, 'rate']);
+Route::get   ('/api/resources/{id}/comments',      [ResourceController::class, 'comments']);
+Route::post  ('/api/resources/{id}/comments',      [ResourceController::class, 'addComment']);
+Route::put   ('/api/resources/comments/{commentId}',[ResourceController::class, 'updateComment']);
+Route::delete('/api/resources/comments/{commentId}',[ResourceController::class, 'deleteComment']);
+Route::post  ('/api/resources/comments/{commentId}/upvote', [ResourceController::class, 'upvoteComment']);
+ 
+// Reports & admin
+Route::post('/api/resources/{id}/report',  [ResourceController::class, 'report']);
+Route::post('/api/resources/{id}/approve', [ResourceController::class, 'approve']);
+ 
+// Study groups discovery (used by newsfeed sidebar)
+Route::get('/api/study-groups/active', [ResourceController::class, 'activeGroups']);
 
 Route::get('/notifications', function () {
     if ($r = requireAuth()) return $r;
