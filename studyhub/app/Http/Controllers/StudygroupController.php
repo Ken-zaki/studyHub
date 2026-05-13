@@ -521,4 +521,27 @@ class StudyGroupController extends Controller
             \Log::warning('Failed to insert notifications: ' . $e->getMessage());
         }
     }
+
+    public function getGroups()
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === '') {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $groups = StudyGroup::whereHas('members', fn($q) => $q->where('user_id', $userId))
+            ->withCount('members')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn($g) => [
+                'id'           => $g->id,
+                'name'         => $g->name,
+                'subject'      => $g->subject,
+                'members_count'=> $g->members_count,
+                'is_admin'     => $g->created_by === $userId,
+            ]);
+
+        return response()->json(['groups' => $groups]);
+    }
 }

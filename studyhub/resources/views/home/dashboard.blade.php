@@ -1,392 +1,332 @@
-{{-- resources/views/home/dashboard.blade.php --}}
 @extends('layouts.app')
-
 @section('title', 'Dashboard – StudyHub')
-
 @php $activeNav = 'dashboard'; @endphp
-
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
 @endpush
 
 @section('content')
-
     @include('layouts.sidebar')
 
-    {{-- ── MAIN ──────────────────────────────────────────────────────────────── --}}
     <main class="main-content">
+
+        {{-- ── CENTER COLUMN ─────────────────────────────────────────── --}}
         <div class="center-column">
 
-            {{-- Calendar card --}}
-            <div class="calendar-card">
-                <div class="cal-header">
-                    <div class="cal-nav-group">
-                        <button class="cal-nav-btn" id="btnPrev">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="15 18 9 12 15 6" />
-                            </svg>
-                        </button>
-                        <h2 class="cal-month-title" id="calTitle"></h2>
-                        <button class="cal-nav-btn" id="btnNext">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            {{-- ── Metric Summary Row (FR-2.2, FR-2.5) ─────────────── --}}
+            <div id="dashMetricRow" class="dash-metric-row" style="margin-bottom:20px;">
+                {{-- Rendered by dashboard.js --}}
+                <div class="dash-metric-card">
+                    <div class="dash-metric-val" style="color:var(--accent,#ff6b6b);">–</div>
+                    <div class="dash-metric-label">Tasks due today</div>
+                    <div class="dash-metric-sub">–</div>
+                </div>
+                <div class="dash-metric-card">
+                    <div class="dash-metric-val" style="color:var(--primary,#1a5f7a);">–</div>
+                    <div class="dash-metric-label">Weekly progress</div>
+                    <div class="dash-metric-sub">–</div>
+                </div>
+                <div class="dash-metric-card">
+                    <div class="dash-metric-val" style="color:var(--secondary,#2a9d8f);">–</div>
+                    <div class="dash-metric-label">Study time today</div>
+                    <div class="dash-metric-sub">–</div>
+                </div>
+                <div class="dash-metric-card">
+                    <div class="dash-metric-val" style="color:var(--primary,#1a5f7a);">–</div>
+                    <div class="dash-metric-label">Active study groups</div>
+                    <div class="dash-metric-sub">–</div>
+                </div>
+            </div>
+
+            {{-- ── Two-column grid: Schedule + Tasks ────────────────── --}}
+            <div class="dash-two-col" style="margin-bottom:20px;">
+
+                {{-- Today's Schedule (FR-2.1) --}}
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h2 class="card-title" style="margin:0;">Today's Schedule</h2>
+                        <a href="{{ url('/calendar') }}"
+                            style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
+                                   text-decoration:none;display:flex;align-items:center;gap:4px;
+                                   transition:.15s;opacity:.85;"
+                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                            View calendar
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12"
+                                height="12">
                                 <polyline points="9 18 15 12 9 6" />
                             </svg>
-                        </button>
-                        <button class="cal-today-btn" id="btnToday">Today</button>
+                        </a>
                     </div>
-                    <div class="cal-view-toggle">
-                        <button class="view-btn active" data-view="month">Month</button>
-                        <button class="view-btn" data-view="week">Week</button>
-                        <button class="view-btn" data-view="day">Day</button>
-                    </div>
-                </div>
-
-                {{-- Month view --}}
-                <div id="monthView">
-                    <div class="cal-weekdays">
-                        <div class="cal-weekday">Sun</div>
-                        <div class="cal-weekday">Mon</div>
-                        <div class="cal-weekday">Tue</div>
-                        <div class="cal-weekday">Wed</div>
-                        <div class="cal-weekday">Thu</div>
-                        <div class="cal-weekday">Fri</div>
-                        <div class="cal-weekday">Sat</div>
-                    </div>
-                    <div class="cal-days" id="calDays">
-                        <div class="state-box" style="grid-column:1/-1">
-                            <div class="spinner"></div>Loading…
+                    <div id="todayScheduleList">
+                        <div style="text-align:center;padding:32px 0;color:var(--text-light);font-size:13px;">
+                            Loading schedule…
                         </div>
                     </div>
                 </div>
 
-                {{-- Week view --}}
-                <div id="weekView" style="display:none;">
-                    <div id="weekSummaryBar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
-                    <div id="weekGrid"></div>
-                </div>
-
-                {{-- Day view --}}
-                <div id="dayView" style="display:none;">
-                    <div id="dayGrid"></div>
-                </div>
-            </div>
-
-            {{-- Upcoming this week --}}
-            <div class="upcoming-card">
-                <div class="section-title">📅 Upcoming This Week</div>
-                <div class="upcoming-list" id="upcomingList">
-                    <div class="state-box">
-                        <div class="spinner"></div>Loading…
+                {{-- Upcoming Tasks (FR-2.2) --}}
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h2 class="card-title" style="margin:0;">Upcoming Tasks</h2>
+                        <a href="{{ url('/tasks') }}"
+                            style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
+                                   text-decoration:none;display:flex;align-items:center;gap:4px;
+                                   transition:.15s;opacity:.85;"
+                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                            View all
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12"
+                                height="12">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </a>
                     </div>
-                </div>
-            </div>
-
-            {{-- ── TASK MANAGER ─────────────────────────────────────────────────── --}}
-            <div class="calendar-card" id="taskManagerCard">
-                <div class="cal-header"
-                    style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:18px;">✅</span>
-                        <h2 style="font-size:17px;font-weight:600;margin:0;color:var(--text-primary)">Task Manager</h2>
-                        <span class="task-count-badge" id="taskCountBadge">0</span>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <select class="task-filter-select" id="taskSort">
-                            <option value="due">Sort: Due Date</option>
-                            <option value="priority">Sort: Priority</option>
-                            <option value="label">Sort: Label</option>
-                            <option value="created">Sort: Created</option>
-                        </select>
-                        <select class="task-filter-select" id="taskFilterPriority">
-                            <option value="all">All Priorities</option>
-                            <option value="high">🔴 High</option>
-                            <option value="medium">🟡 Medium</option>
-                            <option value="low">🟢 Low</option>
-                        </select>
-                        <select class="task-filter-select" id="taskFilterStatus">
-                            <option value="active">Active</option>
-                            <option value="completed">Completed</option>
-                            <option value="all">All Tasks</option>
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Progress bar --}}
-                <div id="taskProgress" style="margin-bottom:16px;display:none;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                        <span style="font-size:12px;color:var(--text-secondary);">Progress</span>
-                        <span style="font-size:12px;font-weight:600;color:var(--text-primary);" id="taskProgressLabel">0 / 0
-                            done</span>
-                    </div>
-                    <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
-                        <div id="taskProgressBar"
-                            style="height:100%;background:#0f766e;border-radius:99px;width:0%;transition:width .4s ease;">
+                    <div id="upcomingTasksList">
+                        <div style="text-align:center;padding:32px 0;color:var(--text-light);font-size:13px;">
+                            Loading tasks…
                         </div>
                     </div>
                 </div>
 
-                {{-- Label filter chips --}}
-                <div id="taskLabelChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
-
-                {{-- Task list --}}
-                <div id="taskList">
-                    <div class="state-box">
-                        <div class="spinner"></div>Loading…
-                    </div>
-                </div>
             </div>
 
-        </div>{{-- /.center-column --}}
+            {{-- ── Mini Calendar Preview Card ────────────────────────── --}}
+            <div class="card" style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h2 class="card-title" style="margin:0;">Calendar</h2>
+                    <a href="{{ url('/calendar') }}"
+                        style="font-size:13px;font-weight:600;color:var(--primary,#1a5f7a);
+                              text-decoration:none;display:flex;align-items:center;gap:4px;
+                              transition:.15s;opacity:.85;"
+                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                        Open Calendar
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13"
+                            height="13">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    </a>
+                </div>
 
-        {{-- Right sidebar (dashboard widgets only) --}}
-        <aside class="right-sidebar">
-            <div class="widget-card">
-                <div class="widget-title">⏰ Deadlines</div>
-                <div id="deadlinesList">
-                    <div class="state-box">
-                        <div class="spinner"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="widget-card">
-                <div class="widget-title">🗂️ Filter My Events</div>
-                <div id="myCalendars"></div>
-            </div>
-            <div class="widget-card" id="allEventsWidget">
-                <div class="widget-title" style="margin-bottom:12px">📋 All My Events</div>
-                <input type="text" class="all-ev-search" id="allEvSearch" placeholder="Search events…">
-                <div id="allEventsList"></div>
-            </div>
-        </aside>
-    </main>
-
-    {{-- ═══════════════════════════════════════════════════════════
-     DAY POPOVER
-═══════════════════════════════════════════════════════════ --}}
-    <div class="day-popover" id="dayPopover">
-        <div class="popover-header">
-            <div class="popover-date" id="popDate"></div>
-            <div style="display:flex;gap:6px;align-items:center;">
-                <button class="popover-add-btn" id="btnPopAdd" style="margin-top:0;width:auto;padding:6px 12px;">+
-                    Add</button>
-                <button class="popover-close-btn" id="btnPopClose">✕</button>
-            </div>
-        </div>
-        <div class="popover-events" id="popEvents"></div>
-    </div>
-
-    {{-- ═══════════════════════════════════════════════════════════
-     EVENT MODAL (Add / Edit)
-═══════════════════════════════════════════════════════════ --}}
-    <div class="modal-overlay" id="eventModal">
-        <div class="modal ev-modal">
-            <div class="modal-header">
-                <span class="modal-title" id="modalTitle">Add Event</span>
-                <button class="modal-close" id="btnModalClose">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Title <span style="color:#dc2626">*</span></label>
-                    <input type="text" class="form-input" id="evTitle" placeholder="Event title…">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Category</label>
-                    <select class="form-input" id="evCat" onchange="updateModalFields()">
-                        <option value="class">📗 Class</option>
-                        <option value="group">👥 Study Group</option>
-                        <option value="event">📅 Event</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Date <span style="color:#dc2626">*</span></label>
-                    <input type="date" class="form-input" id="evDate">
-                </div>
-                <div id="timeFieldClass" class="form-group" style="display:none;">
-                    <label class="form-label">Start Time <span style="color:#dc2626">*</span></label>
-                    <input type="time" class="form-input" id="evTimeStart">
-                    <label class="form-label" style="margin-top:8px;">End Time <span
-                            style="color:#dc2626">*</span></label>
-                    <input type="time" class="form-input" id="evTimeEnd">
-                </div>
-                <div id="timeFieldGroup" class="form-group" style="display:none;">
-                    <label class="form-label">Start Time <span style="color:#dc2626">*</span></label>
-                    <input type="time" class="form-input" id="evTimeStartGroup">
-                    <label class="form-label" style="margin-top:8px;">End Time (optional)</label>
-                    <input type="time" class="form-input" id="evTimeEndGroup">
-                </div>
-                <div id="timeFieldEvent" class="form-group" style="display:none;">
-                    <label class="form-label">Start Time (optional)</label>
-                    <input type="time" class="form-input" id="evTimeStartEvent">
-                    <label class="form-label" style="margin-top:8px;">End Time (optional)</label>
-                    <input type="time" class="form-input" id="evTimeEndEvent">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description (optional)</label>
-                    <textarea class="form-input" id="evDesc" rows="2" placeholder="Notes…" style="resize:vertical;"></textarea>
-                </div>
-                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="evRecur" style="width:16px;height:16px;cursor:pointer;">
-                    <label for="evRecur" class="form-label" style="margin:0;cursor:pointer;">Repeat / Recurring</label>
-                </div>
-                <div id="recurOpts"
-                    style="display:none;padding:12px;background:var(--bg-main);border-radius:10px;margin-top:4px;">
-                    <label class="form-label">Repeat on days</label>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $day)
-                            <button type="button" class="rday"
-                                data-d="{{ $day }}">{{ $day }}</button>
+                {{-- Mini calendar grid rendered by dashboard.js --}}
+                <div id="dashMiniCal">
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $d)
+                            <div
+                                style="text-align:center;font-size:10px;font-weight:700;
+                                        color:var(--text-light);letter-spacing:.04em;padding:4px 0;">
+                                {{ $d }}
+                            </div>
                         @endforeach
                     </div>
-                    <label class="form-label" style="margin-top:10px;">Repeat until (optional)</label>
-                    <input type="date" class="form-input" id="evRecurEnd" style="margin-top:4px;">
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-del-ev" id="btnDelEv" style="display:none;">🗑 Delete</button>
-                <div style="display:flex;gap:8px;margin-left:auto;">
-                    <button class="btn-cancel" id="btnModalCancel">Cancel</button>
-                    <button class="btn-save" id="btnSaveEv">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ═══════════════════════════════════════════════════════════
-     TASK MODAL (Add / Edit Task)
-═══════════════════════════════════════════════════════════ --}}
-    <div class="modal-overlay" id="taskModal">
-        <div class="modal ev-modal">
-            <div class="modal-header">
-                <span class="modal-title" id="taskModalTitle">Add Task</span>
-                <button class="modal-close" id="btnTaskModalClose">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Task Title <span style="color:#dc2626">*</span></label>
-                    <input type="text" class="form-input" id="taskTitle" placeholder="What needs to be done?">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <div style="display:flex;gap:8px;margin-top:4px;">
-                        <label class="priority-option" data-p="low">
-                            <input type="radio" name="taskPriority" value="low" checked style="display:none;">
-                            <span>🟢 Low</span>
-                        </label>
-                        <label class="priority-option sel" data-p="medium">
-                            <input type="radio" name="taskPriority" value="medium" style="display:none;">
-                            <span>🟡 Medium</span>
-                        </label>
-                        <label class="priority-option" data-p="high">
-                            <input type="radio" name="taskPriority" value="high" style="display:none;">
-                            <span>🔴 High</span>
-                        </label>
+                    <div id="dashMiniCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+                        <div
+                            style="grid-column:1/-1;text-align:center;padding:24px 0;
+                                    color:var(--text-light);font-size:13px;">
+                            Loading calendar…
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Due Date (optional)</label>
-                    <input type="date" class="form-input" id="taskDueDate">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Due Time (optional)</label>
-                    <input type="time" class="form-input" id="taskDueTime">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Label / Tag (optional)</label>
-                    <input type="text" class="form-input" id="taskLabel" placeholder="e.g. Math, Project, Reading…">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes (optional)</label>
-                    <textarea class="form-input" id="taskNotes" rows="2" placeholder="Additional details…"
-                        style="resize:vertical;"></textarea>
-                </div>
             </div>
-            <div class="modal-actions">
-                <button class="btn-del-ev" id="btnDelTask" style="display:none;">🗑 Delete</button>
-                <div style="display:flex;gap:8px;margin-left:auto;">
-                    <button class="btn-cancel" id="btnTaskModalCancel">Cancel</button>
-                    <button class="btn-save" id="btnSaveTask">Save Task</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
-     CONFIRM DELETE MODAL
-═══════════════════════════════════════════════════════════ --}}
-    <div class="modal-overlay" id="confirmModal">
-        <div class="modal confirm-modal">
-            <div class="modal-header">
-                <span class="modal-title" id="confirmTitle">Delete</span>
-                <button class="modal-close" id="btnConfirmClose">✕</button>
+            {{-- Upcoming This Week --}}
+            <div class="card">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <h2 class="card-title" style="margin:0;">Upcoming This Week</h2>
+                </div>
+                {{-- Cap at ~5 items (~52px each) then scroll --}}
+                <div id="upcomingList"
+                    style="max-height:265px;overflow-y:auto;
+                            scrollbar-width:thin;
+                            scrollbar-color:var(--border) transparent;">
+                    <div style="text-align:center;padding:40px 0;color:var(--text-light);font-size:13px;">
+                        Loading…
+                    </div>
+                </div>
             </div>
-            <div class="modal-body">
-                <p id="confirmBody" style="color:var(--text-secondary);line-height:1.6;"></p>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" id="btnConfirmCancel">Cancel</button>
-                <button class="btn-danger" id="btnConfirmDel">Yes, Delete</button>
-            </div>
-        </div>
-    </div>
 
-    {{-- ── CONFIG ────────────────────────────────────────────────────────────── --}}
+        </div>{{-- /center-column --}}
+
+        {{-- ── RIGHT SIDEBAR ──────────────────────────────────────────── --}}
+        <aside class="right-sidebar">
+
+            {{-- Task Summary Stats --}}
+            <div class="card" style="margin-bottom:20px;">
+                <h3 class="card-title" style="margin-bottom:14px;">Task Overview</h3>
+                <div id="taskSummaryStats">
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+                        <div
+                            style="text-align:center;padding:12px 8px;border-radius:12px;
+                                    background:var(--bg-main);border:1px solid var(--border);">
+                            <div
+                                style="font-size:22px;font-weight:700;color:var(--primary,#1a5f7a);
+                                        font-family:'Crimson Pro',serif;">
+                                –</div>
+                            <div
+                                style="font-size:11px;font-weight:600;color:var(--text-light);
+                                        margin-top:2px;letter-spacing:.03em;">
+                                Active</div>
+                        </div>
+                        <div
+                            style="text-align:center;padding:12px 8px;border-radius:12px;
+                                    background:var(--bg-main);border:1px solid var(--border);">
+                            <div
+                                style="font-size:22px;font-weight:700;color:var(--secondary,#2a9d8f);
+                                        font-family:'Crimson Pro',serif;">
+                                –</div>
+                            <div
+                                style="font-size:11px;font-weight:600;color:var(--text-light);
+                                        margin-top:2px;letter-spacing:.03em;">
+                                Done</div>
+                        </div>
+                        <div
+                            style="text-align:center;padding:12px 8px;border-radius:12px;
+                                    background:var(--bg-main);border:1px solid var(--border);">
+                            <div
+                                style="font-size:22px;font-weight:700;color:var(--accent,#ff6b6b);
+                                        font-family:'Crimson Pro',serif;">
+                                –</div>
+                            <div
+                                style="font-size:11px;font-weight:600;color:var(--text-light);
+                                        margin-top:2px;letter-spacing:.03em;">
+                                Overdue</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {{-- Upcoming Deadlines (FR-2.2) --}}
+            <div class="card" style="margin-bottom:20px;">
+                <h3 class="card-title" style="margin-bottom:14px;">Deadlines</h3>
+                <div id="deadlinesList">
+                    <div style="text-align:center;padding:20px 0;color:var(--text-light);font-size:13px;">
+                        Loading…
+                    </div>
+                </div>
+            </div>
+
+            {{-- Active Study Groups (FR-2.3) --}}
+            <div class="card" style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                    <h3 class="card-title" style="margin:0;">Study Groups</h3>
+                    <a href="{{ url('/study-groups') }}"
+                        style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
+                               text-decoration:none;opacity:.85;transition:.15s;"
+                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                        View all
+                    </a>
+                </div>
+                <div id="activeStudyGroups">
+                    <div style="text-align:center;padding:20px 0;color:var(--text-light);font-size:13px;">
+                        Loading…
+                    </div>
+                </div>
+            </div>
+
+            {{-- Weekly Summary / Progress (FR-2.5) --}}
+            <div class="card" style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                    <h3 class="card-title" style="margin:0;">Weekly Summary</h3>
+                    <a href="{{ url('/progress') }}"
+                        style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
+                               text-decoration:none;opacity:.85;transition:.15s;"
+                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                        Full report
+                    </a>
+                </div>
+                <div id="weeklySummary">
+                    {{-- Rendered by dashboard.js --}}
+                    <div class="dash-progress-wrap">
+                        <div class="dash-progress-label">
+                            <span>Tasks completed</span><span id="wsSummTaskVal">– / –</span>
+                        </div>
+                        <div class="dash-progress-bar">
+                            <div class="dash-progress-fill" id="wsSummTaskBar"
+                                style="width:0%;background:var(--primary,#1a5f7a);"></div>
+                        </div>
+                    </div>
+                    <div class="dash-progress-wrap">
+                        <div class="dash-progress-label">
+                            <span>Study hours</span><span id="wsSummHoursVal">– / –</span>
+                        </div>
+                        <div class="dash-progress-bar">
+                            <div class="dash-progress-fill" id="wsSummHoursBar"
+                                style="width:0%;background:var(--secondary,#2a9d8f);"></div>
+                        </div>
+                    </div>
+                    <div class="dash-progress-wrap">
+                        <div class="dash-progress-label">
+                            <span>Focus sessions</span><span id="wsSummFocusVal">– / –</span>
+                        </div>
+                        <div class="dash-progress-bar">
+                            <div class="dash-progress-fill" id="wsSummFocusBar" style="width:0%;background:#8b5cf6;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- My Calendars --}}
+            <div class="card">
+                <h3 class="card-title" style="margin-bottom:14px;">My Calendars</h3>
+                <div id="myCalendars">
+                    <div style="text-align:center;padding:20px 0;color:var(--text-light);font-size:13px;">
+                        Loading…
+                    </div>
+                </div>
+            </div>
+
+        </aside>{{-- /right-sidebar --}}
+
+    </main>
+
+
+    {{-- ── Supabase config ───────────────────────────────────────────── --}}
     <script>
-        const SB_URL = '{{ config('services.supabase.url') }}';
-        const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC = '{{ config('services.supabase.service_key') }}';
-        const UID = '{{ session('user_id') }}';
+        const SB_URL = '{{ $supabaseUrl }}';
+        const SB_ANON = '{{ $supabaseAnonKey }}';
+        const SB_SVC = '{{ $supabaseSvcKey }}';
+        const UID = '{{ $userId }}';
     </script>
+
+    {{-- ── JS files ──────────────────────────────────────────────────── --}}
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/user_dashboard.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
-
-    {{-- ── INJECT CALENDAR ACTIONS INTO THE SIDEBAR TOP-BAR ───────────────────
-     The sidebar partial always renders .top-bar with notification + avatar
-     on the right. We move our calendar action buttons INTO the left side
-     of that same top-bar so there's only ever ONE top-bar on the page.
-──────────────────────────────────────────────────────────────────────────── --}}
+    {{-- ── Top-bar: greeting + date + focus button (FR-2.4) ────────── --}}
+    @php
+        $hour = (int) now()->format('H');
+        $tod = $hour < 12 ? 'morning' : ($hour < 17 ? 'afternoon' : 'evening');
+        $dashFirstName = session('user_first_name', '');
+    @endphp
     <script>
         (function() {
             const topBar = document.querySelector('.top-bar');
             if (!topBar) return;
 
-            // Build the actions container
-            const actionsEl = document.createElement('div');
-            actionsEl.className = 'top-bar-left';
-            actionsEl.id = 'calTopBarLeft';
-            actionsEl.innerHTML = `
-        <button class="btn-add-event" id="btnAdd">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Event
-        </button>
-        <button class="btn-add-event" id="btnAddTask" style="background:var(--accent,#dc2626);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Task
-        </button>
-        <button class="btn-select-mode" id="btnSelectMode">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-            Select
-        </button>
-        <div class="bulk-bar" id="bulkBar">
-            <span class="bulk-bar-count" id="bulkCount">0 selected</span>
-            <button class="btn-bulk-cancel" id="btnBulkCancel">Cancel</button>
-            <button class="btn-bulk-delete" id="btnBulkDelete">🗑 Delete Selected</button>
-        </div>
-    `;
+            const left = document.createElement('div');
+            left.className = 'top-bar-greeting';
+            left.innerHTML =
+                '<span class="dash-greeting">Good {{ $tod }}{{ $dashFirstName ? ', ' . $dashFirstName : '' }} 👋</span>' +
+                '<span class="dash-topbar-date">' +
+                new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }) +
+                '</span>';
 
-            // Insert before the right-side items (notification bell etc.)
-            const topBarRight = topBar.querySelector('.top-bar-right');
-            if (topBarRight) {
-                topBar.insertBefore(actionsEl, topBarRight);
-            } else {
-                topBar.insertBefore(actionsEl, topBar.firstChild);
-            }
+            const focusBtn = document.createElement('a');
+            focusBtn.href = '{{ route('focus-mode') }}';
+            focusBtn.className = 'dash-focus-btn';
+            focusBtn.title = 'Start a focus session';
+            focusBtn.innerHTML =
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">' +
+                '<polygon points="5 3 19 12 5 21 5 3"/>' +
+                '</svg>Focus';
+
+            topBar.prepend(left);
+            topBar.insertBefore(focusBtn, topBar.children[1]);
         })();
     </script>
 

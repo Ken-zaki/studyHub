@@ -1,4 +1,5 @@
 <?php
+// studyhub/routes/web.php
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -11,10 +12,12 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NewsfeedController;
 use App\Http\Controllers\StudyGroupController;
 use App\Http\Controllers\OgPreviewController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\TaskController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
-use App\Http\Controllers\DashboardController;
 
 // ──────────────────────────────────────────────────────────────
 // ROLE & AUTH HELPERS
@@ -58,10 +61,10 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
     if (!is_array($profile) || empty($profile)) {
         if ($userId !== '' && $userId === (string) session('user_id', '')) {
             $profile = [
-                'id' => $userId,
-                'first_name' => (string) session('user_first_name', ''),
-                'last_name' => (string) session('user_last_name', ''),
-                'username' => (string) session('user_username', ''),
+                'id'                => $userId,
+                'first_name'        => (string) session('user_first_name', ''),
+                'last_name'         => (string) session('user_last_name', ''),
+                'username'          => (string) session('user_username', ''),
                 'profile_photo_url' => (string) session('user_profile_photo', ''),
             ];
         } else {
@@ -70,358 +73,56 @@ function resolveFriendProfileEntry(SupabaseServiceProvider $provider, string $us
     }
 
     $firstName = trim((string) ($profile['first_name'] ?? ''));
-    $lastName  = trim((string) ($profile['last_name'] ?? ''));
-    $name = trim($firstName . ' ' . $lastName);
-
+    $lastName  = trim((string) ($profile['last_name']  ?? ''));
+    $name      = trim($firstName . ' ' . $lastName);
     if ($name === '') {
         $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
     }
 
-    $status = strtolower((string) ($profile['status'] ?? ''));
+    $status   = strtolower((string) ($profile['status'] ?? ''));
     $isActive = (bool) ($profile['is_online'] ?? false)
         || (bool) ($profile['is_active'] ?? false)
         || in_array($status, ['online', 'active'], true);
 
     return [
-        'id' => (string) ($profile['id'] ?? $userId),
-        'name' => $name,
-        'username' => (string) ($profile['username'] ?? ''),
-        'photo' => (string) ($profile['profile_photo_url'] ?? ''),
-        'initials' => strtoupper(substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)),
+        'id'        => (string) ($profile['id'] ?? $userId),
+        'name'      => $name,
+        'username'  => (string) ($profile['username'] ?? ''),
+        'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
+        'initials'  => strtoupper(substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)),
         'is_active' => $isActive,
     ];
 }
 
 // ──────────────────────────────────────────────────────────────
-// PUBLIC ROUTES (guests can access)
+// PUBLIC / GUEST ROUTES
 // ──────────────────────────────────────────────────────────────
 
-// GUEST ROUTES
-Route::get('/browse', fn() => redirect()->route('guest.newsfeed'))->name('guest');
-Route::get('/browse/newsfeed',   fn() => view('home.guest-newsfeed'))  ->name('guest.newsfeed');
-Route::get('/browse/resources',  fn() => view('home.guest-resources')) ->name('guest.resources');
-Route::get('/browse/settings',   fn() => view('home.guest-settings'))  ->name('guest.settings');
+Route::get('/browse',           fn() => redirect()->route('guest.newsfeed'))->name('guest');
+Route::get('/browse/newsfeed',  fn() => view('home.guest-newsfeed'))  ->name('guest.newsfeed');
+Route::get('/browse/resources', fn() => view('home.guest-resources')) ->name('guest.resources');
+Route::get('/browse/settings',  fn() => view('home.guest-settings'))  ->name('guest.settings');
 
-// DEBUG ROUTE - Check all friend requests in database
-Route::get('/debug/all-requests', function () {
-    $allRequests = FriendRequest::all();
-    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
-    $userId = trim((string) session('user_id', ''));
+Route::get('/', fn() => redirect()->route('login'));
 
-    $myIncoming = FriendRequest::where('receiver_id', $userId)->get();
-    $myOutgoing = FriendRequest::where('sender_id', $userId)->get();
+Route::get('/login',  fn() => view('auth.login'))  ->name('login');
+Route::get('/signup', fn() => view('auth.signup')) ->name('signup');
 
-    return response()->json([
-        'current_session_user_id' => $userId,
-        'db_columns' => $schemaColumns,
-        'total_requests_in_db' => count($allRequests),
-        'all_requests_raw' => $allRequests->toArray(),
-        'my_incoming_count' => count($myIncoming),
-        'my_incoming' => $myIncoming->toArray(),
-        'my_outgoing_count' => count($myOutgoing),
-        'my_outgoing' => $myOutgoing->toArray(),
-        'sample_raw_query' => \DB::table('friend_requests')->get()->toArray(),
-    ]);
-});
-
-// DEBUG — raw Supabase profile data
-Route::get('/debug/profiles', function () {
-    $provider = new SupabaseServiceProvider();
-    $profiles = $provider->getAllProfiles();
-
-    return response()->json([
-        'session_user_id'  => session('user_id'),
-        'supabase_url_set' => !empty(env('SUPABASE_URL')),
-        'anon_key_set'     => !empty(env('SUPABASE_ANON_KEY')),
-        'service_key_set'  => !empty(env('SUPABASE_SERVICE_KEY')),
-        'profile_count'    => count($profiles),
-        'profiles_sample'  => array_map(function ($p) {
-            return [
-                'id'         => $p['id']         ?? '(missing)',
-                'first_name' => $p['first_name'] ?? '(missing)',
-                'last_name'  => $p['last_name']  ?? '(missing)',
-                'username'   => $p['username']   ?? '(missing)',
-                'email'      => $p['email']      ?? '(missing)',
-                'all_keys'   => array_keys($p),
-            ];
-        }, array_slice($profiles, 0, 5)),
-    ]);
-});
-
-// DEBUG — simulates friend-request send step by step
-Route::get('/debug/send/{receiverId}', function (string $receiverId) {
-    $senderId   = trim((string) session('user_id', ''));
-    $receiverId = trim($receiverId);
-
-    $isValidUuid = (bool) preg_match(
-        '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
-        $receiverId
-    );
-
-    $provider    = new SupabaseServiceProvider();
-    $allProfiles = $provider->getAllProfiles();
-
-    $matchedProfile = null;
-    foreach ($allProfiles as $p) {
-        if ((string) ($p['id'] ?? '') === $receiverId) {
-            $matchedProfile = $p;
-            break;
-        }
-    }
-
-    return response()->json([
-        'sender_id'           => $senderId,
-        'receiver_id_param'   => $receiverId,
-        'is_valid_uuid'       => $isValidUuid,
-        'total_profiles'      => count($allProfiles),
-        'matched_profile'     => $matchedProfile,
-        'first_profile_id'    => $allProfiles[0]['id'] ?? '(none)',
-        'first_profile_keys'  => isset($allProfiles[0]) ? array_keys($allProfiles[0]) : [],
-    ]);
-});
-
-Route::post('/debug/study-groups-test', function (Request $request) {
-    return response()->json([
-        'session_user_id' => session('user_id'),
-        'body'            => $request->all(),
-        'csrf_ok'         => true,
-    ]);
-});
-
-Route::get('/debug/my-friends-for-groups', function () {
-    $userId = session('user_id');
-
-    $friendsAsUser = \DB::table('friends')
-        ->where('user_id', $userId)
-        ->get();
-
-    $friendsAsFriend = \DB::table('friends')
-        ->where('friend_id', $userId)
-        ->get();
-
-    return response()->json([
-        'session_user_id'   => $userId,
-        'friends_as_user'   => $friendsAsUser,
-        'friends_as_friend' => $friendsAsFriend,
-        'total'             => $friendsAsUser->count() + $friendsAsFriend->count(),
-    ]);
-});
-
-Route::get('/debug/supabase-friends-raw', function () {
-    $provider = new \App\Providers\SupabaseServiceProvider();
-    $userId = session('user_id');
-
-    $r1 = $provider->queryTable('friends',      ['select' => '*', 'limit' => '5']);
-    $r2 = $provider->queryTable('user_friends', ['select' => '*', 'limit' => '5']);
-
-    return response()->json([
-        'friends_any_rows'      => $r1,
-        'user_friends_any_rows' => $r2,
-    ]);
-});
-
-Route::get('/debug/supabase-friends-service', function () {
-    $provider = new \App\Providers\SupabaseServiceProvider();
-    $userId = session('user_id');
-
-    $f1 = $provider->queryTable('friends', ['select' => '*', 'user_id' => 'eq.' . $userId], true);
-    $f2 = $provider->queryTable('friends', ['select' => '*', 'friend_id' => 'eq.' . $userId], true);
-    $f3 = $provider->queryTable('user_friends', ['select' => '*', 'user_id' => 'eq.' . $userId], true);
-    $f4 = $provider->queryTable('user_friends', ['select' => '*', 'friend_id' => 'eq.' . $userId], true);
-
-    // Also get ALL rows from friends table regardless of user
-    $allFriends     = $provider->queryTable('friends',      ['select' => '*', 'limit' => '10'], true);
-    $allUserFriends = $provider->queryTable('user_friends', ['select' => '*', 'limit' => '10'], true);
-
-    return response()->json([
-        'session_user_id'        => $userId,
-        'friends_as_user'        => $f1,
-        'friends_as_friend'      => $f2,
-        'user_friends_as_user'   => $f3,
-        'user_friends_as_friend' => $f4,
-        'all_friends_rows'       => $allFriends,
-        'all_user_friends_rows'  => $allUserFriends,
-    ]);
-});
-
-Route::get('/debug/study-group-friends', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
-
-    $friendsAsUser   = $provider->queryTable('friends', [
-        'select'  => 'friend_id',
-        'user_id' => 'eq.' . $userId,
-    ], true);
-
-    $friendsAsFriend = $provider->queryTable('friends', [
-        'select'    => 'user_id',
-        'friend_id' => 'eq.' . $userId,
-    ], true);
-
-    // Collect all unique friend IDs
-    $friendIds = [];
-    if (is_array($friendsAsUser)) {
-        foreach ($friendsAsUser as $row) {
-            $id = (string) ($row['friend_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-    if (is_array($friendsAsFriend)) {
-        foreach ($friendsAsFriend as $row) {
-            $id = (string) ($row['user_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-
-    // Try to resolve profiles
-    $friends = [];
-    $failedIds = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        $profile = $provider->getProfileById($friendId);
-
-        if (!is_array($profile) || empty($profile)) {
-            $failedIds[] = $friendId;
-            continue;
-        }
-
-        $firstName = trim((string) ($profile['first_name'] ?? ''));
-        $lastName  = trim((string) ($profile['last_name']  ?? ''));
-        $name      = trim($firstName . ' ' . $lastName);
-
-        if ($name === '') {
-            $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-        }
-
-        $friends[] = [
-            'id'       => (string) ($profile['id'] ?? $friendId),
-            'name'     => $name,
-            'username' => (string) ($profile['username'] ?? ''),
-            'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
-        ];
-    }
-
-    return response()->json([
-        'session_user_id'      => $userId,
-        'friend_ids_found'     => array_keys($friendIds),
-        'friends_resolved'     => $friends,
-        'friends_failed_count' => count($failedIds),
-        'friends_failed_ids'   => $failedIds,
-        'raw_friends_as_user'  => $friendsAsUser,
-        'raw_friends_as_friend' => $friendsAsFriend,
-    ]);
-});
-
-Route::get('/debug/study-groups-friends-detail', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
-
-    // Load ALL profiles
-    $allProfiles  = $provider->getAllProfiles();
-    $profilesById = [];
-    foreach ($allProfiles as $profile) {
-        $id = (string) ($profile['id'] ?? '');
-        if ($id !== '') {
-            $profilesById[$id] = $profile;
-        }
-    }
-
-    // Query friends
-    $friendsAsUser   = $provider->queryTable('friends', [
-        'select'  => 'friend_id',
-        'user_id' => 'eq.' . $userId,
-    ], true);
-
-    $friendsAsFriend = $provider->queryTable('friends', [
-        'select'    => 'user_id',
-        'friend_id' => 'eq.' . $userId,
-    ], true);
-
-    // Collect friend IDs
-    $friendIds = [];
-    if (is_array($friendsAsUser)) {
-        foreach ($friendsAsUser as $row) {
-            $id = (string) ($row['friend_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-    if (is_array($friendsAsFriend)) {
-        foreach ($friendsAsFriend as $row) {
-            $id = (string) ($row['user_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-
-    // Build friends with details
-    $friends = [];
-    $notFound = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        if (!isset($profilesById[$friendId])) {
-            $notFound[] = $friendId;
-            continue;
-        }
-
-        $profile  = $profilesById[$friendId];
-        $firstName = trim((string) ($profile['first_name'] ?? ''));
-        $lastName  = trim((string) ($profile['last_name']  ?? ''));
-        $name      = trim($firstName . ' ' . $lastName);
-
-        if ($name === '') {
-            $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-        }
-
-        $friends[] = [
-            'id'       => $friendId,
-            'name'     => $name,
-            'username' => (string) ($profile['username'] ?? ''),
-            'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
-            'initials' => strtoupper(
-                substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)
-            ),
-        ];
-    }
-
-    return response()->json([
-        'session_user_id'          => $userId,
-        'all_profiles_count'       => count($profilesById),
-        'friend_ids_count'         => count($friendIds),
-        'friend_ids'               => array_keys($friendIds),
-        'friends_resolved_count'   => count($friends),
-        'friends_resolved'         => $friends,
-        'friends_not_found_count'  => count($notFound),
-        'friends_not_found'        => $notFound,
-        'raw_friends_as_user'      => $friendsAsUser,
-        'raw_friends_as_friend'    => $friendsAsFriend,
-    ]);
-});
-
-Route::get('/', function () {
-    return redirect()->route('login');
-});
-
-Route::get('/login', function () {
-    return view('auth.login');
-})->name('login');
-
-Route::get('/signup', function () {
-    return view('auth.signup');
-})->name('signup');
-
-// Forgot Password Routes
+// Forgot / reset password
 Route::get('/forgot-password',  [AuthController::class, 'showForgotPassword'])->name('forgot-password');
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.forgot');
-Route::get('/verify-otp',       [AuthController::class, 'showVerifyOtp'])->name('password.verify');
-Route::post('/verify-otp',      [AuthController::class, 'verifyOtp'])->name('password.verify.post');
-Route::get('/reset-password',   [AuthController::class, 'showResetPassword'])->name('password.reset');
-Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->name('password.reset.post');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])    ->name('password.forgot');
+Route::get('/verify-otp',       [AuthController::class, 'showVerifyOtp'])     ->name('password.verify');
+Route::post('/verify-otp',      [AuthController::class, 'verifyOtp'])         ->name('password.verify.post');
+Route::get('/reset-password',   [AuthController::class, 'showResetPassword']) ->name('password.reset');
+Route::post('/reset-password',  [AuthController::class, 'resetPassword'])     ->name('password.reset.post');
 
-// Guests can browse public resources (read-only, handled in JS)
+// Public resource browse (read-only)
 Route::get('/resources/public', function () {
     return view('home.resources', ['activeNav' => 'resources']);
 })->name('resources.public');
 
 // ──────────────────────────────────────────────────────────────
-// SET SESSION
-// Called from JS after Supabase login — stores user data + role
+// SESSION / LOGOUT
 // ──────────────────────────────────────────────────────────────
 
 Route::post('/set-session', function (Request $request) {
@@ -430,11 +131,8 @@ Route::post('/set-session', function (Request $request) {
 
     if ($userId !== '' && $profilePhoto !== '') {
         try {
-            $provider = new SupabaseServiceProvider();
-            $provider->updateProfilePhoto($userId, $profilePhoto);
-        } catch (\Throwable $e) {
-            // Non-fatal
-        }
+            (new SupabaseServiceProvider())->updateProfilePhoto($userId, $profilePhoto);
+        } catch (\Throwable) { /* non-fatal */ }
     }
 
     session([
@@ -447,12 +145,9 @@ Route::post('/set-session', function (Request $request) {
         'user_role'          => $request->input('role', 'student'),
         'is_banned'          => $request->input('is_banned', false),
     ]);
+
     return response()->json(['success' => true]);
 })->name('set-session');
-
-// ──────────────────────────────────────────────────────────────
-// LOGOUT
-// ──────────────────────────────────────────────────────────────
 
 Route::post('/logout', function () {
     session()->flush();
@@ -460,66 +155,60 @@ Route::post('/logout', function () {
 })->name('logout');
 
 // ──────────────────────────────────────────────────────────────
-// AUTHENTICATED ROUTES (students, moderators, admins)
+// MAIN APP PAGES  (auth required)
 // ──────────────────────────────────────────────────────────────
 
-Route::get('/user_dashboard', [DashboardController::class, 'user_dashboard'])->name('user_dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/calendar',  [CalendarController::class,  'index'])->name('calendar');
+Route::get('/tasks',     [TaskController::class,      'index'])->name('tasks');
+Route::get('/study-groups/my-groups', [StudyGroupController::class, 'getGroups']);
 
-Route::get('/dashboard', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.dashboard', ['activeNav' => 'dashboard']);
-})->name('dashboard');
-
-// Newsfeed page — loads friend IDs server-side (bypasses RLS)
+// Newsfeed
 Route::get('/newsfeed', [NewsfeedController::class, 'index'])->name('newsfeed');
-
-// OG metadata preview — used by the link preview feature
 Route::get('/api/og-preview', [NewsfeedController::class, 'ogPreview'])->name('og.preview');
 
-Route::get('/calendar', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.calendar', ['activeNav' => 'calendar']);
-})->name('calendar');
+// Study Groups
+Route::get('/study-groups',                              [StudyGroupController::class, 'index'])      ->name('study-groups');
+Route::get('/study-groups/api/friends',                  [StudyGroupController::class, 'getFriends']) ->name('study-groups.friends');
+Route::post('/study-groups',                             [StudyGroupController::class, 'store'])      ->name('study-groups.store');
+Route::delete('/study-groups/{groupId}',                 [StudyGroupController::class, 'destroy'])    ->name('study-groups.destroy');
+Route::get('/study-groups/{groupId}/messages',           [StudyGroupController::class, 'messages'])   ->name('study-groups.messages');
+Route::post('/study-groups/{groupId}/messages',          [StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
 
-// ── STUDY GROUPS ──────────────────────────────────────────────
-Route::get('/study-groups', [StudyGroupController::class, 'index'])->name('study-groups');
-Route::get('/study-groups/api/friends', [StudyGroupController::class, 'getFriends'])->name('study-groups.friends');
-Route::post('/study-groups', [StudyGroupController::class, 'store'])->name('study-groups.store');
-Route::delete('/study-groups/{groupId}', [StudyGroupController::class, 'destroy'])->name('study-groups.destroy');
-Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])->name('study-groups.messages');
-Route::post('/study-groups/{groupId}/messages', [StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
-
+// Resources
 Route::get('/resources', function () {
     if ($r = requireAuth()) return $r;
     return view('home.resources', ['activeNav' => 'resources']);
 })->name('resources');
 
+// Notifications
 Route::get('/notifications', function () {
     if ($r = requireAuth()) return $r;
     return view('home.notifications', ['activeNav' => 'notifications']);
 })->name('notifications');
 
+// Settings
 Route::get('/settings', function () {
     if ($r = requireAuth()) return $r;
     return view('home.settings', ['activeNav' => 'settings']);
 })->name('settings');
 
-// ── MESSAGES ──────────────────────────────────────────────────
-Route::get('/messages', [MessageController::class, 'index'])->name('messages');
-Route::get('/messages/conversation/{friendId}', [MessageController::class, 'conversation'])->name('messages.conversation');
-Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
-Route::get('/messages/poll/{friendId}', [MessageController::class, 'poll'])->name('messages.poll');
-Route::get('/messages/unread-counts', [MessageController::class, 'unreadCounts'])->name('messages.unread');
+// Messages
+Route::get('/messages',                          [MessageController::class, 'index'])       ->name('messages');
+Route::get('/messages/conversation/{friendId}',  [MessageController::class, 'conversation'])->name('messages.conversation');
+Route::post('/messages/send',                    [MessageController::class, 'send'])        ->name('messages.send');
+Route::get('/messages/poll/{friendId}',          [MessageController::class, 'poll'])        ->name('messages.poll');
+Route::get('/messages/unread-counts',            [MessageController::class, 'unreadCounts'])->name('messages.unread');
 
-// ── FRIENDS ───────────────────────────────────────────────────
+// Friends
 Route::get('/friends', function () {
     if ($r = requireAuth()) return $r;
 
     $currentUserId = (string) session('user_id', '');
-    $provider = new SupabaseServiceProvider();
+    $provider      = new SupabaseServiceProvider();
 
     $friendRows = Friendship::query()
-        ->where('user_id', $currentUserId)
+        ->where('user_id',   $currentUserId)
         ->orWhere('friend_id', $currentUserId)
         ->get(['user_id', 'friend_id']);
 
@@ -538,52 +227,18 @@ Route::get('/friends', function () {
 
     return view('home.friends', [
         'activeNav' => 'friends',
-        'friends' => $friends,
+        'friends'   => $friends,
     ]);
 })->name('friends');
 
-// Debug route moved outside /friends
-Route::get('/debug/my-friends', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
+Route::get('/friend-requests',                           [FriendRequestController::class, 'index'])  ->name('friend-requests');
+Route::post('/friend-requests/{receiverId}',             [FriendRequestController::class, 'send'])   ->name('friend-requests.send');
+Route::post('/friend-requests/{friendRequest}/accept',   [FriendRequestController::class, 'accept']) ->name('friend-requests.accept');
+Route::post('/friend-requests/{friendRequest}/decline',  [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
+Route::post('/friend-requests/{friendRequest}/cancel',   [FriendRequestController::class, 'cancel']) ->name('friend-requests.cancel');
+Route::post('/friends/{friendId}/remove',                [FriendRequestController::class, 'remove']) ->name('friends.remove');
 
-    $friends1 = $provider->queryTable('friends', [
-        'select'  => '*',
-        'user_id' => 'eq.' . $userId,
-    ]);
-    $friends2 = $provider->queryTable('friends', [
-        'select'    => '*',
-        'friend_id' => 'eq.' . $userId,
-    ]);
-    $friends3 = $provider->queryTable('user_friends', [
-        'select'  => '*',
-        'user_id' => 'eq.' . $userId,
-    ]);
-    $friends4 = $provider->queryTable('user_friends', [
-        'select'    => '*',
-        'friend_id' => 'eq.' . $userId,
-    ]);
-
-    return response()->json([
-        'session_user_id'        => $userId,
-        'friends_as_user_id'     => $friends1,
-        'friends_as_friend_id'   => $friends2,
-        'user_friends_as_user'   => $friends3,
-        'user_friends_as_friend' => $friends4,
-    ]);
-});
-
-Route::get('/friend-requests', [FriendRequestController::class, 'index'])->name('friend-requests');
-Route::post('/friend-requests/{receiverId}', [FriendRequestController::class, 'send'])->name('friend-requests.send');
-Route::post('/friend-requests/{friendRequest}/accept', [FriendRequestController::class, 'accept'])->name('friend-requests.accept');
-Route::post('/friend-requests/{friendRequest}/decline', [FriendRequestController::class, 'decline'])->name('friend-requests.decline');
-Route::post('/friend-requests/{friendRequest}/cancel', [FriendRequestController::class, 'cancel'])->name('friend-requests.cancel');
-Route::post('/friends/{friendId}/remove', [FriendRequestController::class, 'remove'])->name('friends.remove');
-
-// ── DIAGNOSTICS ──────────────────────────────────────────────
-Route::get('/diagnostics/friend-requests', [DiagnosticsController::class, 'friendRequests']);
-
-// ── PROFILE ───────────────────────────────────────────────────
+// Profile (own)
 Route::get('/profile', function () {
     if ($r = requireAuth()) return $r;
 
@@ -599,16 +254,11 @@ Route::get('/profile', function () {
 
     if ($sessionUserId !== '') {
         $result = $provider->getProfileById($sessionUserId);
-        if (is_array($result) && !isset($result['error'])) {
-            $dbProfile = $result;
-        }
+        if (is_array($result) && !isset($result['error'])) $dbProfile = $result;
     }
-
     if (!$dbProfile && $sessionUsername !== '') {
         $result = $provider->getProfileByUsername($sessionUsername);
-        if (is_array($result) && !isset($result['error'])) {
-            $dbProfile = $result;
-        }
+        if (is_array($result) && !isset($result['error'])) $dbProfile = $result;
     }
 
     $firstName      = trim((string) ($dbProfile['first_name']        ?? $sessionFirstName));
@@ -631,17 +281,11 @@ Route::get('/profile', function () {
     if ($displayName === '') {
         $displayName = $username !== '' ? $username : 'StudyHub User';
     }
-
     if ($bio === '') {
-        $bio = $studentTypeLabel !== 'Student type not set'
-            ? $studentTypeLabel
-            : 'StudyHub learner';
+        $bio = $studentTypeLabel !== 'Student type not set' ? $studentTypeLabel : 'StudyHub learner';
     }
 
-    $postCount      = 0;
-    $friendIds      = [];
-    $friendProfiles = [];
-    $recentPosts    = [];
+    $postCount = $friendIds = $friendProfiles = $recentPosts = [];
 
     if ($userId !== '') {
         $postCount = $provider->countTableRows('newsfeed_posts', [
@@ -660,10 +304,7 @@ Route::get('/profile', function () {
         if (is_array($postsResult) && !isset($postsResult['error'])) {
             $recentPosts = array_map(function (array $post): array {
                 $content = trim((string) ($post['content'] ?? ''));
-                $preview = mb_strlen($content) > 180
-                    ? mb_substr($content, 0, 180) . '…'
-                    : $content;
-
+                $preview = mb_strlen($content) > 180 ? mb_substr($content, 0, 180) . '…' : $content;
                 return [
                     'id'          => (string) ($post['id']          ?? ''),
                     'content'     => $content,
@@ -683,14 +324,8 @@ Route::get('/profile', function () {
             ->get(['user_id', 'friend_id']);
 
         foreach ($friendRows as $row) {
-            $candidate = (string) (
-                $row->user_id === $userId
-                    ? $row->friend_id
-                    : $row->user_id
-            );
-            if ($candidate !== '' && $candidate !== $userId) {
-                $friendIds[$candidate] = true;
-            }
+            $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
+            if ($candidate !== '' && $candidate !== $userId) $friendIds[$candidate] = true;
         }
 
         $allProfiles = $provider->getAllProfiles();
@@ -707,26 +342,24 @@ Route::get('/profile', function () {
                 }
 
                 $status   = strtolower((string) ($profile['status'] ?? ''));
-                $isActive = (bool) ($profile['is_online']  ?? false)
-                    || (bool) ($profile['is_active']       ?? false)
+                $isActive = (bool) ($profile['is_online'] ?? false)
+                    || (bool) ($profile['is_active'] ?? false)
                     || in_array($status, ['online', 'active'], true);
 
                 $friendProfiles[] = [
                     'id'        => $pid,
                     'name'      => $friendName,
                     'photo'     => (string) ($profile['profile_photo_url'] ?? ''),
-                    'initials'  => strtoupper(
-                        substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)
-                    ),
+                    'initials'  => strtoupper(substr($friendFirst ?: $friendName, 0, 1) . substr($friendLast, 0, 1)),
                     'is_active' => $isActive,
                 ];
             }
         }
     }
 
-    $completedSessions = (int) session('focus_session_count',   0);
-    $totalFocusSeconds = (int) session('focus_total_seconds',   0);
-    $sessionMaterials  =       session('focus_materials',       []);
+    $completedSessions = (int) session('focus_session_count', 0);
+    $totalFocusSeconds = (int) session('focus_total_seconds', 0);
+    $sessionMaterials  =       session('focus_materials',     []);
     $resourceCount     = is_array($sessionMaterials) ? count($sessionMaterials) : 0;
     $activeSessions    = (int) ((bool) session('focus_mode_active', false));
 
@@ -758,21 +391,21 @@ Route::get('/profile', function () {
     ]);
 })->name('profile');
 
-// ── PROFILE VIEW (other users) ────────────────────────────────
+// Profile (other users)
 Route::get('/profile/{userId}', function ($userId) {
     if ($r = requireAuth()) return $r;
 
-    $userId = (string) trim($userId);
+    $userId = trim((string) $userId);
     if ($userId === '' || $userId === session('user_id')) {
         return redirect(route('profile'));
     }
 
     $currentUserId = (string) session('user_id', '');
-    $provider = new SupabaseServiceProvider();
+    $provider      = new SupabaseServiceProvider();
     $viewedProfile = $provider->getProfileById($userId);
 
     $relationshipState = 'none';
-    $pendingRequestId = null;
+    $pendingRequestId  = null;
 
     if (Friendship::areFriends($currentUserId, $userId)) {
         $relationshipState = 'friends';
@@ -783,7 +416,7 @@ Route::get('/profile/{userId}', function ($userId) {
             ->first();
 
         if ($pendingRequest) {
-            $pendingRequestId = $pendingRequest->id;
+            $pendingRequestId  = $pendingRequest->id;
             $relationshipState = $pendingRequest->sender_id === $currentUserId
                 ? 'pending_outgoing'
                 : 'pending_incoming';
@@ -791,45 +424,38 @@ Route::get('/profile/{userId}', function ($userId) {
     }
 
     $friendRows = Friendship::query()
-        ->where('user_id', $userId)
+        ->where('user_id',   $userId)
         ->orWhere('friend_id', $userId)
         ->get(['user_id', 'friend_id']);
 
     $friendIds = [];
     foreach ($friendRows as $row) {
         $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
-        if ($candidate !== '' && $candidate !== $userId) {
-            $friendIds[$candidate] = true;
-        }
+        if ($candidate !== '' && $candidate !== $userId) $friendIds[$candidate] = true;
     }
 
     $friendProfiles = [];
-    if (!empty($friendIds)) {
-        foreach (array_keys($friendIds) as $friendId) {
-            $friendProfiles[] = resolveFriendProfileEntry($provider, $friendId);
-        }
+    foreach (array_keys($friendIds) as $friendId) {
+        $friendProfiles[] = resolveFriendProfileEntry($provider, $friendId);
     }
 
     return view('home.profile-view', [
-        'userId' => $userId,
-        'profileData' => [
-            'friends' => $friendProfiles,
-            'profile' => $viewedProfile,
-        ],
+        'userId'            => $userId,
+        'profileData'       => ['friends' => $friendProfiles, 'profile' => $viewedProfile],
         'relationshipState' => $relationshipState,
-        'pendingRequestId' => $pendingRequestId,
-        'activeNav' => 'profile',
+        'pendingRequestId'  => $pendingRequestId,
+        'activeNav'         => 'profile',
     ]);
 })->name('profile.view');
 
-// ── FOCUS MODE ────────────────────────────────────────────────
-Route::get('/focus-mode',             [FocusModeController::class, 'index'])->name('focus-mode');
-Route::post('/focus-mode/session',    [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+// Focus Mode
+Route::get('/focus-mode',             [FocusModeController::class, 'index'])        ->name('focus-mode');
+Route::post('/focus-mode/session',    [FocusModeController::class, 'storeSession']) ->name('focus-mode.session');
 Route::post('/focus-mode/materials',  [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
 Route::post('/focus-mode/flashcards', [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
 
 // ──────────────────────────────────────────────────────────────
-// ADMIN ROUTES (admin only)
+// ADMIN ROUTES
 // ──────────────────────────────────────────────────────────────
 
 Route::prefix('admin')->group(function () {
@@ -865,3 +491,95 @@ Route::prefix('admin')->group(function () {
     })->name('admin.settings');
 
 });
+
+// ──────────────────────────────────────────────────────────────
+// DEBUG ROUTES  (remove before production)
+// ──────────────────────────────────────────────────────────────
+
+Route::get('/debug/all-requests', function () {
+    $allRequests   = FriendRequest::all();
+    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
+    $userId        = trim((string) session('user_id', ''));
+    $myIncoming    = FriendRequest::where('receiver_id', $userId)->get();
+    $myOutgoing    = FriendRequest::where('sender_id',   $userId)->get();
+
+    return response()->json([
+        'current_session_user_id' => $userId,
+        'db_columns'              => $schemaColumns,
+        'total_requests_in_db'    => count($allRequests),
+        'all_requests_raw'        => $allRequests->toArray(),
+        'my_incoming_count'       => count($myIncoming),
+        'my_incoming'             => $myIncoming->toArray(),
+        'my_outgoing_count'       => count($myOutgoing),
+        'my_outgoing'             => $myOutgoing->toArray(),
+        'sample_raw_query'        => \DB::table('friend_requests')->get()->toArray(),
+    ]);
+});
+
+Route::get('/debug/profiles', function () {
+    $provider = new SupabaseServiceProvider();
+    $profiles = $provider->getAllProfiles();
+    return response()->json([
+        'session_user_id'  => session('user_id'),
+        'supabase_url_set' => !empty(env('SUPABASE_URL')),
+        'anon_key_set'     => !empty(env('SUPABASE_ANON_KEY')),
+        'service_key_set'  => !empty(env('SUPABASE_SERVICE_KEY')),
+        'profile_count'    => count($profiles),
+        'profiles_sample'  => array_map(fn($p) => [
+            'id'         => $p['id']         ?? '(missing)',
+            'first_name' => $p['first_name'] ?? '(missing)',
+            'last_name'  => $p['last_name']  ?? '(missing)',
+            'username'   => $p['username']   ?? '(missing)',
+            'email'      => $p['email']      ?? '(missing)',
+            'all_keys'   => array_keys($p),
+        ], array_slice($profiles, 0, 5)),
+    ]);
+});
+
+Route::get('/debug/send/{receiverId}', function (string $receiverId) {
+    $senderId    = trim((string) session('user_id', ''));
+    $receiverId  = trim($receiverId);
+    $isValidUuid = (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $receiverId);
+    $provider    = new SupabaseServiceProvider();
+    $allProfiles = $provider->getAllProfiles();
+
+    $matchedProfile = null;
+    foreach ($allProfiles as $p) {
+        if ((string) ($p['id'] ?? '') === $receiverId) { $matchedProfile = $p; break; }
+    }
+
+    return response()->json([
+        'sender_id'          => $senderId,
+        'receiver_id_param'  => $receiverId,
+        'is_valid_uuid'      => $isValidUuid,
+        'total_profiles'     => count($allProfiles),
+        'matched_profile'    => $matchedProfile,
+        'first_profile_id'   => $allProfiles[0]['id'] ?? '(none)',
+        'first_profile_keys' => isset($allProfiles[0]) ? array_keys($allProfiles[0]) : [],
+    ]);
+});
+
+Route::get('/debug/my-friends', function () {
+    $userId   = session('user_id');
+    $provider = new SupabaseServiceProvider();
+    return response()->json([
+        'session_user_id'        => $userId,
+        'friends_as_user_id'     => $provider->queryTable('friends',      ['select' => '*', 'user_id'   => 'eq.' . $userId]),
+        'friends_as_friend_id'   => $provider->queryTable('friends',      ['select' => '*', 'friend_id' => 'eq.' . $userId]),
+        'user_friends_as_user'   => $provider->queryTable('user_friends', ['select' => '*', 'user_id'   => 'eq.' . $userId]),
+        'user_friends_as_friend' => $provider->queryTable('user_friends', ['select' => '*', 'friend_id' => 'eq.' . $userId]),
+    ]);
+});
+
+Route::get('/debug/my-friends-for-groups', function () {
+    $userId = session('user_id');
+    return response()->json([
+        'session_user_id'   => $userId,
+        'friends_as_user'   => \DB::table('friends')->where('user_id',   $userId)->get(),
+        'friends_as_friend' => \DB::table('friends')->where('friend_id', $userId)->get(),
+        'total'             => \DB::table('friends')->where('user_id', $userId)->count()
+                             + \DB::table('friends')->where('friend_id', $userId)->count(),
+    ]);
+});
+
+Route::get('/diagnostics/friend-requests', [DiagnosticsController::class, 'friendRequests']);

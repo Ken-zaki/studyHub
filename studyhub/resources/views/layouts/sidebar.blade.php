@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        ['newsfeed', 'calendar', 'study-groups', 'resources', 'notifications', 'messages', 'friends', 'focus-mode'],
+        ['newsfeed', 'study-groups', 'resources', 'messages', 'friends', 'focus-mode'],
         true,
     );
 
@@ -80,7 +80,27 @@
             <span class="nav-text">Dashboard</span>
         </a>
 
-        {{-- 2. Newsfeed --}}
+        {{-- 2. Calendar --}}
+        <a href="{{ route('calendar') }}" class="nav-item {{ $activeNav === 'calendar' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span class="nav-text">Calendar</span>
+        </a>
+
+        {{-- 3. Tasks --}}
+        <a href="{{ route('tasks') }}" class="nav-item {{ $activeNav === 'tasks' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+            </svg>
+            <span class="nav-text">Tasks</span>
+        </a>
+
+        {{-- 4. Newsfeed --}}
         <a href="{{ route('newsfeed') }}" class="nav-item {{ $activeNav === 'newsfeed' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path
@@ -89,7 +109,7 @@
             <span class="nav-text">Newsfeed</span>
         </a>
 
-        {{-- 3. Study Groups --}}
+        {{-- 4. Study Groups --}}
         <a href="{{ route('study-groups') }}" class="nav-item {{ $activeNav === 'study-groups' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -99,7 +119,7 @@
             <span class="nav-text">Study Groups</span>
         </a>
 
-        {{-- 4. Resources --}}
+        {{-- 5. Resources --}}
         <a href="{{ route('resources') }}" class="nav-item {{ $activeNav === 'resources' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" />
@@ -108,7 +128,7 @@
             <span class="nav-text">Resources</span>
         </a>
 
-        {{-- 5. Focus Mode --}}
+        {{-- 6. Focus Mode --}}
         <a href="{{ route('focus-mode') }}" class="nav-item {{ $activeNav === 'focus-mode' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10" />
@@ -118,7 +138,7 @@
             <span class="nav-text">Focus Mode</span>
         </a>
 
-        {{-- 6. Messages --}}
+        {{-- 7. Messages --}}
         <a href="{{ route('messages') }}" class="nav-item {{ $activeNav === 'messages' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -126,7 +146,7 @@
             <span class="nav-text">Messages</span>
         </a>
 
-        {{-- 7. Friends --}}
+        {{-- 8. Friends --}}
         <a href="{{ route('friends') }}" class="nav-item {{ $activeNav === 'friends' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -136,7 +156,7 @@
             <span class="nav-text">Friends</span>
         </a>
 
-        {{-- 8. Friend Requests --}}
+        {{-- 9. Friend Requests --}}
         <a href="{{ route('friend-requests') }}"
             class="nav-item {{ $activeNav === 'friend-requests' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -148,7 +168,7 @@
             <span class="nav-text">Friend Requests</span>
         </a>
 
-        {{-- 9. Settings --}}
+        {{-- 10. Settings --}}
         <a href="{{ route('settings') }}" class="nav-item {{ $activeNav === 'settings' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3" />
@@ -177,10 +197,11 @@
         <form method="POST" action="{{ route('logout') }}" style="margin:0;">
             @csrf
             <button type="submit" class="sidebar-logout-btn" title="Logout">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                    height="24">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
                 <span class="logout-text">Logout</span>
             </button>

@@ -1,19 +1,17 @@
 <?php
-/// DashboardController.php
+
+// TaskController.php
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class DashboardController extends Controller
+class TaskController extends Controller
 {
     public function index()
     {
         if (!session('user_id')) {
-            return redirect()->route('login')->with('error', 'Session expired. Please login again.');
+            return redirect()->route('login')->with('error', 'Session expired.');
         }
-
-        return view('home.dashboard', [
+        return view('home.tasks', [
             'supabaseUrl'     => config('services.supabase.url'),
             'supabaseAnonKey' => config('services.supabase.anon_key'),
             'supabaseSvcKey'  => config('services.supabase.service_key'),
