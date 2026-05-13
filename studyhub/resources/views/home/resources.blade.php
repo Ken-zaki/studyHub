@@ -40,7 +40,7 @@
                 </div>
             </header>
 
-            <!-- Search + Filters row -->
+            <!-- ── Search + Subject dropdown + Visibility filters ── -->
             <div class="res-toolbar">
                 <div class="res-search-wrap">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -52,6 +52,32 @@
                     <button class="res-search-clear" id="searchClear" onclick="clearSearch()"
                         style="display:none;">✕</button>
                 </div>
+
+                <!-- Subject dropdown (replaces the category pills row) -->
+                <div class="res-subject-wrap">
+                    <select id="subjectSelect" class="res-subject-select" onchange="setSubjectFromDropdown(this)">
+                        <option value="All">All subjects</option>
+                        <option>Mathematics</option>
+                        <option>Science</option>
+                        <option>Filipino</option>
+                        <option>English</option>
+                        <option>PE</option>
+                        <option>Health</option>
+                        <option>Music</option>
+                        <option>Arts</option>
+                        <option>Social Studies</option>
+                        <option>Computer Science</option>
+                        <option>Values Education</option>
+                        <option>MAPEH</option>
+                        <option>History</option>
+                        <option>Chemistry</option>
+                        <option>Physics</option>
+                        <option>Biology</option>
+                        <option>Economics</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+
                 <div class="res-filter-group">
                     <button class="res-filter-btn active" id="filterPublic" onclick="setVisibility('public', this)">🌐
                         Public</button>
@@ -60,21 +86,7 @@
                 </div>
             </div>
 
-            <!-- Category search -->
-            <div class="res-cat-row">
-                <div class="res-cat-search-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="M21 21l-4.35-4.35" />
-                    </svg>
-                    <input type="text" id="catSearch" placeholder="Search categories…" oninput="filterCategories()">
-                </div>
-                <div class="res-pills" id="categoryPills">
-                    <!-- populated by JS -->
-                </div>
-            </div>
-
-            <!-- Active filters display -->
+            <!-- Active subject filter tag (shown when a subject is selected) -->
             <div class="res-active-filters" id="activeFilters" style="display:none;">
                 <span class="res-filter-tag" id="activeFilterTag"></span>
                 <button onclick="clearCategory()" class="res-clear-filters">Clear filter</button>
@@ -114,6 +126,26 @@
                 </div>
             </div>
 
+            <!-- ── NEW: Saved / Bookmarked Resources ── -->
+            <div class="widget-card">
+                <div class="widget-title">
+                    🔖 Saved Resources
+                    <button class="res-bk-view-all" onclick="toggleBookmarkFilter()" title="View all saved resources">View all</button>
+                </div>
+                <div id="bookmarksSidebar">
+                    <div class="res-empty-small">No saved resources yet</div>
+                </div>
+            </div>
+
+            <!-- ── NEW: Community Recommended (highest rated) ── -->
+            <div class="widget-card">
+                <div class="widget-title">⭐ Community Picks</div>
+                <p class="res-widget-sub">Highest rated by the community</p>
+                <div id="topRatedWidget">
+                    <div class="res-empty-small">Loading…</div>
+                </div>
+            </div>
+
             <!-- Stats -->
             <div class="widget-card">
                 <div class="widget-title">📊 Stats</div>
@@ -125,6 +157,10 @@
                     <div class="res-stat-box">
                         <span class="res-stat-num" id="subjectCount">—</span>
                         <span class="res-stat-lbl">Subjects</span>
+                    </div>
+                    <div class="res-stat-box">
+                        <span class="res-stat-num" id="savedCount">—</span>
+                        <span class="res-stat-lbl">Saved</span>
                     </div>
                 </div>
             </div>
@@ -288,53 +324,39 @@
                 </div>
                 <div class="modal-actions" style="margin-top:16px;">
                     <button class="btn-secondary" onclick="goStep(2)">← Back</button>
-                    <button class="btn-primary" id="submitUploadBtn" onclick="submitUpload()">📤 Upload</button>
+                    <button class="btn-primary" id="submitUploadBtn" onclick="submitUpload()">🚀 Upload</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ══ CONFIG ══ -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const SUPABASE_URL = '{{ env('SUPABASE_URL') }}';
-        const SUPABASE_ANON_KEY = '{{ env('SUPABASE_ANON_KEY') }}';
-        const SUPABASE_SERVICE_KEY = '{{ env('SUPABASE_SERVICE_KEY') }}';
-        const CURRENT_USER = {
-            id: '{{ session('user_id') }}',
-            name: '{{ trim(session('user_first_name', '') . ' ' . session('user_last_name', '')) }}',
-            initials: '{{ strtoupper(substr(session('user_first_name', 'U'), 0, 1) . substr(session('user_last_name', 'U'), 0, 1)) }}'
-        };
-    </script>
-    <script src="{{ asset('js/resources.js') }}"></script>
+    <!-- ══ RESOURCE DETAIL OVERLAY ══ -->
+    <div id="resDetailOverlay" class="res-detail-overlay" style="display:none;" onclick="handleOverlayClick(event)">
+        <div class="res-detail-page" id="resDetailPage">
 
-    {{-- Appended to resources.blade.php BEFORE </body> --}}
-
-    <!-- ══════════════════════════════════════════
-     RESOURCE DETAIL PAGE (full-screen overlay)
-══════════════════════════════════════════ -->
-    <div class="res-detail-overlay" id="resDetailOverlay" style="display:none;">
-        <div class="res-detail-page">
-
-            <!-- Top bar -->
-            <div class="res-detail-topbar">
+            <div class="res-detail-header">
                 <button class="res-detail-back" onclick="closeDetail()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="15 18 9 12 15 6" />
                     </svg>
-                    Back to Resources
+                    Back
                 </button>
-                <div class="res-detail-actions" id="detailActions"></div>
+                <div class="res-detail-header-actions">
+                    <button class="res-detail-bk-btn" id="detailBookmarkBtn" onclick="toggleBookmark(currentResource?.id, event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                        </svg>
+                        Save
+                    </button>
+                    <button class="res-edit-btn" id="detailEditBtn" style="display:none;" onclick="openEditModal()">✏️ Edit</button>
+                </div>
             </div>
 
             <div class="res-detail-body">
-
                 <!-- LEFT: main content -->
-                <div class="res-detail-main">
-
-                    <!-- Header -->
-                    <div class="res-detail-header">
-                        <div class="res-detail-icon" id="detailIcon">📄</div>
+                <div>
+                    <div class="res-detail-hero">
+                        <div class="res-detail-icon" id="detailIcon"></div>
                         <div class="res-detail-meta">
                             <h1 class="res-detail-title" id="detailTitle">Loading…</h1>
                             <div class="res-detail-submeta" id="detailSubmeta"></div>
@@ -613,6 +635,7 @@
     </script>
 
     <script src="{{ asset('js/notifications.js') }}"></script>
+    <script src="{{ asset('js/resources.js') }}"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => initNotifications());

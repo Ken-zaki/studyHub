@@ -75,8 +75,6 @@ class ResourceController extends Controller
 
     /**
      * Return paginated resources as JSON.
-     * Used by the frontend feed loader.
-     *
      * GET /api/resources?subject=&type=&visibility=public&search=&page=1&limit=20
      */
     public function list(Request $request)
@@ -97,7 +95,6 @@ class ResourceController extends Controller
         if ($visibility === 'public') {
             $query->where('visibility', 'public');
         } elseif ($visibility === 'private' && $userId !== '') {
-            // "Friends" resources — uploaded by users who share a follow relationship
             $following = DB::table('follows')
                 ->where('follower_id', $userId)
                 ->pluck('following_id');
@@ -125,7 +122,6 @@ class ResourceController extends Controller
         $total     = (clone $query)->count();
         $resources = $query->offset($offset)->limit($limit)->get();
 
-        // Attach aggregate rating per resource
         $ids = $resources->pluck('id')->toArray();
 
         $ratings = DB::table('resource_ratings')
@@ -135,7 +131,16 @@ class ResourceController extends Controller
             ->get()
             ->keyBy('resource_id');
 
-        // Attach uploader profile (from Supabase profiles via service key)
+        // Fetch bookmarks for current user
+        $bookmarkedIds = [];
+        if ($userId !== '' && !empty($ids)) {
+            $bookmarkedIds = DB::table('resource_bookmarks')
+                ->where('user_id', $userId)
+                ->whereIn('resource_id', $ids)
+                ->pluck('resource_id')
+                ->toArray();
+        }
+
         $uploaderIds = $resources->pluck('uploaded_by')->unique()->filter()->values()->toArray();
         $profiles    = [];
         if (!empty($uploaderIds)) {
@@ -148,7 +153,7 @@ class ResourceController extends Controller
             }
         }
 
-        $data = $resources->map(function ($r) use ($ratings, $profiles, $userId) {
+        $data = $resources->map(function ($r) use ($ratings, $profiles, $userId, $bookmarkedIds) {
             $ratingRow = $ratings[(string) $r->id] ?? null;
             $profile   = $profiles[(string) ($r->uploaded_by ?? '')] ?? null;
 
@@ -161,22 +166,23 @@ class ResourceController extends Controller
             }
 
             return [
-                'id'             => $r->id,
-                'title'          => $r->title,
-                'description'    => $r->description ?? null,
-                'subject'        => $r->subject ?? null,
-                'file_type'      => $r->file_type ?? null,
-                'file_url'       => $r->file_url ?? null,
-                'file_size'      => $r->file_size ?? null,
-                'visibility'     => $r->visibility ?? 'public',
-                'uploaded_by'    => $r->uploaded_by ?? null,
-                'uploader_name'  => $uploaderName,
-                'uploader_photo' => $profile['profile_photo_url'] ?? null,
-                'uploader_username' => $profile['username'] ?? null,
-                'avg_rating'     => $ratingRow ? (float) $ratingRow->avg_rating : null,
-                'rating_count'   => $ratingRow ? (int) $ratingRow->rating_count : 0,
-                'is_own'         => $userId !== '' && (string) ($r->uploaded_by ?? '') === $userId,
-                'created_at'     => $r->created_at,
+                'id'               => $r->id,
+                'title'            => $r->title,
+                'description'      => $r->description ?? null,
+                'subject'          => $r->subject ?? null,
+                'file_type'        => $r->file_type ?? null,
+                'file_url'         => $r->file_url ?? null,
+                'file_size'        => $r->file_size ?? null,
+                'visibility'       => $r->visibility ?? 'public',
+                'uploaded_by'      => $r->uploaded_by ?? null,
+                'uploader_name'    => $uploaderName,
+                'uploader_photo'   => $profile['profile_photo_url'] ?? null,
+                'uploader_username'=> $profile['username'] ?? null,
+                'avg_rating'       => $ratingRow ? (float) $ratingRow->avg_rating : null,
+                'rating_count'     => $ratingRow ? (int) $ratingRow->rating_count : 0,
+                'is_own'           => $userId !== '' && (string) ($r->uploaded_by ?? '') === $userId,
+                'is_bookmarked'    => in_array((string) $r->id, array_map('strval', $bookmarkedIds)),
+                'created_at'       => $r->created_at,
             ];
         });
 
@@ -191,9 +197,6 @@ class ResourceController extends Controller
     /**
      * Top-rated resources for the newsfeed sidebar widget.
      * GET /api/resources/trending?limit=5
-     *
-     * Returns the top N resources by average rating (then by count as tiebreaker),
-     * scoped to public + approved only.
      */
     public function trending(Request $request)
     {
@@ -226,10 +229,108 @@ class ResourceController extends Controller
     }
 
     /**
+     * Community-recommended (top-rated) resources with full details.
+     * GET /api/resources/top-rated?limit=10&min_ratings=2
+     */
+    public function topRated(Request $request)
+    {
+        $userId     = $this->currentUserId();
+        $limit      = min(20, max(1, (int) $request->query('limit', 10)));
+        $minRatings = max(1, (int) $request->query('min_ratings', 1));
+
+        $rows = DB::table('resources as r')
+            ->join(
+                DB::raw("(
+                    SELECT resource_id,
+                           AVG(rating)::numeric(3,2) AS avg_rating,
+                           COUNT(*)                  AS rating_count
+                    FROM resource_ratings
+                    GROUP BY resource_id
+                    HAVING COUNT(*) >= {$minRatings}
+                ) AS agg"),
+                'r.id', '=', 'agg.resource_id'
+            )
+            ->select(
+                'r.id', 'r.title', 'r.description', 'r.subject',
+                'r.file_type', 'r.file_url', 'r.file_size',
+                'r.visibility', 'r.uploaded_by', 'r.created_at',
+                'agg.avg_rating', 'agg.rating_count'
+            )
+            ->where('r.is_approved', true)
+            ->where('r.visibility', 'public')
+            ->orderByDesc('agg.avg_rating')
+            ->orderByDesc('agg.rating_count')
+            ->orderByDesc('r.created_at')
+            ->limit($limit)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return response()->json(['data' => []]);
+        }
+
+        $ids         = $rows->pluck('id')->toArray();
+        $uploaderIds = $rows->pluck('uploaded_by')->unique()->filter()->values()->toArray();
+
+        // Fetch uploader profiles
+        $profiles = [];
+        if (!empty($uploaderIds)) {
+            $fetched = $this->sbQuery('profiles', [
+                'select' => 'id,first_name,last_name,username,profile_photo_url',
+                'id'     => 'in.(' . implode(',', $uploaderIds) . ')',
+            ]);
+            foreach ($fetched as $p) {
+                $profiles[(string) $p['id']] = $p;
+            }
+        }
+
+        // Fetch current user's bookmarks
+        $bookmarkedIds = [];
+        if ($userId !== '') {
+            $bookmarkedIds = DB::table('resource_bookmarks')
+                ->where('user_id', $userId)
+                ->whereIn('resource_id', $ids)
+                ->pluck('resource_id')
+                ->map(fn($id) => (string) $id)
+                ->toArray();
+        }
+
+        $data = $rows->map(function ($r) use ($profiles, $userId, $bookmarkedIds) {
+            $profile      = $profiles[(string) ($r->uploaded_by ?? '')] ?? null;
+            $uploaderName = '';
+            if ($profile) {
+                $uploaderName = trim(($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''));
+                if ($uploaderName === '') {
+                    $uploaderName = $profile['username'] ?? 'Unknown';
+                }
+            }
+
+            return [
+                'id'               => $r->id,
+                'title'            => $r->title,
+                'description'      => $r->description ?? null,
+                'subject'          => $r->subject ?? null,
+                'file_type'        => $r->file_type ?? null,
+                'file_url'         => $r->file_url ?? null,
+                'file_size'        => $r->file_size ?? null,
+                'visibility'       => $r->visibility ?? 'public',
+                'uploaded_by'      => $r->uploaded_by ?? null,
+                'uploader_name'    => $uploaderName,
+                'uploader_photo'   => $profile['profile_photo_url'] ?? null,
+                'uploader_username'=> $profile['username'] ?? null,
+                'avg_rating'       => (float) $r->avg_rating,
+                'rating_count'     => (int) $r->rating_count,
+                'is_own'           => $userId !== '' && (string) ($r->uploaded_by ?? '') === $userId,
+                'is_bookmarked'    => in_array((string) $r->id, $bookmarkedIds),
+                'created_at'       => $r->created_at,
+            ];
+        });
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
      * Most active study groups for the newsfeed sidebar widget.
      * GET /api/study-groups/active?limit=4
-     *
-     * "Active" = most members + most recent group message activity.
      */
     public function activeGroups(Request $request)
     {
@@ -281,26 +382,22 @@ class ResourceController extends Controller
             return response()->json(['error' => 'Resource not found'], 404);
         }
 
-        // Visibility check
         if (!$resource->is_approved) {
             if ($userId === '' || (string) $resource->uploaded_by !== $userId) {
                 return response()->json(['error' => 'Resource not available'], 403);
             }
         }
 
-        // Files
         $files = DB::table('resource_files')
             ->where('resource_id', $id)
             ->orderBy('created_at')
             ->get(['id', 'file_name', 'file_url', 'file_size']);
 
-        // Ratings summary
         $ratingRow = DB::table('resource_ratings')
             ->selectRaw('AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as rating_count')
             ->where('resource_id', $id)
             ->first();
 
-        // Current user's rating
         $myRating = null;
         if ($userId !== '') {
             $myRating = DB::table('resource_ratings')
@@ -309,7 +406,15 @@ class ResourceController extends Controller
                 ->value('rating');
         }
 
-        // Uploader profile
+        // Check if bookmarked
+        $isBookmarked = false;
+        if ($userId !== '') {
+            $isBookmarked = DB::table('resource_bookmarks')
+                ->where('resource_id', $id)
+                ->where('user_id', $userId)
+                ->exists();
+        }
+
         $profile = [];
         if ($resource->uploaded_by) {
             $rows = $this->sbQuery('profiles', [
@@ -342,6 +447,7 @@ class ResourceController extends Controller
                 'uploader_username'=> $profile['username'] ?? null,
                 'uploader_photo'   => $profile['profile_photo_url'] ?? null,
                 'is_own'           => $userId !== '' && (string) ($resource->uploaded_by ?? '') === $userId,
+                'is_bookmarked'    => $isBookmarked,
                 'avg_rating'       => $ratingRow ? (float) $ratingRow->avg_rating : null,
                 'rating_count'     => $ratingRow ? (int) $ratingRow->rating_count : 0,
                 'my_rating'        => $myRating ? (int) $myRating : null,
@@ -384,9 +490,8 @@ class ResourceController extends Controller
 
         $resourceId = (string) Str::uuid();
 
-        // Handle primary file (first uploaded file, stored on resource row)
-        $primaryFileUrl  = null;
-        $primaryFileSize = null;
+        $primaryFileUrl   = null;
+        $primaryFileSize  = null;
         $originalFilename = null;
 
         $uploadedFiles = $request->file('files', []);
@@ -395,10 +500,10 @@ class ResourceController extends Controller
         }
 
         if (!empty($uploadedFiles)) {
-            $firstFile       = $uploadedFiles[0];
-            $path            = $firstFile->store("resources/{$userId}", 'public');
-            $primaryFileUrl  = asset('storage/' . $path);
-            $primaryFileSize = $firstFile->getSize();
+            $firstFile        = $uploadedFiles[0];
+            $path             = $firstFile->store("resources/{$userId}", 'public');
+            $primaryFileUrl   = asset('storage/' . $path);
+            $primaryFileSize  = $firstFile->getSize();
             $originalFilename = $firstFile->getClientOriginalName();
         }
 
@@ -415,12 +520,11 @@ class ResourceController extends Controller
             'file_size'         => $primaryFileSize,
             'original_filename' => $originalFilename,
             'visibility'        => $request->input('visibility', 'public'),
-            'is_approved'       => true,   // auto-approve; set false if you want moderation
+            'is_approved'       => true,
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);
 
-        // Store all uploaded files in resource_files
         foreach ($uploadedFiles as $file) {
             $path    = $file->store("resources/{$userId}/files", 'public');
             $fileUrl = asset('storage/' . $path);
@@ -485,7 +589,6 @@ class ResourceController extends Controller
 
         DB::table('resources')->where('id', $id)->update($fields);
 
-        // Handle new file additions
         $newFiles = $request->file('files', []);
         if (!empty($newFiles)) {
             foreach ($newFiles as $file) {
@@ -505,7 +608,6 @@ class ResourceController extends Controller
             }
         }
 
-        // Handle file removals
         $removeFileIds = $request->input('remove_file_ids', []);
         if (!empty($removeFileIds)) {
             $toDelete = DB::table('resource_files')
@@ -543,14 +645,12 @@ class ResourceController extends Controller
         }
 
         if ((string) $resource->uploaded_by !== $userId) {
-            // Allow admins too — check session role
             $role = session('user_role', '');
             if (!in_array($role, ['admin', 'moderator'])) {
                 return response()->json(['error' => 'Forbidden'], 403);
             }
         }
 
-        // Delete physical files
         $files = DB::table('resource_files')
             ->where('resource_id', $id)
             ->get(['storage_path']);
@@ -561,18 +661,165 @@ class ResourceController extends Controller
             }
         }
 
-        // Cascade deletes handle DB child rows (resource_files, ratings, comments)
+        // Also remove all bookmarks for this resource
+        DB::table('resource_bookmarks')->where('resource_id', $id)->delete();
+
         DB::table('resources')->where('id', $id)->delete();
 
         return response()->json(['success' => true]);
     }
 
+    // ── Bookmarks ─────────────────────────────────────────────
+
+    /**
+     * Toggle bookmark on a resource.
+     * POST /api/resources/{id}/bookmark
+     * Returns: { bookmarked: bool }
+     */
+    public function toggleBookmark(string $id)
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === '') {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $exists = DB::table('resource_bookmarks')
+            ->where('resource_id', $id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            DB::table('resource_bookmarks')
+                ->where('resource_id', $id)
+                ->where('user_id', $userId)
+                ->delete();
+
+            return response()->json(['success' => true, 'bookmarked' => false]);
+        }
+
+        // Verify resource exists
+        $resource = DB::table('resources')->where('id', $id)->first();
+        if (!$resource) {
+            return response()->json(['error' => 'Resource not found'], 404);
+        }
+
+        DB::table('resource_bookmarks')->insert([
+            'id'          => (string) Str::uuid(),
+            'resource_id' => $id,
+            'user_id'     => $userId,
+            'created_at'  => now(),
+        ]);
+
+        return response()->json(['success' => true, 'bookmarked' => true]);
+    }
+
+    /**
+     * Get the current user's bookmarked resources.
+     * GET /api/resources/bookmarks
+     */
+    public function bookmarks(Request $request)
+    {
+        $userId = $this->currentUserId();
+
+        if ($userId === '') {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $page   = max(1, (int) $request->query('page', 1));
+        $limit  = min(40, max(1, (int) $request->query('limit', 20)));
+        $offset = ($page - 1) * $limit;
+
+        $total = DB::table('resource_bookmarks')
+            ->where('user_id', $userId)
+            ->count();
+
+        $rows = DB::table('resource_bookmarks as rb')
+            ->join('resources as r', 'rb.resource_id', '=', 'r.id')
+            ->where('rb.user_id', $userId)
+            ->where('r.is_approved', true)
+            ->select(
+                'r.id', 'r.title', 'r.description', 'r.subject',
+                'r.file_type', 'r.file_url', 'r.file_size',
+                'r.visibility', 'r.uploaded_by', 'r.created_at',
+                'rb.created_at as bookmarked_at'
+            )
+            ->orderByDesc('rb.created_at')
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return response()->json(['data' => [], 'total' => 0, 'page' => $page, 'limit' => $limit]);
+        }
+
+        $ids = $rows->pluck('id')->toArray();
+
+        $ratings = DB::table('resource_ratings')
+            ->selectRaw('resource_id, AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as rating_count')
+            ->whereIn('resource_id', $ids)
+            ->groupBy('resource_id')
+            ->get()
+            ->keyBy('resource_id');
+
+        $uploaderIds = $rows->pluck('uploaded_by')->unique()->filter()->values()->toArray();
+        $profiles    = [];
+        if (!empty($uploaderIds)) {
+            $fetched = $this->sbQuery('profiles', [
+                'select' => 'id,first_name,last_name,username,profile_photo_url',
+                'id'     => 'in.(' . implode(',', $uploaderIds) . ')',
+            ]);
+            foreach ($fetched as $p) {
+                $profiles[(string) $p['id']] = $p;
+            }
+        }
+
+        $data = $rows->map(function ($r) use ($ratings, $profiles, $userId) {
+            $ratingRow    = $ratings[(string) $r->id] ?? null;
+            $profile      = $profiles[(string) ($r->uploaded_by ?? '')] ?? null;
+            $uploaderName = '';
+            if ($profile) {
+                $uploaderName = trim(($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''));
+                if ($uploaderName === '') {
+                    $uploaderName = $profile['username'] ?? 'Unknown';
+                }
+            }
+
+            return [
+                'id'               => $r->id,
+                'title'            => $r->title,
+                'description'      => $r->description ?? null,
+                'subject'          => $r->subject ?? null,
+                'file_type'        => $r->file_type ?? null,
+                'file_url'         => $r->file_url ?? null,
+                'file_size'        => $r->file_size ?? null,
+                'visibility'       => $r->visibility ?? 'public',
+                'uploaded_by'      => $r->uploaded_by ?? null,
+                'uploader_name'    => $uploaderName,
+                'uploader_photo'   => $profile['profile_photo_url'] ?? null,
+                'uploader_username'=> $profile['username'] ?? null,
+                'avg_rating'       => $ratingRow ? (float) $ratingRow->avg_rating : null,
+                'rating_count'     => $ratingRow ? (int) $ratingRow->rating_count : 0,
+                'is_own'           => $userId !== '' && (string) ($r->uploaded_by ?? '') === $userId,
+                'is_bookmarked'    => true,
+                'bookmarked_at'    => $r->bookmarked_at,
+                'created_at'       => $r->created_at,
+            ];
+        });
+
+        return response()->json([
+            'data'  => $data,
+            'total' => $total,
+            'page'  => $page,
+            'limit' => $limit,
+        ]);
+    }
+
     // ── Ratings ───────────────────────────────────────────────
 
     /**
-     * Submit a rating (1–5). One rating per user per resource — INSERT only, no updates.
+     * Submit a rating (1–5). One rating per user per resource — INSERT only.
      * POST /api/resources/{id}/rate
-     * Body: { rating: int }
      */
     public function rate(Request $request, string $id)
     {
@@ -601,7 +848,6 @@ class ResourceController extends Controller
             'created_at'  => now(),
         ]);
 
-        // Return updated aggregate
         $agg = DB::table('resource_ratings')
             ->selectRaw('AVG(rating)::numeric(3,2) as avg_rating, COUNT(*) as rating_count')
             ->where('resource_id', $id)
@@ -631,7 +877,6 @@ class ResourceController extends Controller
             return response()->json(['comments' => []]);
         }
 
-        // Fetch profiles
         $userIds  = $rows->pluck('user_id')->unique()->filter()->values()->toArray();
         $profiles = [];
         if (!empty($userIds)) {
@@ -652,16 +897,16 @@ class ResourceController extends Controller
                 $name = $profile['username'] ?? 'User';
             }
             return [
-                'id'         => $c->id,
-                'user_id'    => $c->user_id,
-                'content'    => $c->content,
-                'upvotes'    => $c->upvotes ?? 0,
-                'created_at' => $c->created_at,
-                'updated_at' => $c->updated_at ?? null,
-                'is_own'     => $userId !== '' && (string) ($c->user_id ?? '') === $userId,
-                'author_name'    => $name,
-                'author_username'=> $profile['username'] ?? null,
-                'author_photo'   => $profile['profile_photo_url'] ?? null,
+                'id'              => $c->id,
+                'user_id'         => $c->user_id,
+                'content'         => $c->content,
+                'upvotes'         => $c->upvotes ?? 0,
+                'created_at'      => $c->created_at,
+                'updated_at'      => $c->updated_at ?? null,
+                'is_own'          => $userId !== '' && (string) ($c->user_id ?? '') === $userId,
+                'author_name'     => $name,
+                'author_username' => $profile['username'] ?? null,
+                'author_photo'    => $profile['profile_photo_url'] ?? null,
             ];
         });
 
@@ -671,7 +916,6 @@ class ResourceController extends Controller
     /**
      * Post a comment on a resource.
      * POST /api/resources/{id}/comments
-     * Body: { content: string }
      */
     public function addComment(Request $request, string $id)
     {
@@ -753,7 +997,7 @@ class ResourceController extends Controller
     // ── Upvote comment ────────────────────────────────────────
 
     /**
-     * Upvote a comment (increment only — no undo to keep it simple).
+     * Upvote a comment.
      * POST /api/resources/comments/{commentId}/upvote
      */
     public function upvoteComment(string $commentId)
@@ -802,7 +1046,6 @@ class ResourceController extends Controller
     /**
      * Report a resource.
      * POST /api/resources/{id}/report
-     * Body: { reason: string, details?: string }
      */
     public function report(Request $request, string $id)
     {
@@ -821,15 +1064,14 @@ class ResourceController extends Controller
             ? $request->input('reason') . ': ' . $request->input('details')
             : $request->input('reason');
 
-        // Insert into the reports table (same one used by NewsfeedController)
         DB::table('reports')->insert([
-            'id'                   => (string) Str::uuid(),
-            'reported_by'          => $userId,
-            'reported_content_type'=> 'resource',
-            'reported_content_id'  => $id,
-            'reason'               => $reason,
-            'status'               => 'pending',
-            'created_at'           => now(),
+            'id'                    => (string) Str::uuid(),
+            'reported_by'           => $userId,
+            'reported_content_type' => 'resource',
+            'reported_content_id'   => $id,
+            'reason'                => $reason,
+            'status'                => 'pending',
+            'created_at'            => now(),
         ]);
 
         return response()->json(['success' => true]);

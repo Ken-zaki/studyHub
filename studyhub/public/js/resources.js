@@ -1,8 +1,28 @@
 /* ============================================================
    public/js/resources.js  — StudyHub Resources Page
+   All data calls go through Laravel API routes — no Supabase
+   client needed here.
    ============================================================ */
 
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ── API HELPER ───────────────────────────────────────────────
+async function _api(method, path, body = null) {
+    const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    };
+    // CSRF token for mutating requests
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (csrf) opts.headers['X-CSRF-TOKEN'] = csrf;
+    if (body && !(body instanceof FormData)) opts.body = JSON.stringify(body);
+    if (body instanceof FormData) { delete opts.headers['Content-Type']; opts.body = body; }
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
 
 // ── CATEGORIES ──────────────────────────────────────────────
 const ALL_CATEGORIES = [
@@ -18,70 +38,73 @@ let activeCategory    = 'All';
 let activeVisFilter   = 'public';
 let searchQuery       = '';
 let catSearchQuery    = '';
-let selectedFiles     = [];          // upload modal staged files
+let selectedFiles     = [];
 let currentStep       = 1;
 let recentlyViewed    = [];
 let currentResource   = null;
 let currentRating     = 0;
 let editingCommentId  = null;
 
+// Bookmark state
+let bookmarkedIds     = new Set();   // Set of bookmarked resource IDs (for current user)
+let showingBookmarks  = false;       // true when bookmark-filter view is active
+
 // Edit modal file state
-let editNewFiles      = [];          // File objects staged to be uploaded on save
-let editExistingFiles = [];          // rows from resource_files table (or synthetic)
-let editFilesToDelete = [];          // rows removed from editExistingFiles, pending DB delete
+let editNewFiles      = [];
+let editExistingFiles = [];
+let editFilesToDelete = [];
 
 const _resourceMap = {};
 
 try { recentlyViewed = JSON.parse(localStorage.getItem('sh_recent_resources') || '[]'); } catch(e){}
+// Persist bookmarks locally for instant UI (truth comes from DB on load)
+try {
+    const saved = JSON.parse(localStorage.getItem('sh_bookmarks') || '[]');
+    bookmarkedIds = new Set(saved);
+} catch(e){}
 
 // ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    buildCategoryPills();
     loadResources();
     renderRecentlyViewed();
     loadMyUploads();
+    loadTopRatedWidget();
+    if (CURRENT_USER.id) syncBookmarksFromDB();
 });
 
 // ─────────────────────────────────────────────────────────────
-// CATEGORY PILLS
+// SUBJECT DROPDOWN  (replaces the old category-pills row)
 // ─────────────────────────────────────────────────────────────
-function buildCategoryPills() {
-    const container = document.getElementById('categoryPills');
-    container.innerHTML = ALL_CATEGORIES.map(cat => `
-        <button class="res-pill ${cat === 'All' ? 'active' : ''}"
-                data-cat="${cat}"
-                onclick="setCategory('${cat}', this)">
-            ${cat}
-        </button>`).join('');
-}
 
-function filterCategories() {
-    catSearchQuery = document.getElementById('catSearch').value.toLowerCase();
-    document.querySelectorAll('.res-pill').forEach(pill => {
-        const cat = pill.dataset.cat.toLowerCase();
-        pill.classList.toggle('hidden',
-            !!(catSearchQuery && !cat.includes(catSearchQuery) && cat !== 'all'));
-    });
-}
-
-function setCategory(cat, btn) {
+/** Called by the subject <select> in the toolbar */
+function setSubjectFromDropdown(selectEl) {
+    const cat = selectEl.value || 'All';
     activeCategory = cat;
-    document.querySelectorAll('.res-pill').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
     const af = document.getElementById('activeFilters');
     const at = document.getElementById('activeFilterTag');
-    if (cat !== 'All') { af.style.display = 'flex'; at.textContent = '📚 ' + cat; }
+    if (cat !== 'All') { af.style.display = 'flex'; at.textContent = '\u{1F4DA} ' + cat; }
     else { af.style.display = 'none'; }
-    renderResources();
+    loadResources();
+}
+
+/** Legacy helper so any existing onclick="setCategory(...)" calls still work */
+function setCategory(cat) {
+    activeCategory = cat;
+    const sel = document.getElementById('subjectSelect');
+    if (sel) sel.value = cat;
+    const af = document.getElementById('activeFilters');
+    const at = document.getElementById('activeFilterTag');
+    if (cat !== 'All') { af.style.display = 'flex'; at.textContent = '\u{1F4DA} ' + cat; }
+    else { af.style.display = 'none'; }
+    loadResources();
 }
 
 function clearCategory() {
     activeCategory = 'All';
-    document.querySelectorAll('.res-pill').forEach(p => p.classList.remove('active'));
-    const allPill = document.querySelector('.res-pill[data-cat="All"]');
-    if (allPill) allPill.classList.add('active');
+    const sel = document.getElementById('subjectSelect');
+    if (sel) sel.value = 'All';
     document.getElementById('activeFilters').style.display = 'none';
-    renderResources();
+    loadResources();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -89,21 +112,170 @@ function clearCategory() {
 // ─────────────────────────────────────────────────────────────
 function setVisibility(vis, btn) {
     activeVisFilter = vis;
+    showingBookmarks = false;
     document.getElementById('filterPublic').classList.toggle('active',  vis === 'public');
     document.getElementById('filterPrivate').classList.toggle('active', vis === 'private');
-    renderResources();
+    document.getElementById('filterBookmarks')?.classList.remove('bookmark-active');
+    loadResources();
 }
 
 function filterResources() {
     searchQuery = document.getElementById('searchInput').value;
     document.getElementById('searchClear').style.display = searchQuery ? 'block' : 'none';
-    renderResources();
+    loadResources();
 }
 function clearSearch() {
     document.getElementById('searchInput').value = '';
     searchQuery = '';
     document.getElementById('searchClear').style.display = 'none';
+    loadResources();
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOOKMARKS — sync & toggle view
+// ─────────────────────────────────────────────────────────────
+
+/** Pull all bookmarked IDs from the DB once on page load */
+async function syncBookmarksFromDB() {
+    try {
+        const json = await _api('GET', '/api/resources/bookmarks?limit=40');
+        if (json?.data) {
+            bookmarkedIds = new Set(json.data.map(r => String(r.id)));
+            _persistBookmarks();
+        }
+    } catch(e) {}
+}
+
+function _persistBookmarks() {
+    try { localStorage.setItem('sh_bookmarks', JSON.stringify([...bookmarkedIds])); } catch(e){}
+    const savedEl = document.getElementById('savedCount');
+    if (savedEl) savedEl.textContent = bookmarkedIds.size;
+}
+
+/** Toggle the bookmarks-only feed view */
+function toggleBookmarkFilter() {
+    if (!CURRENT_USER.id) { alert('Please log in to view your bookmarks.'); return; }
+    showingBookmarks = !showingBookmarks;
+    const btn = document.getElementById('filterBookmarks');
+    if (btn) btn.classList.toggle('bookmark-active', showingBookmarks);
+    // Deactivate vis filters when in bookmark mode
+    document.getElementById('filterPublic').classList.toggle('active', !showingBookmarks);
+    document.getElementById('filterPrivate').classList.remove('active');
     renderResources();
+}
+
+/**
+ * Toggle bookmark on a resource. Optimistic UI update.
+ * @param {string} resourceId
+ * @param {Event}  event  - to stop card click propagation
+ */
+async function toggleBookmark(resourceId, event) {
+    if (event) event.stopPropagation();
+    if (!CURRENT_USER.id) { alert('Please log in to bookmark resources.'); return; }
+
+    const wasBookmarked = bookmarkedIds.has(resourceId);
+
+    // Optimistic update
+    if (wasBookmarked) {
+        bookmarkedIds.delete(resourceId);
+    } else {
+        bookmarkedIds.add(resourceId);
+    }
+    _persistBookmarks();
+
+    // Update all bookmark buttons currently shown for this resource
+    _refreshBookmarkButtons(resourceId, !wasBookmarked);
+
+    // Persist to DB
+    try {
+        const json = await _api('POST', `/api/resources/${resourceId}/bookmark`);
+        // Server is the source of truth — sync if it disagrees
+        if (typeof json.bookmarked === 'boolean' && json.bookmarked !== !wasBookmarked) {
+            if (json.bookmarked) { bookmarkedIds.add(resourceId); } else { bookmarkedIds.delete(resourceId); }
+            _persistBookmarks();
+            _refreshBookmarkButtons(resourceId, json.bookmarked);
+        }
+    } catch(e) {
+        // Rollback optimistic update on failure
+        if (wasBookmarked) { bookmarkedIds.add(resourceId); } else { bookmarkedIds.delete(resourceId); }
+        _persistBookmarks();
+        _refreshBookmarkButtons(resourceId, wasBookmarked);
+        console.error('Bookmark toggle failed:', e.message);
+    }
+
+    // If we're currently showing the bookmark-only feed, re-render to hide/show the card
+    if (showingBookmarks) renderResources();
+
+    // Update sidebar bookmark list
+    loadBookmarksSidebar();
+}
+
+function _refreshBookmarkButtons(resourceId, isNowBookmarked) {
+    // Update card-level bookmark buttons
+    document.querySelectorAll(`.res-bookmark-btn[data-id="${resourceId}"]`).forEach(btn => {
+        btn.classList.toggle('bookmarked', isNowBookmarked);
+        btn.title = isNowBookmarked ? 'Remove bookmark' : 'Bookmark this resource';
+        btn.innerHTML = _bookmarkSVG(isNowBookmarked);
+    });
+    // Update detail-page bookmark button
+    const detailBtn = document.getElementById('detailBookmarkBtn');
+    if (detailBtn && currentResource?.id === resourceId) {
+        detailBtn.classList.toggle('bookmarked', isNowBookmarked);
+        detailBtn.innerHTML = `${_bookmarkSVG(isNowBookmarked)} ${isNowBookmarked ? 'Saved' : 'Save'}`;
+    }
+    // Update card border
+    document.querySelectorAll(`.res-card[data-id="${resourceId}"]`).forEach(card => {
+        card.classList.toggle('is-bookmarked', isNowBookmarked);
+    });
+}
+
+function _bookmarkSVG(filled) {
+    if (filled) {
+        return `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+        </svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+    </svg>`;
+}
+
+/** Render the sidebar bookmarks list */
+async function loadBookmarksSidebar() {
+    const el = document.getElementById('bookmarksSidebar');
+    if (!el || !CURRENT_USER.id) return;
+
+    if (bookmarkedIds.size === 0) {
+        el.innerHTML = '<div class="res-empty-small">No saved resources yet</div>';
+        return;
+    }
+
+    // Render from local map first for instant feedback
+    const localRows = [...bookmarkedIds].slice(0, 5)
+        .map(id => _resourceMap[id]).filter(Boolean);
+
+    const renderRows = (rows) => {
+        el.innerHTML = rows.map(r => `
+            <div class="res-recent-item" onclick="openDetailById('${escH(r.id)}')">
+                <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', r.file_url||null)}</div>
+                <div style="min-width:0;">
+                    <div class="res-recent-title">${escH(r.title)}</div>
+                    <div class="res-recent-sub">${escH(r.subject||'General')} · ${fileTypeLabel(r.file_type||'other')}</div>
+                </div>
+            </div>`).join('');
+    };
+
+    if (localRows.length) { renderRows(localRows); return; }
+
+    try {
+        const json = await _api('GET', '/api/resources/bookmarks?limit=5');
+        if (json?.data?.length) {
+            json.data.forEach(r => { _resourceMap[r.id] = r; });
+            renderRows(json.data);
+        } else {
+            el.innerHTML = '<div class="res-empty-small">No saved resources yet</div>';
+        }
+    } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -111,40 +283,58 @@ function clearSearch() {
 // ─────────────────────────────────────────────────────────────
 async function loadResources() {
     const feed = document.getElementById('resourceFeed');
-    feed.innerHTML = '<div class="loading-state">Loading resources\u2026</div>';
+    feed.innerHTML = '<div class="loading-state">Loading resources…</div>';
     try {
-        const { data: publicData, error: pubErr } = await _supabase
-            .from('resources')
-            .select('*, profiles(first_name, last_name, username)')
-            .eq('is_approved', true)
-            .order('created_at', { ascending: false });
-        if (pubErr) throw pubErr;
+        const params = new URLSearchParams({ visibility: activeVisFilter, limit: 100 });
+        if (activeCategory !== 'All') params.set('subject', activeCategory);
+        if (searchQuery) params.set('search', searchQuery);
 
-        let combined = publicData || [];
-
-        if (CURRENT_USER.id) {
-            const { data: ownData } = await _supabase
-                .from('resources')
-                .select('*, profiles(first_name, last_name, username)')
-                .eq('uploaded_by', CURRENT_USER.id)
-                .order('created_at', { ascending: false });
-            if (ownData?.length) {
-                const ids = new Set(combined.map(r => r.id));
-                ownData.forEach(r => { if (!ids.has(r.id)) combined.push(r); });
-            }
-        }
-
-        allResources = combined;
+        const json = await _api('GET', `/api/resources?${params}`);
+        allResources = json.data || [];
         allResources.forEach(r => { _resourceMap[r.id] = r; });
+
+        // Sync bookmark state from server response
+        allResources.forEach(r => {
+            if (r.is_bookmarked) { bookmarkedIds.add(String(r.id)); }
+        });
+        _persistBookmarks();
+
         renderResources();
         updateStats();
+        loadBookmarksSidebar();
     } catch(err) {
-        feed.innerHTML = `<div class="alert-error">\u274c Failed to load: ${escH(err.message)}</div>`;
+        feed.innerHTML = `<div class="alert-error">❌ Failed to load: ${escH(err.message)}</div>`;
     }
 }
 
 function renderResources() {
     const feed = document.getElementById('resourceFeed');
+
+    // ── Bookmark-only mode ────────────────────────────────────
+    if (showingBookmarks) {
+        const bkList = allResources.filter(r => bookmarkedIds.has(r.id));
+        if (!bkList.length) {
+            feed.innerHTML = `
+                <div class="res-bookmarks-banner">
+                    <span class="res-bookmarks-banner-text">🔖 Your saved resources</span>
+                    <button class="res-bookmarks-banner-close" onclick="toggleBookmarkFilter()">✕ Exit</button>
+                </div>
+                <div class="res-empty">
+                    <div class="ei">🔖</div>
+                    <p>You haven't saved any resources yet.<br>Click the bookmark icon on any resource to save it here.</p>
+                </div>`;
+            return;
+        }
+        feed.innerHTML = `
+            <div class="res-bookmarks-banner">
+                <span class="res-bookmarks-banner-text">🔖 ${bkList.length} saved resource${bkList.length !== 1 ? 's' : ''}</span>
+                <button class="res-bookmarks-banner-close" onclick="toggleBookmarkFilter()">✕ Exit</button>
+            </div>
+            ${bkList.map(r => cardHTML(r)).join('')}`;
+        return;
+    }
+
+    // ── Normal feed ───────────────────────────────────────────
     const filtered = allResources.filter(r => {
         const effectiveVis = r.visibility === 'private' || r.education_level === 'private'
             ? 'private' : 'public';
@@ -161,7 +351,7 @@ function renderResources() {
     });
 
     if (!filtered.length) {
-        feed.innerHTML = `<div class="res-empty"><div class="ei">\uD83D\uDCED</div>
+        feed.innerHTML = `<div class="res-empty"><div class="ei">🔍</div>
             <p>${searchQuery
                 ? `No results for "<strong>${escH(searchQuery)}</strong>"`
                 : 'No resources found in this category yet.'}</p></div>`;
@@ -172,19 +362,19 @@ function renderResources() {
     filtered.forEach(r => { const s = r.subject||'Other'; if(!groups[s])groups[s]=[]; groups[s].push(r); });
 
     const EMOJIS = {
-        'Mathematics':'\uD83D\uDCD0','Science':'\uD83D\uDD2C','Filipino':'\uD83C\uDDF5\uD83C\uDDED',
-        'English':'\uD83D\uDCD6','PE':'\u26BD','Health':'\u2764\uFE0F\u200D\uD83E\uDE79',
-        'Music':'\uD83C\uDFB5','Arts':'\uD83C\uDFA8','Social Studies':'\uD83C\uDF0D',
-        'Computer Science':'\uD83D\uDCBB','Values Education':'\uD83C\uDF1F','MAPEH':'\uD83C\uDFAD',
-        'History':'\uD83C\uDFDB\uFE0F','Chemistry':'\u2697\uFE0F','Physics':'\u269B\uFE0F',
-        'Biology':'\uD83E\uDDEC','Economics':'\uD83D\uDCB9','Others':'\uD83D\uDCDA'
+        'Mathematics':'📐','Science':'🔬','Filipino':'🇵🇭',
+        'English':'📖','PE':'⚽','Health':'❤️‍🩹',
+        'Music':'🎵','Arts':'🎨','Social Studies':'🌍',
+        'Computer Science':'💻','Values Education':'🌟','MAPEH':'🎭',
+        'History':'🏛️','Chemistry':'⚗️','Physics':'⚛️',
+        'Biology':'🧬','Economics':'📈','Others':'📚'
     };
 
     feed.innerHTML = Object.entries(groups).map(([subj, items]) => `
         <div class="res-group">
             <div class="res-group-header">
                 <div class="res-group-title">
-                    ${EMOJIS[subj]||'\uD83D\uDCDA'} ${escH(subj)}
+                    ${EMOJIS[subj]||'📚'} ${escH(subj)}
                     <span class="res-group-count">${items.length}</span>
                 </div>
             </div>
@@ -201,9 +391,10 @@ function cardHTML(r) {
         ? `${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username
         : 'Unknown';
     const ago        = timeAgo(r.created_at);
-    const desc       = r.description ? escH(r.description.slice(0,90))+(r.description.length>90?'\u2026':'') : '';
+    const desc       = r.description ? escH(r.description.slice(0,90))+(r.description.length>90?'…':'') : '';
     const effectiveVis = r.visibility === 'private' || r.education_level === 'private' ? 'private' : 'public';
     const isOwner    = r.uploaded_by === CURRENT_USER.id;
+    const isBookmarked = bookmarkedIds.has(r.id);
 
     let actionBtn = '';
     if (fileType === 'link' && r.file_url) {
@@ -213,35 +404,41 @@ function cardHTML(r) {
         actionBtn = `<a href="${escH(r.file_url)}" target="_blank" download class="res-action-btn primary"
                         onclick="event.stopPropagation()">Download</a>`;
     } else if (r.content) {
-        actionBtn = `<span class="res-action-btn" style="background:rgba(26,95,122,0.08);color:var(--primary);cursor:default;">\u270D\uFE0F Text</span>`;
+        actionBtn = `<span class="res-action-btn" style="background:rgba(26,95,122,0.08);color:var(--primary);cursor:default;">✍️ Text</span>`;
     } else {
         actionBtn = `<span class="res-action-btn" style="opacity:.4;cursor:default;">No file</span>`;
     }
 
     const ownerBtn = isOwner
         ? `<button class="res-card-delete-btn" title="Delete"
-               onclick="event.stopPropagation(); deleteResource('${r.id}', this)">\uD83D\uDDD1</button>`
+               onclick="event.stopPropagation(); deleteResource('${r.id}', this)">🗑</button>`
         : '';
 
     _resourceMap[r.id] = r;
 
     return `
-        <div class="res-card" data-id="${r.id}" onclick="openDetailById('${r.id}')">
+        <div class="res-card ${isBookmarked ? 'is-bookmarked' : ''}" data-id="${r.id}" onclick="openDetailById('${r.id}')">
             <div class="res-card-icon ${iconCls}">${icon}</div>
             <div class="res-card-body">
                 <div class="res-card-title">${escH(r.title)}</div>
                 ${desc ? `<div class="res-card-desc">${desc}</div>` : ''}
                 <div class="res-card-meta">
                     <span>${escH(uploader)}</span>
-                    <span class="dot">\u00b7</span>
+                    <span class="dot">·</span>
                     <span>${ago}</span>
-                    <span class="dot">\u00b7</span>
-                    <span class="res-vis-badge ${effectiveVis}">${effectiveVis==='private'?'\uD83D\uDD12 Friends':'\uD83C\uDF10 Public'}</span>
-                    ${isOwner && !r.is_approved ? '<span class="res-vis-badge" style="background:#fef9c3;color:#854d0e;">\u23F3 Pending</span>' : ''}
+                    <span class="dot">·</span>
+                    <span class="res-vis-badge ${effectiveVis}">${effectiveVis==='private'?'🔒 Friends':'🌐 Public'}</span>
+                    ${isOwner && !r.is_approved ? '<span class="res-vis-badge" style="background:#fef9c3;color:#854d0e;">⏳ Pending</span>' : ''}
                 </div>
             </div>
             <div class="res-card-actions">
                 ${ownerBtn}
+                <button class="res-bookmark-btn ${isBookmarked ? 'bookmarked' : ''}"
+                    data-id="${r.id}"
+                    title="${isBookmarked ? 'Remove bookmark' : 'Bookmark this resource'}"
+                    onclick="toggleBookmark('${r.id}', event)">
+                    ${_bookmarkSVG(isBookmarked)}
+                </button>
                 <span class="res-type-badge ${fileType}">${escH(label)}</span>
                 ${actionBtn}
             </div>
@@ -261,7 +458,7 @@ function renderRecentlyViewed() {
             <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', r.file_url)}</div>
             <div style="min-width:0;">
                 <div class="res-recent-title">${escH(r.title)}</div>
-                <div class="res-recent-sub">${escH(r.subject||'General')} \u00b7 ${fileTypeLabel(r.file_type||'other')}</div>
+                <div class="res-recent-sub">${escH(r.subject||'General')} · ${fileTypeLabel(r.file_type||'other')}</div>
             </div>
         </div>`).join('');
 }
@@ -273,15 +470,12 @@ async function loadMyUploads() {
     if (!CURRENT_USER.id) return;
     const el = document.getElementById('myUploads');
     try {
-        const { data } = await _supabase
-            .from('resources').select('id,title,file_type,subject,file_url')
-            .eq('uploaded_by', CURRENT_USER.id)
-            .order('created_at', { ascending: false }).limit(5);
-        if (!data?.length) return;
-        data.forEach(r => { if (!_resourceMap[r.id]) _resourceMap[r.id] = r; });
-        el.innerHTML = data.map(r => `
+        const json = await _api('GET', '/api/resources/my-uploads');
+        if (!json?.data?.length) return;
+        json.data.forEach(r => { if (!_resourceMap[r.id]) _resourceMap[r.id] = r; });
+        el.innerHTML = json.data.map(r => `
             <div class="res-recent-item" onclick="openDetailById('${escH(r.id)}')">
-                <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', r.file_url||null)}</div>
+                <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', null)}</div>
                 <div style="min-width:0;">
                     <div class="res-recent-title">${escH(r.title)}</div>
                     <div class="res-recent-sub">${escH(r.subject||'General')}</div>
@@ -291,12 +485,173 @@ async function loadMyUploads() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// COMMUNITY TOP-RATED WIDGET
+// ─────────────────────────────────────────────────────────────
+async function loadTopRatedWidget() {
+    const el = document.getElementById('topRatedWidget');
+    if (!el) return;
+
+    try {
+        const json = await _api('GET', '/api/resources/top-rated?limit=5');
+        const items = json?.data || [];
+
+        if (!items.length) {
+            el.innerHTML = '<div class="res-empty-small">No ratings yet</div>';
+            return;
+        }
+
+        const rankEmoji = ['🥇','🥈','🥉'];
+        const rankClass = ['rank-1','rank-2','rank-3'];
+
+        el.innerHTML = items.map((r, i) => {
+            const rankLabel = i < 3 ? rankEmoji[i] : `#${i+1}`;
+            const rc        = i < 3 ? rankClass[i] : 'rank-n';
+            const stars     = _miniStars(r.avg_rating);
+            _resourceMap[r.id] = r;
+            return `
+                <div class="res-top-rated-item" onclick="openDetailById('${escH(r.id)}')">
+                    <div class="res-top-rated-rank ${rc}">${rankLabel}</div>
+                    <div class="res-recent-icon" style="font-size:16px;width:32px;height:32px;">
+                        ${fileTypeIcon(r.file_type||'other', r.file_url)}
+                    </div>
+                    <div style="min-width:0;flex:1;">
+                        <div class="res-recent-title">${escH(r.title)}</div>
+                        <div class="res-top-rated-stars">
+                            ${stars}
+                            <span class="res-top-rated-score">${Number(r.avg_rating).toFixed(1)}</span>
+                            <span class="res-top-rated-count">(${r.rating_count})</span>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        el.innerHTML += `<button class="res-see-top-rated" onclick="openTopRatedModal()">
+            ⭐ See all top-rated resources
+        </button>`;
+
+    } catch(e) {
+        el.innerHTML = '<div class="res-empty-small">Could not load ratings</div>';
+    }
+}
+
+function _miniStars(avg) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        html += `<span class="${i <= Math.round(avg) ? 'res-top-rated-star-filled' : 'res-top-rated-star-empty'}">★</span>`;
+    }
+    return html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMMUNITY TOP-RATED MODAL
+// ─────────────────────────────────────────────────────────────
+async function openTopRatedModal() {
+    // Show overlay
+    let overlay = document.getElementById('topRatedModalOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'topRatedModalOverlay';
+        overlay.className = 'res-top-rated-overlay';
+        overlay.innerHTML = `
+            <div class="res-top-rated-modal">
+                <div class="res-top-rated-modal-header">
+                    <div class="res-top-rated-modal-title">⭐ Community Recommended</div>
+                    <button class="res-top-rated-modal-close" onclick="closeTopRatedModal()">✕</button>
+                </div>
+                <div class="res-top-rated-modal-body" id="topRatedModalBody">
+                    <div class="res-loading-sm">Loading top-rated resources…</div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeTopRatedModal(); });
+    }
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    await _populateTopRatedModal();
+}
+
+function closeTopRatedModal() {
+    const overlay = document.getElementById('topRatedModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+async function _populateTopRatedModal() {
+    const body = document.getElementById('topRatedModalBody');
+    if (!body) return;
+
+    try {
+        const json = await _api('GET', '/api/resources/top-rated?limit=20&min_ratings=1');
+        const items = json?.data || [];
+
+        if (!items.length) {
+            body.innerHTML = '<div class="res-empty"><div class="ei">⭐</div><p>No ratings yet. Be the first to rate a resource!</p></div>';
+            return;
+        }
+
+        const rankEmoji  = ['🥇','🥈','🥉'];
+        const rankClass  = ['rank-1','rank-2','rank-3'];
+
+        body.innerHTML = items.map((r, i) => {
+            _resourceMap[r.id] = r;
+            const rankLabel = i < 3 ? rankEmoji[i] : `#${i+1}`;
+            const rc        = i < 3 ? rankClass[i] : 'rank-n';
+            const isBookmarked = bookmarkedIds.has(String(r.id));
+            const desc = r.description
+                ? escH(r.description.slice(0, 80)) + (r.description.length > 80 ? '…' : '')
+                : '';
+
+            let starsHtml = '';
+            for (let s = 1; s <= 5; s++) {
+                starsHtml += `<span class="${s <= Math.round(r.avg_rating) ? 's-filled' : 's-empty'}">★</span>`;
+            }
+
+            return `
+                <div class="res-top-rated-card" onclick="closeTopRatedModal(); openDetailById('${escH(r.id)}')">
+                    <div class="res-top-rated-card-rank ${rc}">${rankLabel}</div>
+                    <div class="res-top-rated-card-icon">${fileTypeIcon(r.file_type||'other', r.file_url)}</div>
+                    <div class="res-top-rated-card-body">
+                        <div class="res-top-rated-card-title">${escH(r.title)}</div>
+                        ${desc ? `<div class="res-top-rated-card-desc">${desc}</div>` : ''}
+                        <div class="res-top-rated-card-meta">
+                            <div class="res-top-rated-card-stars">${starsHtml}</div>
+                            <span class="res-top-rated-card-score">${Number(r.avg_rating).toFixed(1)}</span>
+                            <span class="res-top-rated-card-count">(${r.rating_count} rating${r.rating_count!==1?'s':''})</span>
+                            ${r.subject ? `<span class="res-top-rated-card-subj">${escH(r.subject)}</span>` : ''}
+                        </div>
+                        ${r.uploader_name ? `<div style="font-size:11px;color:var(--text-light);margin-top:3px;">by ${escH(r.uploader_name)}</div>` : ''}
+                    </div>
+                    <div class="res-top-rated-card-actions" onclick="event.stopPropagation()">
+                        <button class="res-bookmark-btn ${isBookmarked ? 'bookmarked' : ''}"
+                            data-id="${r.id}"
+                            title="${isBookmarked ? 'Remove bookmark' : 'Bookmark'}"
+                            onclick="toggleBookmark('${r.id}', event)">
+                            ${_bookmarkSVG(isBookmarked)}
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+
+        if (!body.innerHTML.trim()) {
+            body.innerHTML = '<div class="res-empty"><div class="ei">⭐</div><p>No approved resources with ratings found.</p></div>';
+        }
+
+    } catch(e) {
+        body.innerHTML = `<div class="res-empty"><div class="ei">⚠️</div><p>Could not load top-rated resources.</p></div>`;
+        console.error('Top-rated modal error:', e);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
 // STATS
 // ─────────────────────────────────────────────────────────────
 function updateStats() {
     document.getElementById('totalCount').textContent   = allResources.length;
     document.getElementById('subjectCount').textContent =
         [...new Set(allResources.map(r => r.subject).filter(Boolean))].length;
+    const savedEl = document.getElementById('savedCount');
+    if (savedEl) savedEl.textContent = bookmarkedIds.size;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -359,8 +714,8 @@ function buildSummary() {
         <strong>Title:</strong> ${escH(title)}<br>
         <strong>Subject:</strong> ${escH(finalSubj)}<br>
         <strong>Type:</strong> ${escH(finalType)}<br>
-        ${desc    ? `<strong>Description:</strong> ${escH(desc.slice(0,60))}${desc.length>60?'\u2026':''}<br>` : ''}
-        ${content ? `<strong>Content:</strong> \u270D\uFE0F Text included<br>` : ''}
+        ${desc    ? `<strong>Description:</strong> ${escH(desc.slice(0,60))}${desc.length>60?'…':''}<br>` : ''}
+        ${content ? `<strong>Content:</strong> ✍️ Text included<br>` : ''}
         <strong>Files:</strong> ${selectedFiles.length ? selectedFiles.map(f=>escH(f.name)).join(', ') : 'None'}
     `;
 }
@@ -379,7 +734,7 @@ function renderFilePreviews() {
                 <div class="file-preview-name">${escH(f.name)}</div>
                 <div class="file-preview-size">${formatBytes(f.size)}</div>
             </div>
-            <button class="file-preview-remove" onclick="removeFile(${i})">\u2715</button>
+            <button class="file-preview-remove" onclick="removeFile(${i})">✕</button>
         </div>`).join('');
 }
 function removeFile(i) { selectedFiles.splice(i, 1); renderFilePreviews(); }
@@ -402,7 +757,7 @@ function setVis(v) {
 
 async function submitUpload() {
     const btn = document.getElementById('submitUploadBtn');
-    btn.disabled = true; btn.textContent = 'Uploading\u2026';
+    btn.disabled = true; btn.textContent = 'Uploading…';
     try {
         const title     = document.getElementById('uploadTitle').value.trim();
         const desc      = document.getElementById('uploadDesc').value.trim();
@@ -462,17 +817,17 @@ async function submitUpload() {
                 const { error: rfErr } = await _supabase.from('resource_files').insert(
                     fileRows.map(f => ({ ...f, resource_id: inserted.id, uploaded_by: CURRENT_USER.id }))
                 );
-                if (rfErr) console.warn('resource_files insert (table may not exist yet):', rfErr.message);
+                if (rfErr) console.warn('resource_files insert:', rfErr.message);
             }
         }
 
         closeUploadModal();
-        alert('\u2705 Upload submitted! It will appear after admin approval.');
+        alert('✅ Upload submitted! It will appear after admin approval.');
         loadResources(); loadMyUploads();
     } catch(err) {
         alert('Upload failed: ' + err.message);
     } finally {
-        btn.disabled = false; btn.textContent = '\uD83D\uDCE4 Upload';
+        btn.disabled = false; btn.textContent = '📤 Upload';
     }
 }
 
@@ -526,7 +881,6 @@ function openDetail(r) {
     try { localStorage.setItem('sh_recent_resources', JSON.stringify(recentlyViewed)); } catch(e){}
     renderRecentlyViewed();
 
-    // Clean up injected file list from a previous detail view
     const oldList = document.getElementById('detailFileList');
     if (oldList) oldList.remove();
     document.getElementById('detailFileBtn').style.display = '';
@@ -543,11 +897,11 @@ function openDetail(r) {
         : 'Unknown';
     const effectiveVis = r.visibility === 'private' || r.education_level === 'private' ? 'private' : 'public';
     document.getElementById('detailSubmeta').innerHTML = `
-        <span>${escH(uploader)}</span><span class="dot">\u00b7</span>
-        <span>${timeAgo(r.created_at)}</span><span class="dot">\u00b7</span>
-        <span class="res-vis-badge ${effectiveVis}">${effectiveVis==='private'?'\uD83D\uDD12 Friends':'\uD83C\uDF10 Public'}</span>`;
+        <span>${escH(uploader)}</span><span class="dot">·</span>
+        <span>${timeAgo(r.created_at)}</span><span class="dot">·</span>
+        <span class="res-vis-badge ${effectiveVis}">${effectiveVis==='private'?'🔒 Friends':'🌐 Public'}</span>`;
 
-    document.getElementById('infoSubject').textContent  = r.subject   || '\u2014';
+    document.getElementById('infoSubject').textContent  = r.subject   || '—';
     document.getElementById('infoType').textContent     = fileTypeLabel(r.file_type||'other');
     document.getElementById('infoVis').textContent      = effectiveVis === 'private' ? 'Friends only' : 'Public';
     document.getElementById('infoUploader').textContent = uploader;
@@ -573,11 +927,21 @@ function openDetail(r) {
     } else {
         linkSec.style.display='none';
         fileSec.style.display='';
-        document.getElementById('detailFileBtn').style.display = 'none'; // replaced by file list
+        document.getElementById('detailFileBtn').style.display = 'none';
     }
 
-    const isOwner = r.uploaded_by === CURRENT_USER.id;
-    document.getElementById('detailActions').innerHTML = isOwner
+    const isOwner      = r.uploaded_by === CURRENT_USER.id;
+    const isBookmarked = bookmarkedIds.has(r.id);
+
+    // Build bookmark button (shown for all logged-in users, including owner)
+    const bookmarkBtnHtml = CURRENT_USER.id ? `
+        <button id="detailBookmarkBtn"
+            class="res-detail-bookmark-btn ${isBookmarked ? 'bookmarked' : ''}"
+            onclick="toggleBookmark('${r.id}', event)">
+            ${_bookmarkSVG(isBookmarked)} ${isBookmarked ? 'Saved' : 'Save'}
+        </button>` : '';
+
+    document.getElementById('detailActions').innerHTML = (isOwner
         ? `<button class="res-detail-edit-btn" onclick="openEditModal()">
                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -590,7 +954,8 @@ function openDetail(r) {
                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
                    <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
                </svg> Delete
-           </button>` : '';
+           </button>`
+        : '') + bookmarkBtnHtml;
 
     document.getElementById('reportBtn').style.display = isOwner ? 'none' : '';
     document.getElementById('rateLabel').textContent = 'Click a star to rate';
@@ -622,7 +987,6 @@ async function loadDetailFiles(r) {
         }
     } catch(e) {}
 
-    // Fallback: legacy single file_url
     if (r.file_url) {
         fileSec.style.display = '';
         const name = r.original_filename || r.file_url.split('/').pop().split('?')[0] || 'Download file';
@@ -668,7 +1032,6 @@ function closeDetail() {
     const listEl = document.getElementById('detailFileList');
     if (listEl) listEl.remove();
     document.getElementById('detailFileBtn').style.display = '';
-    // Clean up lock UI so it does not bleed into the next resource opened
     const lockMsg = document.getElementById('rateLockMsg');
     if (lockMsg) lockMsg.remove();
     const rateOnlyBtn = document.querySelector('.res-comment-submit[onclick="submitRatingOnly()"]');
@@ -684,18 +1047,21 @@ async function deleteResource(resourceId, triggerEl) {
         if (error) throw error;
         allResources = allResources.filter(r => r.id !== resourceId);
         delete _resourceMap[resourceId];
-        renderResources(); updateStats(); loadMyUploads();
+        // Remove bookmark if any
+        bookmarkedIds.delete(resourceId);
+        _persistBookmarks();
+        renderResources(); updateStats(); loadMyUploads(); loadBookmarksSidebar();
         if (currentResource?.id === resourceId) closeDetail();
     } catch(e) { alert('Delete failed: ' + e.message); }
 }
 
 // ─────────────────────────────────────────────────────────────
-// RATINGS  (one vote per user, permanent — cannot be changed)
+// RATINGS
 // ─────────────────────────────────────────────────────────────
-let _ratingLocked = false;   // true once this user has already voted
+let _ratingLocked = false;
 
 async function loadRatings(resourceId) {
-    _ratingLocked = false;   // reset for each new resource
+    _ratingLocked = false;
     try {
         const { data } = await _supabase
             .from('resource_ratings').select('rating').eq('resource_id', resourceId);
@@ -710,7 +1076,6 @@ async function loadRatings(resourceId) {
                 .from('resource_ratings').select('rating')
                 .eq('resource_id', resourceId).eq('user_id', CURRENT_USER.id).maybeSingle();
             if (mine) {
-                // User already voted — show their vote and lock
                 currentRating = mine.rating;
                 renderRateStars(currentRating);
                 lockRatingUI(mine.rating);
@@ -723,18 +1088,15 @@ async function loadRatings(resourceId) {
     } catch(e) {}
 }
 
-/** Locks the star widget so it cannot be interacted with again */
 function lockRatingUI(val) {
     _ratingLocked = true;
     const starsRow = document.getElementById('rateStars');
     if (starsRow) starsRow.classList.add('locked');
     document.getElementById('rateLabel').textContent = `Your rating: ${val}/5`;
 
-    // Hide the "Rate Only" button — no longer needed
     const rateOnlyBtn = document.querySelector('.res-comment-submit[onclick="submitRatingOnly()"]');
     if (rateOnlyBtn) rateOnlyBtn.style.display = 'none';
 
-    // Show a small lock notice below the stars
     let lockMsg = document.getElementById('rateLockMsg');
     if (!lockMsg) {
         lockMsg = document.createElement('div');
@@ -743,11 +1105,10 @@ function lockRatingUI(val) {
         const rateRow = document.getElementById('rateStars')?.closest('.res-rate-row');
         if (rateRow) rateRow.insertAdjacentElement('afterend', lockMsg);
     }
-    lockMsg.innerHTML = `\uD83D\uDD12 Ratings are permanent and cannot be changed.`;
+    lockMsg.innerHTML = `🔒 Ratings are permanent and cannot be changed.`;
     lockMsg.style.display = 'flex';
 }
 
-/** Unlocks the star widget (user hasn't voted yet) */
 function unlockRatingUI() {
     _ratingLocked = false;
     const starsRow = document.getElementById('rateStars');
@@ -764,7 +1125,7 @@ function unlockRatingUI() {
 function renderStarsDisplay(avg, count) {
     let html = '';
     for (let i = 1; i <= 5; i++)
-        html += `<span class="${i <= Math.round(avg) ? 'res-star-filled' : 'res-star-empty'}">\u2605</span>`;
+        html += `<span class="${i <= Math.round(avg) ? 'res-star-filled' : 'res-star-empty'}">★</span>`;
     document.getElementById('detailStarsDisplay').innerHTML = html;
     document.getElementById('detailRatingCount').textContent =
         count ? `${avg.toFixed(1)} (${count} rating${count!==1?'s':''})` : 'No ratings yet';
@@ -774,7 +1135,7 @@ function renderRateStars(val) {
         s.classList.toggle('selected', parseInt(s.dataset.v) <= val));
 }
 function starHover(val) {
-    if (_ratingLocked) return;   // no hover effect when locked
+    if (_ratingLocked) return;
     document.querySelectorAll('.res-rate-star').forEach(s =>
         s.classList.toggle('hovered', parseInt(s.dataset.v) <= val));
 }
@@ -784,21 +1145,17 @@ function starOut() {
     renderRateStars(currentRating);
 }
 
-/** Clicking a star saves the rating immediately and locks it forever */
 async function starClick(val) {
-    if (_ratingLocked) return;   // silently ignore — already voted
+    if (_ratingLocked) return;
     if (!CURRENT_USER.id) { alert('Please log in to rate.'); return; }
     if (!currentResource) return;
     try {
-        // Use INSERT only (not upsert) to enforce one-vote-per-user at the DB level.
-        // If a unique constraint fires it means they already voted — show lock instead.
         const { error } = await _supabase.from('resource_ratings').insert({
             resource_id: currentResource.id,
             user_id:     CURRENT_USER.id,
             rating:      val
         });
         if (error) {
-            // Unique constraint violation = already voted
             if (error.code === '23505' || error.message?.toLowerCase().includes('unique')) {
                 lockRatingUI(currentRating || val);
                 return;
@@ -808,18 +1165,17 @@ async function starClick(val) {
         currentRating = val;
         renderRateStars(val);
         lockRatingUI(val);
-        loadRatings(currentResource.id);   // refresh the avg display
+        loadRatings(currentResource.id);
+        // Refresh top-rated widget since a new rating was submitted
+        loadTopRatedWidget();
     } catch(e) { alert('Rating failed: ' + e.message); }
 }
 
-/** "Rate Only" button — saves then locks (same as starClick) */
 async function submitRatingOnly() {
     if (_ratingLocked) return;
     if (!CURRENT_USER.id) { alert('Please log in to rate.'); return; }
     if (!currentResource) return;
     if (!currentRating)   { alert('Please click a star to rate first.'); return; }
-    // starClick already inserted; this button is just a convenience affordance
-    // so we only need to ensure lock is applied
     lockRatingUI(currentRating);
 }
 
@@ -828,7 +1184,7 @@ async function submitRatingOnly() {
 // ─────────────────────────────────────────────────────────────
 async function loadComments(resourceId) {
     const el = document.getElementById('commentsList');
-    el.innerHTML = '<div class="res-loading-sm">Loading comments\u2026</div>';
+    el.innerHTML = '<div class="res-loading-sm">Loading comments…</div>';
     try {
         const { data, error } = await _supabase
             .from('resource_comments')
@@ -837,7 +1193,7 @@ async function loadComments(resourceId) {
             .order('created_at', { ascending: true });
         if (error) throw error;
         document.getElementById('commentCount').textContent = data.length;
-        if (!data.length) { el.innerHTML = '<div class="res-loading-sm">No comments yet \u2014 be the first!</div>'; return; }
+        if (!data.length) { el.innerHTML = '<div class="res-loading-sm">No comments yet — be the first!</div>'; return; }
         el.innerHTML = data.map(c => renderCommentHTML(c)).join('');
     } catch(e) {
         el.innerHTML = '<div class="res-loading-sm">Failed to load comments.</div>';
@@ -861,8 +1217,8 @@ function renderCommentHTML(c) {
                     <span class="res-comment-name">${escH(name)}</span>
                     <span class="res-comment-time">${timeAgo(c.created_at)}</span>
                     ${isOwn ? `
-                        <button class="res-comment-action-btn" onclick="startEditComment('${c.id}')">\u270F\uFE0F Edit</button>
-                        <button class="res-comment-action-btn danger" onclick="deleteComment('${c.id}')">\uD83D\uDDD1 Delete</button>
+                        <button class="res-comment-action-btn" onclick="startEditComment('${c.id}')">✏️ Edit</button>
+                        <button class="res-comment-action-btn danger" onclick="deleteComment('${c.id}')">🗑 Delete</button>
                     ` : ''}
                 </div>
                 <div class="res-comment-text" id="commentText-${c.id}">${escH(c.comment)}</div>
@@ -924,7 +1280,7 @@ async function submitComment() {
     const text  = input.value.trim();
     if (!text) { alert('Please write a comment first.'); return; }
     const btn = document.getElementById('submitReviewBtn');
-    btn.disabled = true; btn.textContent = 'Posting\u2026';
+    btn.disabled = true; btn.textContent = 'Posting…';
     try {
         const { error } = await _supabase.from('resource_comments').insert({
             resource_id: currentResource.id, user_id: CURRENT_USER.id, comment: text
@@ -933,13 +1289,12 @@ async function submitComment() {
         input.value = ''; input.style.height = '';
         loadComments(currentResource.id);
     } catch(e) { alert('Failed to post comment: ' + e.message); }
-    finally { btn.disabled = false; btn.textContent = '\uD83D\uDCAC Post Comment'; }
+    finally { btn.disabled = false; btn.textContent = '💬 Post Comment'; }
 }
 
 // ─────────────────────────────────────────────────────────────
-// EDIT MODAL — full file manager
+// EDIT MODAL
 // ─────────────────────────────────────────────────────────────
-
 async function openEditModal() {
     if (!currentResource) return;
     const r = currentResource;
@@ -952,7 +1307,6 @@ async function openEditModal() {
     document.getElementById('editDesc').value    = r.description || '';
     document.getElementById('editContent').value = r.content     || '';
 
-    // Subject
     const subjectSelect = document.getElementById('editSubject');
     const knownSubjects = [...subjectSelect.options].map(o => o.value);
     if (r.subject && knownSubjects.includes(r.subject)) {
@@ -964,7 +1318,6 @@ async function openEditModal() {
         document.getElementById('editSubjectOther').style.display = 'block';
     } else { subjectSelect.value = ''; }
 
-    // Type
     const typeSelect = document.getElementById('editType');
     const knownTypes = [...typeSelect.options].map(o => o.value);
     if (r.file_type && knownTypes.includes(r.file_type)) {
@@ -976,7 +1329,6 @@ async function openEditModal() {
         document.getElementById('editTypeOther').style.display = 'block';
     } else { typeSelect.value = ''; }
 
-    // Visibility
     const vis = r.visibility === 'private' || r.education_level === 'private' ? 'private' : 'public';
     const visRadio = document.querySelector(`input[name="editVis"][value="${vis}"]`);
     if (visRadio) visRadio.checked = true;
@@ -986,9 +1338,8 @@ async function openEditModal() {
 }
 
 async function loadEditFileList(r) {
-    // Show a loading placeholder while fetching
     const container = document.getElementById('editFileManager');
-    if (container) container.innerHTML = '<div style="padding:12px;color:var(--text-light);font-size:13px;">Loading files\u2026</div>';
+    if (container) container.innerHTML = '<div style="padding:12px;color:var(--text-light);font-size:13px;">Loading files…</div>';
 
     try {
         const { data: files, error } = await _supabase
@@ -1000,7 +1351,6 @@ async function loadEditFileList(r) {
         if (!error && files?.length) {
             editExistingFiles = files;
         } else if (r.file_url && r.file_type !== 'link') {
-            // Legacy: synthesise a single virtual entry
             editExistingFiles = [{
                 id: '__legacy__',
                 file_name:    r.original_filename || r.file_url.split('/').pop().split('?')[0] || 'Uploaded file',
@@ -1021,7 +1371,6 @@ function renderEditFileManager() {
     const container = document.getElementById('editFileManager');
     if (!container) return;
 
-    // ── existing files ────────────────────────────────────────
     const existingHTML = editExistingFiles.length
         ? editExistingFiles.map((f, i) => `
             <div class="efm-row" id="efm-ex-${i}">
@@ -1029,20 +1378,17 @@ function renderEditFileManager() {
                 <input class="efm-name-input res-input"
                        value="${escH(f.file_name)}"
                        onchange="editExistingFiles[${i}].file_name = this.value"
-                       style="flex:1;padding:7px 10px;font-size:13px;"
-                       title="Rename this file">
+                       style="flex:1;padding:7px 10px;font-size:13px;" title="Rename this file">
                 ${f.file_size ? `<span class="efm-size">${formatBytes(f.file_size)}</span>` : ''}
                 <a class="efm-dl-btn" href="${escH(f.file_url)}" target="_blank" download title="Download">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         style="width:14px;height:14px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                 </a>
                 <button class="efm-del-btn" onclick="removeExistingFile(${i})" title="Remove this file">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         style="width:14px;height:14px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14H6L5 6"/>
                         <path d="M10 11v6M14 11v6"/>
@@ -1052,7 +1398,6 @@ function renderEditFileManager() {
             </div>`).join('')
         : `<div class="efm-empty">No files attached yet.</div>`;
 
-    // ── new files queued for upload ───────────────────────────
     const newHTML = editNewFiles.length
         ? `<div class="efm-new-header">Will be added on save:</div>` +
           editNewFiles.map((f, i) => `
@@ -1061,8 +1406,7 @@ function renderEditFileManager() {
                 <span class="efm-name-new" style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(f.name)}</span>
                 <span class="efm-size">${formatBytes(f.size)}</span>
                 <button class="efm-del-btn" onclick="removeNewFile(${i})" title="Cancel">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         style="width:14px;height:14px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
                         <line x1="18" y1="6" x2="6" y2="18"/>
                         <line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -1104,10 +1448,7 @@ function efmDrop(e) {
     document.getElementById('efmDropzone')?.classList.remove('dragover');
     if (e.dataTransfer.files?.length) efmAddFiles(e.dataTransfer.files);
 }
-function removeNewFile(i) {
-    editNewFiles.splice(i, 1);
-    renderEditFileManager();
-}
+function removeNewFile(i) { editNewFiles.splice(i, 1); renderEditFileManager(); }
 function removeExistingFile(i) {
     const f = editExistingFiles[i];
     if (!f) return;
@@ -1119,9 +1460,7 @@ function removeExistingFile(i) {
 
 function closeEditModal() {
     document.getElementById('editModal').classList.remove('open');
-    editNewFiles      = [];
-    editExistingFiles = [];
-    editFilesToDelete = [];
+    editNewFiles = []; editExistingFiles = []; editFilesToDelete = [];
 }
 function checkEditOtherSubject() {
     document.getElementById('editSubjectOther').style.display =
@@ -1153,19 +1492,15 @@ async function saveEdit() {
     const finalType    = type    === 'others' ? (typeOth || 'others') : type;
 
     const btn = document.querySelector('#editModal .btn-primary');
-    btn.disabled = true; btn.textContent = 'Saving\u2026';
+    btn.disabled = true; btn.textContent = 'Saving…';
 
     try {
-        // 1. Rename existing files (skip legacy virtual entries)
         for (const f of editExistingFiles) {
             if (f.id && f.id !== '__legacy__') {
-                await _supabase.from('resource_files')
-                    .update({ file_name: f.file_name })
-                    .eq('id', f.id);
+                await _supabase.from('resource_files').update({ file_name: f.file_name }).eq('id', f.id);
             }
         }
 
-        // 2. Delete removed files
         for (const f of editFilesToDelete) {
             if (f.id && f.id !== '__legacy__') {
                 await _supabase.from('resource_files').delete().eq('id', f.id);
@@ -1175,7 +1510,6 @@ async function saveEdit() {
             }
         }
 
-        // 3. Upload new files → resource_files
         let primaryUrl = currentResource.file_url;
         for (const file of editNewFiles) {
             const ext  = file.name.split('.').pop();
@@ -1196,14 +1530,12 @@ async function saveEdit() {
             if (!primaryUrl) primaryUrl = urlData.publicUrl;
         }
 
-        // 4. Recalculate primary file_url: first remaining existing file wins
         if (editExistingFiles.length > 0 && editExistingFiles[0].id !== '__legacy__') {
             primaryUrl = editExistingFiles[0].file_url;
         } else if (editExistingFiles.length === 0 && editNewFiles.length === 0) {
             primaryUrl = null;
         }
 
-        // 5. Update the main resource row
         const { error } = await _supabase.from('resources').update({
             title,
             description:     desc    || null,
@@ -1216,7 +1548,6 @@ async function saveEdit() {
         }).eq('id', currentResource.id);
         if (error) throw error;
 
-        // 6. Sync local state
         const updated = {
             ...currentResource,
             title, description: desc||null, content: content||null,
@@ -1234,7 +1565,7 @@ async function saveEdit() {
     } catch(e) {
         alert('Save failed: ' + e.message);
     } finally {
-        btn.disabled = false; btn.textContent = '\uD83D\uDCBE Save Changes';
+        btn.disabled = false; btn.textContent = '💾 Save Changes';
     }
 }
 
@@ -1254,7 +1585,7 @@ async function submitReport() {
             reported_content_id: currentResource.id, reason: fullReason, status: 'pending'
         });
         if (error) throw error;
-        closeReport(); alert('\u2705 Report submitted. Our team will review it soon.');
+        closeReport(); alert('✅ Report submitted. Our team will review it soon.');
     } catch(e) { alert('Report failed: ' + e.message); }
 }
 
@@ -1263,6 +1594,8 @@ async function submitReport() {
 // ─────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    const topRatedOverlay = document.getElementById('topRatedModalOverlay');
+    if (topRatedOverlay?.style.display === 'flex') { closeTopRatedModal(); return; }
     if (document.getElementById('reportModal').classList.contains('open')) { closeReport(); return; }
     if (document.getElementById('editModal').classList.contains('open'))   { closeEditModal(); return; }
     if (document.getElementById('uploadModal')?.classList.contains('open')) { closeUploadModal(); return; }
@@ -1278,15 +1611,15 @@ function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollH
 // FILE TYPE HELPERS
 // ─────────────────────────────────────────────────────────────
 function fileTypeIcon(type, url) {
-    const m = { link:'\uD83D\uDD17', video:'\uD83C\uDFAC', image:'\uD83D\uDDBC\uFE0F', slides:'\uD83D\uDCCA',
-                exercise:'\uD83D\uDCDD', reviewer:'\uD83D\uDCCB', notes:'\uD83D\uDCC4', text:'\u270D\uFE0F' };
+    const m = { link:'🔗', video:'🎬', image:'🖼️', slides:'📊',
+                exercise:'📝', reviewer:'📋', notes:'📄', text:'✍️' };
     if (m[type]) return m[type];
-    if (!url) return '\uD83D\uDCCE';
+    if (!url) return '📎';
     const ext = (url.split('.').pop()||'').toLowerCase().split('?')[0];
-    return { pdf:'\uD83D\uDCC4', doc:'\uD83D\uDCDD', docx:'\uD83D\uDCDD', ppt:'\uD83D\uDCCA', pptx:'\uD83D\uDCCA',
-             mp4:'\uD83C\uDFAC', mov:'\uD83C\uDFAC', webm:'\uD83C\uDFAC', jpg:'\uD83D\uDDBC\uFE0F',
-             jpeg:'\uD83D\uDDBC\uFE0F', png:'\uD83D\uDDBC\uFE0F', gif:'\uD83D\uDDBC\uFE0F',
-             webp:'\uD83D\uDDBC\uFE0F', zip:'\uD83D\uDDDC\uFE0F', rar:'\uD83D\uDDDC\uFE0F' }[ext] || '\uD83D\uDCCE';
+    return { pdf:'📄', doc:'📝', docx:'📝', ppt:'📊', pptx:'📊',
+             mp4:'🎬', mov:'🎬', webm:'🎬', jpg:'🖼️',
+             jpeg:'🖼️', png:'🖼️', gif:'🖼️',
+             webp:'🖼️', zip:'🗜️', rar:'🗜️' }[ext] || '📎';
 }
 function fileIconClass(type, url) {
     if (type === 'link')  return 'link';
@@ -1305,10 +1638,10 @@ function fileTypeLabel(type) {
 }
 function fileEmojiFromName(name) {
     const ext = (name.split('.').pop()||'').toLowerCase();
-    return { pdf:'\uD83D\uDCC4', doc:'\uD83D\uDCDD', docx:'\uD83D\uDCDD', ppt:'\uD83D\uDCCA', pptx:'\uD83D\uDCCA',
-             mp4:'\uD83C\uDFAC', mov:'\uD83C\uDFAC', webm:'\uD83C\uDFAC', jpg:'\uD83D\uDDBC\uFE0F',
-             jpeg:'\uD83D\uDDBC\uFE0F', png:'\uD83D\uDDBC\uFE0F', gif:'\uD83D\uDDBC\uFE0F',
-             webp:'\uD83D\uDDBC\uFE0F', zip:'\uD83D\uDDDC\uFE0F', rar:'\uD83D\uDDDC\uFE0F' }[ext] || '\uD83D\uDCCE';
+    return { pdf:'📄', doc:'📝', docx:'📝', ppt:'📊', pptx:'📊',
+             mp4:'🎬', mov:'🎬', webm:'🎬', jpg:'🖼️',
+             jpeg:'🖼️', png:'🖼️', gif:'🖼️',
+             webp:'🖼️', zip:'🗜️', rar:'🗜️' }[ext] || '📎';
 }
 function formatBytes(b) {
     if (!b) return '';
@@ -1329,4 +1662,3 @@ function escH(t) {
     if (typeof t !== 'string') t = String(t);
     const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
 }
-
