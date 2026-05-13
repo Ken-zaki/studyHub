@@ -1074,6 +1074,60 @@
                 color: #4ade80;
                 border: 1px solid rgba(34,197,94,.2);
             }
+
+            /* STUDY GROUP FULL WIDTH FIX */
+            .sg-fullscreen {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100vh !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+
+            .sg-fullscreen .sg-layout {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100vh !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+            }
+
+            .sg-fullscreen .sg-sidebar {
+                width: 420px !important;
+                min-width: 420px !important;
+                max-width: 420px !important;
+                flex-shrink: 0 !important;
+            }
+
+            .sg-fullscreen .sg-chat {
+                flex: 1 !important;
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+
+            .sg-fullscreen,
+            .sg-fullscreen .sg-layout,
+            .sg-fullscreen .sg-chat,
+            .sg-fullscreen .sg-messages,
+            .sg-fullscreen .sg-chat-header,
+            .sg-fullscreen .sg-input-area {
+                box-sizing: border-box !important;
+            }
+
+            /* Remove shared layout/container choking */
+            .main-content-simple,
+            .main-content,
+            .content-wrapper,
+            .page-container,
+            .container {
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
         </style>
     </head>
 
@@ -1081,7 +1135,7 @@
 
         @include('layouts.sidebar')
 
-        <main class="main-content-simple" style="padding:0; overflow:hidden;">
+        <main class="main-content-simple sg-fullscreen">
             <div class="sg-layout">
 
                 {{-- ══ GROUP LIST SIDEBAR ══ --}}

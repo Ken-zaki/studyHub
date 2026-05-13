@@ -11,6 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <!-- External CSS may override message styles -->
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
     <style>
         /* ── Layout ── */
@@ -23,8 +24,8 @@
 
         /* ── Friends Sidebar ── */
         .friends-panel {
-            width: 320px;
-            min-width: 280px;
+            width: 390px;
+            min-width: 390px;
             background: #ffffff;
             border-right: 1.5px solid #e8e4de;
             display: flex;
@@ -98,8 +99,9 @@
         .friend-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 20px;
+            gap: 14px;
+            padding: 15px 22px;
+            min-height: 74px;
             cursor: pointer;
             transition: background 0.15s;
             position: relative;
@@ -114,8 +116,8 @@
         }
 
         .friend-avatar {
-            width: 46px;
-            height: 46px;
+            width: 54px;
+            height: 54px;
             border-radius: 50%;
             object-fit: cover;
             background: #e8e4de;
@@ -144,8 +146,8 @@
 
         .friend-name {
             font-family: 'DM Sans', sans-serif;
-            font-weight: 600;
-            font-size: 0.9rem;
+            font-weight: 700;
+            font-size: 1rem;
             color: #1a1a1a;
             white-space: nowrap;
             overflow: hidden;
@@ -154,8 +156,10 @@
 
         .friend-last-msg {
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             color: #888;
+            margin-top: 4px;
+            line-height: 1.4;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -180,11 +184,11 @@
             background: #8b7355;
             color: #fff;
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.7rem;
+            font-size: 0.78rem;
             font-weight: 700;
             border-radius: 50px;
-            min-width: 18px;
-            height: 18px;
+            min-width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -203,6 +207,205 @@
             font-size: 2rem;
             display: block;
             margin-bottom: 10px;
+        }
+
+        /* ── Friend menu button and dropdown ── */
+        .friend-menu-btn {
+            display: none;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #8b7355;
+            font-size: 1rem;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .friend-item:hover .friend-menu-btn {
+            display: block;
+        }
+
+        .friend-menu {
+            display: none;
+            position: absolute;
+            right: 14px;
+            top: 42px;
+            background: #fff;
+            border: 1px solid #e8e4de;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            z-index: 20;
+            min-width: 120px;
+            overflow: hidden;
+        }
+
+        .friend-menu.show {
+            display: block;
+        }
+
+        .friend-menu button {
+            width: 100%;
+            padding: 9px 12px;
+            border: none;
+            background: white;
+            text-align: left;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.82rem;
+            color: #1a1a1a;
+        }
+
+        .friend-menu button:hover {
+            background: #faf9f7;
+        }
+
+        /* ── Friends actions and header menu ── */
+        .friends-actions-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .friends-actions-row .search-box {
+            flex: 1;
+        }
+
+        .header-menu-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .header-menu-btn {
+            width: 36px;
+            height: 36px;
+            border: 1.5px solid #ddd9d2;
+            background: #faf9f7;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.3rem;
+            line-height: 1;
+            color: #8b7355;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .header-menu-btn:hover {
+            background: #f0ece4;
+        }
+
+        .header-menu-btn:active {
+            transform: scale(0.94);
+        }
+
+        .header-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 44px;
+            min-width: 145px;
+            background: #ffffff;
+            border: 1.5px solid #e8e4de;
+            border-radius: 12px;
+            box-shadow: 0 10px 28px rgba(0,0,0,0.13);
+            overflow: hidden;
+            z-index: 50;
+            animation: menuDrop 0.16s ease;
+        }
+
+        .header-menu.show {
+            display: block;
+        }
+
+        .header-menu button {
+            width: 100%;
+            border: none;
+            background: #ffffff;
+            padding: 11px 14px;
+            text-align: left;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.86rem;
+            color: #1a1a1a;
+        }
+
+        .header-menu button:hover {
+            background: #faf9f7;
+        }
+
+        @keyframes menuDrop {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ── Archived panel ── */
+        .friends-panel {
+            position: relative;
+        }
+
+        .archived-panel {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            inset: 0;
+            background: #ffffff;
+            z-index: 40;
+        }
+
+        .archived-panel.show {
+            display: flex;
+        }
+
+        .archived-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 22px 20px 16px;
+            border-bottom: 1.5px solid #e8e4de;
+        }
+
+        .archived-header button {
+            border: none;
+            background: #faf9f7;
+            border-radius: 9px;
+            width: 34px;
+            height: 34px;
+            cursor: pointer;
+            color: #8b7355;
+            font-size: 1rem;
+        }
+
+        .archived-header h3 {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.45rem;
+            margin: 0;
+            color: #1a1a1a;
+        }
+
+        .archived-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .unarchive-btn {
+            border: none;
+            background: #f0ece4;
+            color: #8b7355;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .unarchive-btn:hover {
+            background: #e8e4de;
         }
 
         /* ── Chat Area ── */
@@ -249,14 +452,14 @@
             display: flex;
             align-items: center;
             gap: 14px;
-            padding: 16px 24px;
+            padding: 18px 30px;
             background: #ffffff;
             border-bottom: 1.5px solid #e8e4de;
         }
 
         .chat-header-avatar {
-            width: 42px;
-            height: 42px;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
             background: #e8e4de;
             display: flex;
@@ -278,8 +481,8 @@
 
         .chat-header-info h3 {
             font-family: 'DM Sans', sans-serif;
-            font-weight: 600;
-            font-size: 0.95rem;
+            font-weight: 700;
+            font-size: 1.08rem;
             color: #1a1a1a;
             margin: 0;
         }
@@ -294,10 +497,10 @@
         .messages-area {
             flex: 1;
             overflow-y: auto;
-            padding: 20px 24px;
+            padding: 28px 32px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 8px;
         }
 
         .messages-area::-webkit-scrollbar {
@@ -401,12 +604,12 @@
         }
 
         .msg-bubble {
-            max-width: 68%;
-            padding: 10px 14px;
-            border-radius: 18px;
+            max-width: 74%;
+            padding: 13px 17px;
+            border-radius: 22px;
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.875rem;
-            line-height: 1.5;
+            font-size: 0.96rem;
+            line-height: 1.6;
             word-break: break-word;
             position: relative;
         }
@@ -448,9 +651,33 @@
             border-bottom-right-radius: 4px;
         }
 
+        /* ── Seen indicator ── */
+        .seen-indicator {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.7rem;
+            color: #8b7355;
+            text-align: right;
+            margin-top: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 3px;
+            opacity: 0.85;
+            animation: fadeInSeen 0.3s ease;
+        }
+
+        .seen-indicator svg {
+            flex-shrink: 0;
+        }
+
+        @keyframes fadeInSeen {
+            from { opacity: 0; transform: translateY(3px); }
+            to   { opacity: 0.85; transform: translateY(0); }
+        }
+
         /* Input */
         .chat-input-area {
-            padding: 16px 24px;
+            padding: 20px 26px;
             background: #ffffff;
             border-top: 1.5px solid #e8e4de;
             display: flex;
@@ -478,13 +705,13 @@
             border: none;
             background: transparent;
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            line-height: 1.6;
             color: #1a1a1a;
             resize: none;
             outline: none;
             max-height: 120px;
             min-height: 22px;
-            line-height: 1.5;
         }
 
         #messageInput::placeholder {
@@ -492,9 +719,9 @@
         }
 
         .send-btn {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
             background: #8b7355;
             border: none;
             cursor: pointer;
@@ -520,7 +747,7 @@
         }
 
         /* Responsive */
-        @media (max-width: 700px) {
+        @media (max-width: 500px) {
             .friends-panel {
                 width: 72px;
                 min-width: 72px;
@@ -552,6 +779,220 @@
                 padding: 16px;
             }
         }
+
+        /* FORCE BIGGER MESSAGE UI - put at VERY BOTTOM */
+        .messages-layout {
+            font-size: 16px !important;
+        }
+
+        .friends-panel {
+            width: 420px !important;
+            min-width: 420px !important;
+        }
+
+        .friend-item {
+            padding: 18px 24px !important;
+            min-height: 82px !important;
+            gap: 16px !important;
+        }
+
+        .friend-avatar {
+            width: 58px !important;
+            height: 58px !important;
+        }
+
+        .friend-name {
+            font-size: 1.08rem !important;
+            font-weight: 700 !important;
+        }
+
+        .friend-last-msg {
+            font-size: 0.95rem !important;
+            line-height: 1.45 !important;
+        }
+
+        .friend-time {
+            font-size: 0.82rem !important;
+        }
+
+        .unread-badge {
+            min-width: 25px !important;
+            height: 25px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .chat-header {
+            padding: 22px 32px !important;
+        }
+
+        .chat-header-avatar {
+            width: 56px !important;
+            height: 56px !important;
+        }
+
+        .chat-header-info h3 {
+            font-size: 1.15rem !important;
+        }
+
+        .chat-header-info span {
+            font-size: 0.9rem !important;
+        }
+
+        .messages-area {
+            padding: 32px 38px !important;
+            gap: 10px !important;
+        }
+
+        .msg-bubble {
+            max-width: 78% !important;
+            padding: 15px 20px !important;
+            font-size: 1.05rem !important;
+            line-height: 1.65 !important;
+            border-radius: 24px !important;
+        }
+
+        .msg-time {
+            font-size: 0.78rem !important;
+        }
+
+        .chat-input-area {
+            padding: 22px 32px !important;
+        }
+
+        .chat-input-wrapper {
+            padding: 12px 18px !important;
+            border-radius: 18px !important;
+        }
+
+        #messageInput {
+            font-size: 1.08rem !important;
+            line-height: 1.6 !important;
+            min-height: 30px !important;
+        }
+
+        .send-btn {
+            width: 54px !important;
+            height: 54px !important;
+            border-radius: 16px !important;
+        }
+
+        /* FINAL FORCE SCALE FIX */
+        body .main-content-simple .messages-layout .friends-panel {
+            width: 460px !important;
+            min-width: 460px !important;
+        }
+
+        body .main-content-simple .messages-layout .friend-item {
+            padding: 22px 26px !important;
+            min-height: 92px !important;
+        }
+
+        body .main-content-simple .messages-layout .friend-avatar {
+            width: 66px !important;
+            height: 66px !important;
+        }
+
+        body .main-content-simple .messages-layout .friend-name {
+            font-size: 20px !important;
+        }
+
+        body .main-content-simple .messages-layout .friend-last-msg {
+            font-size: 17px !important;
+        }
+
+        body .main-content-simple .messages-layout .chat-header {
+            padding: 26px 36px !important;
+        }
+
+        body .main-content-simple .messages-layout .chat-header-avatar {
+            width: 66px !important;
+            height: 66px !important;
+        }
+
+        body .main-content-simple .messages-layout .chat-header-info h3 {
+            font-size: 22px !important;
+        }
+
+        body .main-content-simple .messages-layout .messages-area {
+            padding: 40px 48px !important;
+        }
+
+        body .main-content-simple .messages-layout .msg-bubble {
+            font-size: 22px !important;
+            padding: 20px 26px !important;
+            max-width: 82% !important;
+            line-height: 1.7 !important;
+        }
+
+        body .main-content-simple .messages-layout .msg-time {
+            font-size: 14px !important;
+        }
+
+        body .main-content-simple .messages-layout #messageInput {
+            font-size: 22px !important;
+            min-height: 42px !important;
+        }
+
+        body .main-content-simple .messages-layout .chat-input-wrapper {
+            padding: 16px 22px !important;
+        }
+
+        body .main-content-simple .messages-layout .send-btn {
+            width: 64px !important;
+            height: 64px !important;
+        }
+
+        /* FULL WIDTH MESSENGER LAYOUT */
+        .messages-fullscreen {
+            width: 100vw !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .messages-layout {
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .friends-panel {
+            width: 420px !important;
+            min-width: 420px !important;
+            max-width: 420px !important;
+            flex-shrink: 0 !important;
+        }
+
+        .chat-panel {
+            flex: 1 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        /* REMOVE CENTERED CONTAINER EFFECT */
+        .main-content-simple,
+        .main-content,
+        .content-wrapper,
+        .page-container,
+        .container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        /* FORCE CHAT TO REACH EDGE */
+        .chat-panel,
+        .messages-area,
+        .chat-header,
+        .chat-input-area {
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
     </style>
 </head>
 
@@ -559,20 +1000,30 @@
 
     @include('layouts.sidebar')
 
-    <main class="main-content-simple" style="padding: 0; overflow: hidden;">
+    <main class="main-content-simple messages-fullscreen">
         <div class="messages-layout">
 
             {{-- ── Friends Panel ── --}}
             <aside class="friends-panel">
                 <div class="friends-panel-header">
                     <h2>Messages</h2>
-                    <div class="search-box">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="m21 21-4.35-4.35" />
-                        </svg>
-                        <input type="text" id="friendSearch" placeholder="Search friends…">
+                    <div class="friends-actions-row">
+                        <div class="search-box">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.35-4.35" />
+                            </svg>
+                            <input type="text" id="friendSearch" placeholder="Search friends…">
+                        </div>
+
+                        <div class="header-menu-wrap">
+                            <button class="header-menu-btn" onclick="toggleHeaderMenu(event)">⋯</button>
+
+                            <div class="header-menu" id="headerMenu">
+                                <button onclick="openArchivedPanel(event)">Archived</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -613,12 +1064,23 @@
                             </div>
                             <div class="friend-meta">
                                 <span class="friend-time" id="lastTime-{{ $friend->id }}">{{ $timeStr }}</span>
-                                @if ($friend->unread_count > 0)
+                                @if (!$friend->is_muted && $friend->unread_count > 0)
                                     <span class="unread-badge"
                                         id="badge-{{ $friend->id }}">{{ $friend->unread_count }}</span>
                                 @else
                                     <span class="unread-badge" id="badge-{{ $friend->id }}"
                                         style="display:none;">0</span>
+                                @endif
+                            </div>
+                            <button class="friend-menu-btn" onclick="event.stopPropagation(); toggleFriendMenu(this)">
+                                ˅
+                            </button>
+                            <div class="friend-menu">
+                                <button onclick="event.stopPropagation(); archiveConversation('{{ $friend->id }}')">Archive</button>
+                                @if ($friend->is_muted)
+                                    <button onclick="event.stopPropagation(); unmuteConversation('{{ $friend->id }}')">Unmute</button>
+                                @else
+                                    <button onclick="event.stopPropagation(); muteConversation('{{ $friend->id }}')">Mute</button>
                                 @endif
                             </div>
                         </div>
@@ -628,6 +1090,51 @@
                             You haven't added any friends yet.<br>Connect with classmates to start chatting!
                         </div>
                     @endforelse
+                </div>
+
+                <div class="archived-panel" id="archivedPanel">
+                    <div class="archived-header">
+                        <button onclick="closeArchivedPanel()">←</button>
+                        <h3>Archived</h3>
+                    </div>
+
+                    <div class="archived-list" id="archivedList">
+                        @forelse($archivedFriends ?? [] as $friend)
+                            @php
+                                $initials = strtoupper(substr($friend->first_name, 0, 1) . substr($friend->last_name, 0, 1));
+                            @endphp
+
+                            <div class="friend-item archived-friend-item"
+                                data-friend-id="{{ $friend->id }}"
+                                data-friend-name="{{ $friend->first_name }} {{ $friend->last_name }}"
+                                data-friend-photo="{{ $friend->profile_photo_url }}"
+                                data-friend-initials="{{ $initials }}"
+                                onclick="openConversation(this)">
+
+                                <div class="friend-avatar">
+                                    @if ($friend->profile_photo_url)
+                                        <img src="{{ $friend->profile_photo_url }}" alt="{{ $friend->first_name }}"
+                                            onerror="this.style.display='none'; this.parentElement.textContent='{{ $initials }}'">
+                                    @else
+                                        {{ $initials }}
+                                    @endif
+                                </div>
+
+                                <div class="friend-info">
+                                    <div class="friend-name">{{ $friend->first_name }} {{ $friend->last_name }}</div>
+                                    <div class="friend-last-msg">Archived conversation</div>
+                                </div>
+
+                                <button class="unarchive-btn"
+                                    onclick="event.stopPropagation(); unarchiveConversation('{{ $friend->id }}')">Unarchive</button>
+                            </div>
+                        @empty
+                            <div class="no-friends">
+                                <span>📦</span>
+                                No archived conversations.
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
             </aside>
 
@@ -677,20 +1184,21 @@
 
     <script>
         // ── State ──────────────────────────────────────────────
-        let AUTH_ID = '{{ Auth::id() }}'; // Changed to let (mutable)
+        let AUTH_ID = '{{ Auth::id() }}';
         const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
         let activeFriendId = null;
         let lastMessageId = null;
         let pollInterval = null;
 
+        // Track the message ID currently showing the "Seen" indicator
+        // so we only update the DOM when it actually changes
+        let currentSeenMessageId = null;
+
         // ── Helpers ────────────────────────────────────────────
         function formatTime(dateStr) {
             const d = new Date(dateStr);
-            return d.toLocaleTimeString([], {
-                hour: 'numeric',
-                minute: '2-digit'
-            });
+            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         }
 
         function formatDate(dateStr) {
@@ -723,20 +1231,71 @@
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         }
 
+        // ── Seen indicator ─────────────────────────────────────
+        // Places a "Seen" label beneath the sent bubble whose data-msg-id
+        // matches lastSeenMessageId.  Removes any old indicator first.
+        function updateSeenIndicator(lastSeenMessageId) {
+            // Nothing changed — skip DOM work
+            if (lastSeenMessageId === currentSeenMessageId) return;
+
+            const area = document.getElementById('messagesArea');
+
+            // Remove existing indicator
+            area.querySelectorAll('.seen-indicator').forEach(el => el.remove());
+
+            if (!lastSeenMessageId) {
+                currentSeenMessageId = null;
+                return;
+            }
+
+            // Find the sent bubble wrapper that owns this message ID
+            const targetRow = area.querySelector(`.msg-row.sent[data-msg-id="${lastSeenMessageId}"]`);
+            if (!targetRow) {
+                // Message may not be rendered yet (e.g. very first poll after send).
+                // We'll try again next poll — don't update currentSeenMessageId.
+                return;
+            }
+
+            const bubbleWrap = targetRow.querySelector('div'); // the flex-column wrapper
+            if (!bubbleWrap) return;
+
+            const seen = document.createElement('div');
+            seen.className = 'seen-indicator';
+            seen.innerHTML = `
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="#8b7355" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Seen
+            `;
+            bubbleWrap.appendChild(seen);
+
+            currentSeenMessageId = lastSeenMessageId;
+        }
+
         // ── Friend search ──────────────────────────────────────
-        document.getElementById('friendSearch').addEventListener('input', function() {
-            const q = this.value.toLowerCase();
-            document.querySelectorAll('.friend-item').forEach(item => {
-                const name = item.dataset.friendName.toLowerCase();
-                item.style.display = name.includes(q) ? '' : 'none';
+        document.addEventListener('DOMContentLoaded', function () {
+            const friendSearch = document.getElementById('friendSearch');
+
+            if (!friendSearch) return;
+
+            friendSearch.addEventListener('input', function () {
+                const q = this.value.trim().toLowerCase();
+
+                document.querySelectorAll('#friendsList > .friend-item').forEach(item => {
+                    const name = (item.dataset.friendName || '').toLowerCase();
+                    const lastMsg = item.querySelector('.friend-last-msg')?.textContent.toLowerCase() || '';
+
+                    item.style.display = name.includes(q) || lastMsg.includes(q) ? 'flex' : 'none';
+                });
             });
         });
 
         // ── Open Conversation ──────────────────────────────────
         function openConversation(el) {
-            const friendId = el.dataset.friendId;
-            const friendName = el.dataset.friendName;
-            const friendPhoto = el.dataset.friendPhoto;
+            const friendId       = el.dataset.friendId;
+            const friendName     = el.dataset.friendName;
+            const friendPhoto    = el.dataset.friendPhoto;
             const friendInitials = el.dataset.friendInitials;
 
             // Mark active
@@ -750,23 +1309,25 @@
             // Stop previous poll
             if (pollInterval) clearInterval(pollInterval);
 
-            activeFriendId = friendId;
-            lastMessageId = null;
+            activeFriendId       = friendId;
+            lastMessageId        = null;
+            currentSeenMessageId = null; // reset seen state for new conversation
 
             // Update header
             const headerAvatar = document.getElementById('chatHeaderAvatar');
-            headerAvatar.innerHTML = friendPhoto ?
-                `<img src="${friendPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.parentElement.textContent='${friendInitials}'">` :
-                friendInitials;
+            headerAvatar.innerHTML = friendPhoto
+                ? `<img src="${friendPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;"
+                       onerror="this.style.display='none'; this.parentElement.textContent='${friendInitials}'">`
+                : friendInitials;
             document.getElementById('chatHeaderName').textContent = friendName;
 
             // Show chat panel
             document.getElementById('chatEmpty').style.display = 'none';
             const chatActive = document.getElementById('chatActive');
-            chatActive.style.display = 'flex';
+            chatActive.style.display       = 'flex';
             chatActive.style.flexDirection = 'column';
-            chatActive.style.flex = '1';
-            chatActive.style.overflow = 'hidden';
+            chatActive.style.flex          = '1';
+            chatActive.style.overflow      = 'hidden';
 
             // Load messages
             loadConversation(friendId);
@@ -784,23 +1345,23 @@
             area.innerHTML = '<div class="msg-loading"><div class="spinner"></div> Loading messages…</div>';
 
             try {
-                const res = await fetch(`/messages/conversation/${friendId}`, {
-                    headers: {
-                        'X-CSRF-TOKEN': CSRF_TOKEN,
-                        'Accept': 'application/json'
-                    }
+                const res  = await fetch(`/messages/conversation/${friendId}`, {
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
                 });
                 const data = await res.json();
 
                 // Update AUTH_ID from response (fixes logout/login issue)
-                if (data.auth_id) {
-                    AUTH_ID = data.auth_id;
-                }
+                if (data.auth_id) AUTH_ID = data.auth_id;
 
                 renderMessages(data.messages, true);
 
                 if (data.messages.length > 0) {
                     lastMessageId = data.messages[data.messages.length - 1].id;
+                }
+
+                // Show seen indicator from the initial load
+                if (data.last_seen_message_id) {
+                    updateSeenIndicator(data.last_seen_message_id);
                 }
             } catch (e) {
                 area.innerHTML = '<div class="msg-loading" style="color:#e88;">Failed to load messages.</div>';
@@ -808,6 +1369,7 @@
         }
 
         // ── Render messages ────────────────────────────────────
+        // Each sent msg-row gets data-msg-id so the seen indicator can target it.
         function renderMessages(messages, replace = false) {
             const area = document.getElementById('messagesArea');
 
@@ -818,10 +1380,9 @@
                 return;
             }
 
-            let lastDate = null;
+            let lastDate   = null;
             let lastSender = null;
 
-            // For replace, we group from scratch. For append, track last sender.
             if (!replace) {
                 const existingRows = area.querySelectorAll('.msg-row');
                 if (existingRows.length > 0) {
@@ -829,7 +1390,7 @@
                 }
             }
 
-            messages.forEach((msg, i) => {
+            messages.forEach((msg) => {
                 const msgDate = new Date(msg.created_at).toDateString();
 
                 // Date divider
@@ -838,17 +1399,22 @@
                     divider.className = 'date-divider';
                     divider.innerHTML = `<span>${formatDate(msg.created_at)}</span>`;
                     area.appendChild(divider);
-                    lastDate = msgDate;
+                    lastDate   = msgDate;
                     lastSender = null;
                 }
 
-                const isSent = msg.sender_id === AUTH_ID;
+                const isSent    = String(msg.sender_id) === String(AUTH_ID);
                 const sameGroup = msg.sender_id === lastSender;
-                const ini = initials(msg.first_name || '', msg.last_name || '');
+                const ini       = initials(msg.first_name || '', msg.last_name || '');
 
                 const row = document.createElement('div');
-                row.className = `msg-row ${isSent ? 'sent' : 'received'}`;
-                row.dataset.senderId = msg.sender_id;
+                row.className          = `msg-row ${isSent ? 'sent' : 'received'}`;
+                row.dataset.senderId   = msg.sender_id;
+
+                // Store message ID on the row so seen indicator can find it
+                if (isSent) {
+                    row.dataset.msgId = msg.id;
+                }
 
                 if (!isSent) {
                     const avatarDiv = document.createElement('div');
@@ -858,16 +1424,16 @@
                 }
 
                 const bubbleWrap = document.createElement('div');
-                bubbleWrap.style.display = 'flex';
+                bubbleWrap.style.display       = 'flex';
                 bubbleWrap.style.flexDirection = 'column';
-                bubbleWrap.style.alignItems = isSent ? 'flex-end' : 'flex-start';
+                bubbleWrap.style.alignItems    = isSent ? 'flex-end' : 'flex-start';
 
                 const bubble = document.createElement('div');
-                bubble.className = 'msg-bubble';
+                bubble.className  = 'msg-bubble';
                 bubble.textContent = msg.message;
 
                 const timeEl = document.createElement('div');
-                timeEl.className = 'msg-time';
+                timeEl.className  = 'msg-time';
                 timeEl.textContent = formatTime(msg.created_at);
 
                 bubbleWrap.appendChild(bubble);
@@ -888,21 +1454,25 @@
 
             try {
                 const params = lastMessageId ? `?after_id=${lastMessageId}` : '';
-                const res = await fetch(`/messages/poll/${friendId}${params}`, {
-                    headers: {
-                        'X-CSRF-TOKEN': CSRF_TOKEN,
-                        'Accept': 'application/json'
-                    }
+                const res    = await fetch(`/messages/poll/${friendId}${params}`, {
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
                 });
                 const data = await res.json();
 
+                // Render any new incoming messages
                 if (data.messages && data.messages.length > 0) {
                     renderMessages(data.messages, false);
                     lastMessageId = data.messages[data.messages.length - 1].id;
 
-                    // Also remove loading placeholder if it exists
+                    // Remove loading placeholder if it exists
                     const placeholder = document.querySelector('.msg-loading');
                     if (placeholder) placeholder.remove();
+                }
+
+                // Update the seen indicator regardless of new messages —
+                // the friend may have read your messages without sending any back.
+                if (data.last_seen_message_id !== undefined) {
+                    updateSeenIndicator(data.last_seen_message_id);
                 }
             } catch (e) {
                 // Silent fail for poll
@@ -911,25 +1481,26 @@
 
         // ── Send message ───────────────────────────────────────
         async function sendMessage() {
-            const input = document.getElementById('messageInput');
+            const input   = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
             const message = input.value.trim();
 
             if (!message || !activeFriendId) return;
 
-            input.value = '';
+            input.value        = '';
             input.style.height = 'auto';
-            sendBtn.disabled = true;
+            sendBtn.disabled   = true;
 
-            // Optimistic render
+            // Optimistic render — give the temporary bubble a temp ID
+            const tmpId = 'tmp-' + Date.now();
             const optimistic = {
-                id: 'tmp-' + Date.now(),
-                sender_id: AUTH_ID,
-                receiver_id: activeFriendId,
-                message: message,
-                created_at: new Date().toISOString(),
-                first_name: '',
-                last_name: '',
+                id:                tmpId,
+                sender_id:         AUTH_ID,
+                receiver_id:       activeFriendId,
+                message:           message,
+                created_at:        new Date().toISOString(),
+                first_name:        '',
+                last_name:         '',
                 profile_photo_url: null,
             };
             renderMessages([optimistic], false);
@@ -939,29 +1510,30 @@
             if (placeholder) placeholder.remove();
 
             try {
-                const res = await fetch('/messages/send', {
-                    method: 'POST',
+                const res  = await fetch('/messages/send', {
+                    method:  'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': CSRF_TOKEN,
-                        'Accept': 'application/json',
+                        'Content-Type':  'application/json',
+                        'X-CSRF-TOKEN':  CSRF_TOKEN,
+                        'Accept':        'application/json',
                     },
-                    body: JSON.stringify({
-                        receiver_id: activeFriendId,
-                        message
-                    }),
+                    body: JSON.stringify({ receiver_id: activeFriendId, message }),
                 });
                 const data = await res.json();
 
                 if (data.message) {
-                    // Update last message ID
+                    // Swap the temporary row's data-msg-id to the real server-assigned ID
+                    // so the seen indicator can match it once the friend reads it.
+                    const tmpRow = document.querySelector(`.msg-row.sent[data-msg-id="${tmpId}"]`);
+                    if (tmpRow) tmpRow.dataset.msgId = data.message.id;
+
+                    // Update last message ID for polling
                     lastMessageId = data.message.id;
 
                     // Update sidebar preview
-                    const lastMsgEl = document.getElementById('lastMsg-' + activeFriendId);
+                    const lastMsgEl  = document.getElementById('lastMsg-'  + activeFriendId);
                     const lastTimeEl = document.getElementById('lastTime-' + activeFriendId);
-                    if (lastMsgEl) lastMsgEl.textContent = message.length > 35 ? message.substring(0, 35) + '…' :
-                        message;
+                    if (lastMsgEl)  lastMsgEl.textContent  = message.length > 35 ? message.substring(0, 35) + '…' : message;
                     if (lastTimeEl) lastTimeEl.textContent = formatTime(data.message.created_at);
                 }
             } catch (e) {
@@ -979,13 +1551,104 @@
                 sendMessage();
             }
         }
+
+        // ── Friend menu handling ───────────────────────────────
+        function toggleFriendMenu(btn) {
+            document.querySelectorAll('.friend-menu').forEach(menu => {
+                if (menu !== btn.nextElementSibling) {
+                    menu.classList.remove('show');
+                }
+            });
+
+            btn.nextElementSibling.classList.toggle('show');
+        }
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.friend-menu').forEach(menu => {
+                menu.classList.remove('show');
+            });
+            document.getElementById('headerMenu')?.classList.remove('show');
+        });
+
+        function toggleHeaderMenu(event) {
+            event.stopPropagation();
+            document.getElementById('headerMenu').classList.toggle('show');
+        }
+
+        function openArchivedPanel(event) {
+            event.stopPropagation();
+            document.getElementById('headerMenu').classList.remove('show');
+            document.getElementById('archivedPanel').classList.add('show');
+        }
+
+        function closeArchivedPanel() {
+            document.getElementById('archivedPanel').classList.remove('show');
+        }
+
+        async function unarchiveConversation(friendId) {
+            await fetch(`/messages/${friendId}/unarchive`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                },
+            });
+
+            location.reload();
+        }
+
+        async function archiveConversation(friendId) {
+            await fetch(`/messages/${friendId}/archive`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                },
+            });
+
+            const item = document.querySelector(`.friend-item[data-friend-id="${friendId}"]`);
+            if (item) item.remove();
+
+            if (String(activeFriendId) === String(friendId)) {
+                activeFriendId = null;
+                document.getElementById('chatActive').style.display = 'none';
+                document.getElementById('chatEmpty').style.display = 'flex';
+            }
+        }
+
+        async function muteConversation(friendId) {
+            await fetch(`/messages/${friendId}/mute`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                },
+            });
+
+            const badge = document.getElementById('badge-' + friendId);
+            if (badge) badge.style.display = 'none';
+
+            location.reload();
+        }
+
+        async function unmuteConversation(friendId) {
+            await fetch(`/messages/${friendId}/unmute`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                },
+            });
+
+            location.reload();
+        }
     </script>
 
     <script>
-        const SB_URL = '{{ config('services.supabase.url') }}';
+        const SB_URL  = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC = '{{ config('services.supabase.service_key') }}';
-        const UID = '{{ session('user_id') }}';
+        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
+        const UID     = '{{ session('user_id') }}';
     </script>
 
     <script src="{{ asset('js/notifications.js') }}"></script>

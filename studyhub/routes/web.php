@@ -527,6 +527,10 @@ Route::get('/messages/conversation/{friendId}', [MessageController::class, 'conv
 Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
 Route::get('/messages/poll/{friendId}', [MessageController::class, 'poll'])->name('messages.poll');
 Route::get('/messages/unread-counts', [MessageController::class, 'unreadCounts'])->name('messages.unread');
+Route::post('/messages/{friendId}/archive', [MessageController::class, 'archive'])->name('messages.archive');
+Route::post('/messages/{friendId}/unarchive', [MessageController::class, 'unarchive'])->name('messages.unarchive');
+Route::post('/messages/{friendId}/mute', [MessageController::class, 'mute'])->name('messages.mute');
+Route::post('/messages/{friendId}/unmute', [MessageController::class, 'unmute'])->name('messages.unmute');
 
 // ── FRIENDS ───────────────────────────────────────────────────
 Route::get('/friends', function () {

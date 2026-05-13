@@ -68,6 +68,36 @@ class MessageController extends Controller
             ->post($this->supabaseUrl() . '/rest/v1/notifications', $data);
     }
 
+    /** Upsert (insert or update) conversation settings */
+    private function upsertConversationSetting(string $userId, string $friendId, array $data): void
+    {
+        $existing = $this->sbGet('conversation_settings', [
+            'select' => 'id',
+            'user_id' => 'eq.' . $userId,
+            'friend_id' => 'eq.' . $friendId,
+            'limit' => '1',
+        ]);
+
+        $data['updated_at'] = now()->toISOString();
+
+        if (!empty($existing)) {
+            $this->sbPatch('conversation_settings', [
+                'user_id' => 'eq.' . $userId,
+                'friend_id' => 'eq.' . $friendId,
+            ], $data);
+            return;
+        }
+
+        $this->sbPost('conversation_settings', array_merge([
+            'id' => Str::uuid()->toString(),
+            'user_id' => $userId,
+            'friend_id' => $friendId,
+            'is_archived' => false,
+            'is_muted' => false,
+            'created_at' => now()->toISOString(),
+        ], $data));
+    }
+
     // ── Session auth helpers ───────────────────────────────────
 
     private function userId(): ?string
@@ -107,11 +137,14 @@ class MessageController extends Controller
         $friendIds = array_unique(array_filter($friendIds));
 
         $friends = [];
+        $archivedFriends = [];
 
         foreach ($friendIds as $friendId) {
             // Get profile from Supabase
             $friendProfile = $provider->getProfileById($friendId);
             if (!$friendProfile) continue;
+
+            $setting = $this->getConversationSetting($userId, $friendId);
 
             // Last message (sent)
             $sentLast = $this->sbGet('direct_messages', [
@@ -156,7 +189,7 @@ class MessageController extends Controller
                 $unreadCount = (int) explode('/', $contentRange)[1];
             }
 
-            $friends[] = (object) [
+            $friendObject = (object) [
                 'id'                => $friendProfile['id'],
                 'username'          => $friendProfile['username']          ?? '',
                 'first_name'        => $friendProfile['first_name']        ?? '',
@@ -164,7 +197,15 @@ class MessageController extends Controller
                 'profile_photo_url' => $friendProfile['profile_photo_url'] ?? '',
                 'last_message'      => $lastMessage ? (object) $lastMessage : null,
                 'unread_count'      => $unreadCount,
+                'is_muted'          => (bool) ($setting['is_muted'] ?? false),
+                'is_archived'       => (bool) ($setting['is_archived'] ?? false),
             ];
+
+            if ($friendObject->is_archived) {
+                $archivedFriends[] = $friendObject;
+            } else {
+                $friends[] = $friendObject;
+            }
         }
 
         // Sort by most recent message
@@ -174,7 +215,10 @@ class MessageController extends Controller
             return strcmp($bTime, $aTime);
         });
 
-        return view('home.messages', ['friends' => collect($friends)]);
+        return view('home.messages', [
+            'friends' => collect($friends),
+            'archivedFriends' => collect($archivedFriends),
+        ]);
     }
 
     // ── conversation() ─────────────────────────────────────────
@@ -229,6 +273,18 @@ class MessageController extends Controller
         }
         unset($msg);
 
+        // ── SEEN: find the most recent message YOU sent that the friend has read ──
+        // We look for sent messages where is_read = true, ordered desc, take the latest one.
+        $lastReadRows = $this->sbGet('direct_messages', [
+            'select'      => 'id,created_at',
+            'sender_id'   => 'eq.' . $userId,
+            'receiver_id' => 'eq.' . $friendId,
+            'is_read'     => 'eq.true',
+            'order'       => 'created_at.desc',
+            'limit'       => '1',
+        ]);
+        $lastSeenMessageId = $lastReadRows[0]['id'] ?? null;
+
         // Friend profile for header
         $friendProfiles = $this->sbGet('profiles', [
             'select' => 'id,username,first_name,last_name,profile_photo_url',
@@ -237,9 +293,10 @@ class MessageController extends Controller
         ]);
 
         return response()->json([
-            'messages' => $messages,
-            'friend'   => $friendProfiles[0] ?? null,
-            'auth_id'  => $userId,
+            'messages'            => $messages,
+            'friend'              => $friendProfiles[0] ?? null,
+            'auth_id'             => $userId,
+            'last_seen_message_id' => $lastSeenMessageId, // ID of the last sent msg the friend has read
         ]);
     }
 
@@ -320,6 +377,10 @@ class MessageController extends Controller
     }
 
     // ── poll() ─────────────────────────────────────────────────
+    // Returns:
+    //   messages          — new incoming messages since after_id
+    //   last_seen_message_id — ID of the last message YOU sent that the friend has now read
+    //                          (used by the frontend to show/move the "Seen" indicator)
 
     public function poll(Request $request, $friendId)
     {
@@ -327,6 +388,7 @@ class MessageController extends Controller
         $userId  = $this->userId();
         $afterId = $request->query('after_id');
 
+        // ── 1. Fetch new INCOMING messages ────────────────────
         $query = [
             'select'      => 'id,sender_id,receiver_id,message,is_read,created_at',
             'sender_id'   => 'eq.' . $friendId,
@@ -347,6 +409,7 @@ class MessageController extends Controller
 
         $newMessages = $this->sbGet('direct_messages', $query);
 
+        // Mark new incoming messages as read and attach profile info
         if (!empty($newMessages)) {
             $this->sbPatch('direct_messages', [
                 'sender_id'   => 'eq.' . $friendId,
@@ -370,7 +433,23 @@ class MessageController extends Controller
             unset($msg);
         }
 
-        return response()->json(['messages' => $newMessages]);
+        // ── 2. Check which of YOUR sent messages the friend has read ──
+        // Return the ID of the most recent sent message where is_read = true.
+        // The frontend uses this to know exactly which bubble gets the "Seen" tick.
+        $lastReadRows = $this->sbGet('direct_messages', [
+            'select'      => 'id',
+            'sender_id'   => 'eq.' . $userId,
+            'receiver_id' => 'eq.' . $friendId,
+            'is_read'     => 'eq.true',
+            'order'       => 'created_at.desc',
+            'limit'       => '1',
+        ]);
+        $lastSeenMessageId = $lastReadRows[0]['id'] ?? null;
+
+        return response()->json([
+            'messages'             => $newMessages,
+            'last_seen_message_id' => $lastSeenMessageId,
+        ]);
     }
 
     // ── unreadCounts() ─────────────────────────────────────────
@@ -393,5 +472,74 @@ class MessageController extends Controller
         }
 
         return response()->json(['counts' => $counts]);
+    }
+
+    // ── getConversationSetting() ───────────────────────────────
+
+    private function getConversationSetting(string $userId, string $friendId): array
+    {
+        $rows = $this->sbGet('conversation_settings', [
+            'select' => 'is_archived,is_muted',
+            'user_id' => 'eq.' . $userId,
+            'friend_id' => 'eq.' . $friendId,
+            'limit' => '1',
+        ]);
+
+        return $rows[0] ?? [
+            'is_archived' => false,
+            'is_muted' => false,
+        ];
+    }
+
+    // ── archive() ──────────────────────────────────────────────
+
+    public function archive($friendId)
+    {
+        if ($r = $this->requireAuth()) return $r;
+
+        $this->upsertConversationSetting($this->userId(), $friendId, [
+            'is_archived' => true,
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ── unarchive() ────────────────────────────────────────────
+
+    public function unarchive($friendId)
+    {
+        if ($r = $this->requireAuth()) return $r;
+
+        $this->upsertConversationSetting($this->userId(), $friendId, [
+            'is_archived' => false,
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ── mute() ─────────────────────────────────────────────────
+
+    public function mute($friendId)
+    {
+        if ($r = $this->requireAuth()) return $r;
+
+        $this->upsertConversationSetting($this->userId(), $friendId, [
+            'is_muted' => true,
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ── unmute() ───────────────────────────────────────────────
+
+    public function unmute($friendId)
+    {
+        if ($r = $this->requireAuth()) return $r;
+
+        $this->upsertConversationSetting($this->userId(), $friendId, [
+            'is_muted' => false,
+        ]);
+
+        return response()->json(['success' => true]);
     }
 }
