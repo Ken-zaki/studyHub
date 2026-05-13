@@ -18,6 +18,8 @@ class StudyGroup extends Model
         'subject',
         'is_public',
         'created_by',
+        'photo',        // ← public URL shown in UI
+        'photo_path',   // ← storage-relative path for deletion
     ];
 
     public function members()

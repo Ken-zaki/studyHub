@@ -10,6 +10,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NewsfeedController;
 use App\Http\Controllers\StudyGroupController;
+use App\Http\Controllers\CalendarShareController;
 use App\Http\Controllers\OgPreviewController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
@@ -482,12 +483,28 @@ Route::get('/calendar', function () {
 })->name('calendar');
 
 // ── STUDY GROUPS ──────────────────────────────────────────────
-Route::get('/study-groups', [StudyGroupController::class, 'index'])->name('study-groups');
-Route::get('/study-groups/api/friends', [StudyGroupController::class, 'getFriends'])->name('study-groups.friends');
-Route::post('/study-groups', [StudyGroupController::class, 'store'])->name('study-groups.store');
-Route::delete('/study-groups/{groupId}', [StudyGroupController::class, 'destroy'])->name('study-groups.destroy');
-Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])->name('study-groups.messages');
-Route::post('/study-groups/{groupId}/messages', [StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
+Route::get('/study-groups',                    [StudyGroupController::class, 'index'])       ->name('study-groups');
+Route::get('/study-groups/api/friends',        [StudyGroupController::class, 'getFriends'])  ->name('study-groups.friends');
+Route::get('/study-groups/api/groups',         [StudyGroupController::class, 'getGroupsJson'])->name('study-groups.json');
+Route::get('/study-groups/{groupId}/shared-calendars', [StudyGroupController::class, 'getGroupSharedCalendars'])->name('study-groups.shared-calendars');
+Route::post('/study-groups',                   [StudyGroupController::class, 'store'])       ->name('study-groups.store');
+Route::patch('/study-groups/{groupId}',        [StudyGroupController::class, 'update'])      ->name('study-groups.update');       // ← NEW: rename
+Route::post('/study-groups/{groupId}/photo',   [StudyGroupController::class, 'updatePhoto'])->name('study-groups.photo');        // ← NEW: group photo
+Route::get('/study-groups/{groupId}/members',  [StudyGroupController::class, 'members'])    ->name('study-groups.members');      // ← NEW: members list
+Route::delete('/study-groups/{groupId}',       [StudyGroupController::class, 'destroy'])    ->name('study-groups.destroy');
+Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])   ->name('study-groups.messages');
+Route::post('/study-groups/{groupId}/messages',[StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
+
+// ── CALENDAR SHARING ───────────────────────────────────────────
+Route::get('/calendar/sharing/friends',           [CalendarShareController::class, 'getFriendsForSharing'])->name('calendar.sharing.friends');
+Route::post('/calendar/sharing/request/{friendId}', [CalendarShareController::class, 'requestShare'])     ->name('calendar.sharing.request');
+Route::post('/calendar/sharing/requests/{requestId}/accept', [CalendarShareController::class, 'acceptShare']) ->name('calendar.sharing.accept');
+Route::post('/calendar/sharing/requests/{requestId}/reject', [CalendarShareController::class, 'rejectShare']) ->name('calendar.sharing.reject');
+Route::get('/calendar/sharing/requests',          [CalendarShareController::class, 'getShareRequests'])   ->name('calendar.sharing.requests');
+Route::get('/calendar/sharing/calendars',         [CalendarShareController::class, 'getSharedCalendars'])->name('calendar.sharing.calendars');
+Route::post('/calendar/sharing/revoke/{recipientId}', [CalendarShareController::class, 'revokeShare'])      ->name('calendar.sharing.revoke');
+Route::post('/calendar/sharing/revoke-received/{ownerId}', [CalendarShareController::class, 'revokeReceivedShare'])->name('calendar.sharing.revoke-received');
+Route::post('/calendar/sharing/group/{groupId}',  [CalendarShareController::class, 'shareWithGroup'])     ->name('calendar.sharing.group');
 
 Route::get('/resources', function () {
     if ($r = requireAuth()) return $r;
