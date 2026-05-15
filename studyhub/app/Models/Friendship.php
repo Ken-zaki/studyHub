@@ -43,6 +43,10 @@ class Friendship extends Model
 
     public static function areFriends(string $userA, string $userB): bool
     {
-        return static::between($userA, $userB)->exists();
+        // If they're not UUIDs, look up the user IDs
+        $userAId = User::where('username', $userA)->value('id') ?? $userA;
+        $userBId = User::where('username', $userB)->value('id') ?? $userB;
+
+        return static::between($userAId, $userBId)->exists();
     }
 }

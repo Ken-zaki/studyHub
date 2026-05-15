@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        ['newsfeed', 'calendar', 'study-groups', 'resources', 'notifications', 'messages', 'friends', 'focus-mode'],
+        ['newsfeed', 'study-groups', 'resources', 'messages', 'friends', 'focus-mode', 'calendar', 'notifications'],
         true,
     );
 
@@ -67,6 +67,105 @@
         </div>
     </div>
 
+    <div class="global-search-wrap">
+        <div class="global-search-input-wrap">
+            <svg class="global-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="globalUserSearch" placeholder="Search people..." autocomplete="off">
+            <button class="global-search-clear" id="globalSearchClear" title="Clear" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="global-search-results" id="globalSearchResults"></div>
+    </div>
+
+    <style>
+    .global-search-wrap {
+        padding: 8px 12px 4px;
+        position: relative;
+    }
+    .global-search-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-hover, rgba(0,0,0,0.05));
+        border: 1.5px solid transparent;
+        border-radius: 12px;
+        padding: 8px 10px;
+        transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+    }
+    .global-search-input-wrap:focus-within {
+        border-color: var(--primary, #1a5f7a);
+        background: var(--bg-card, #fff);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1a5f7a) 12%, transparent);
+    }
+    .global-search-icon {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        color: var(--text-light, #9ca3af);
+        transition: color 0.18s;
+    }
+    .global-search-input-wrap:focus-within .global-search-icon {
+        color: var(--primary, #1a5f7a);
+    }
+    #globalUserSearch {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 13px;
+        color: var(--text-primary, #1a1a1a);
+        font-family: inherit;
+        min-width: 0;
+    }
+    #globalUserSearch::placeholder {
+        color: var(--text-light, #9ca3af);
+    }
+    .global-search-clear {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        background: var(--text-light, #9ca3af);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.15s;
+    }
+    .global-search-clear:hover {
+        background: var(--primary, #1a5f7a);
+    }
+    .global-search-clear svg {
+        width: 9px;
+        height: 9px;
+        stroke: white;
+    }
+    .global-search-results {
+        display: none;
+        position: absolute;
+        top: calc(100% - 2px);
+        left: 12px;
+        right: 12px;
+        background: var(--bg-card, #fff);
+        border: 1.5px solid var(--border, #e5e7eb);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        z-index: 999;
+        overflow: hidden;
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    </style>
+
     <nav class="sidebar-nav">
 
         {{-- 1. Dashboard --}}
@@ -80,7 +179,27 @@
             <span class="nav-text">Dashboard</span>
         </a>
 
-        {{-- 2. Newsfeed --}}
+        {{-- 2. Calendar --}}
+        <a href="{{ route('calendar') }}" class="nav-item {{ $activeNav === 'calendar' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span class="nav-text">Calendar</span>
+        </a>
+
+        {{-- 3. Tasks --}}
+        <a href="{{ route('tasks') }}" class="nav-item {{ $activeNav === 'tasks' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+            </svg>
+            <span class="nav-text">Tasks</span>
+        </a>
+
+        {{-- 4. Newsfeed --}}
         <a href="{{ route('newsfeed') }}" class="nav-item {{ $activeNav === 'newsfeed' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path
@@ -89,7 +208,7 @@
             <span class="nav-text">Newsfeed</span>
         </a>
 
-        {{-- 3. Study Groups --}}
+        {{-- 5. Study Groups --}}
         <a href="{{ route('study-groups') }}" class="nav-item {{ $activeNav === 'study-groups' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -99,7 +218,7 @@
             <span class="nav-text">Study Groups</span>
         </a>
 
-        {{-- 4. Resources --}}
+        {{-- 6. Resources --}}
         <a href="{{ route('resources') }}" class="nav-item {{ $activeNav === 'resources' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" />
@@ -108,7 +227,7 @@
             <span class="nav-text">Resources</span>
         </a>
 
-        {{-- 5. Focus Mode --}}
+        {{-- 7. Focus Mode --}}
         <a href="{{ route('focus-mode') }}" class="nav-item {{ $activeNav === 'focus-mode' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10" />
@@ -118,7 +237,7 @@
             <span class="nav-text">Focus Mode</span>
         </a>
 
-        {{-- 6. Messages --}}
+        {{-- 8. Messages --}}
         <a href="{{ route('messages') }}" class="nav-item {{ $activeNav === 'messages' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -126,7 +245,7 @@
             <span class="nav-text">Messages</span>
         </a>
 
-        {{-- 7. Friends --}}
+        {{-- 9. Friends --}}
         <a href="{{ route('friends') }}" class="nav-item {{ $activeNav === 'friends' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -136,7 +255,7 @@
             <span class="nav-text">Friends</span>
         </a>
 
-        {{-- 8. Friend Requests --}}
+        {{-- 10. Friend Requests --}}
         <a href="{{ route('friend-requests') }}"
             class="nav-item {{ $activeNav === 'friend-requests' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -148,7 +267,7 @@
             <span class="nav-text">Friend Requests</span>
         </a>
 
-        {{-- 9. Settings --}}
+        {{-- 11. Settings --}}
         <a href="{{ route('settings') }}" class="nav-item {{ $activeNav === 'settings' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3" />
@@ -178,9 +297,9 @@
             @csrf
             <button type="submit" class="sidebar-logout-btn" title="Logout">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
                 <span class="logout-text">Logout</span>
             </button>
@@ -240,3 +359,87 @@
         </div>
     </aside>
 @endif
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('globalUserSearch');
+    const box   = document.getElementById('globalSearchResults');
+    const clear = document.getElementById('globalSearchClear');
+
+    if (!input || !box) return;
+
+    let timer = null;
+
+    function toggleClear() {
+        if (clear) clear.style.display = input.value.length ? 'flex' : 'none';
+    }
+
+    if (clear) {
+        clear.addEventListener('click', function () {
+            input.value = '';
+            box.style.display = 'none';
+            box.innerHTML = '';
+            toggleClear();
+            input.focus();
+        });
+    }
+
+    input.addEventListener('input', function () {
+        toggleClear();
+        const q = this.value.trim();
+
+        clearTimeout(timer);
+
+        if (q.length < 2) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
+
+        timer = setTimeout(async function () {
+            try {
+                const res = await fetch(`/api/search/users?q=${encodeURIComponent(q)}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                const data  = await res.json();
+                const users = data.users || [];
+
+                if (!users.length) {
+                    box.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">No users found.</div>`;
+                    box.style.display = 'block';
+                    return;
+                }
+
+                box.innerHTML = users.map(user => {
+                    const avatar = user.photo
+                        ? `<img src="${user.photo}" alt="">`
+                        : `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
+
+                    return `
+                        <a href="${user.url}" class="global-search-result">
+                            ${avatar}
+                            <div>
+                                <div class="global-search-name">${user.name}</div>
+                                <div class="global-search-username">@${user.username || 'user'}</div>
+                            </div>
+                            ${user.is_friend ? `<span class="global-search-badge">Friend</span>` : ''}
+                        </a>
+                    `;
+                }).join('');
+
+                box.style.display = 'block';
+            } catch (e) {
+                box.innerHTML = `<div style="padding:12px;color:#d33;font-size:13px;">Search failed.</div>`;
+                box.style.display = 'block';
+            }
+        }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.global-search-wrap')) {
+            box.style.display = 'none';
+        }
+    });
+});
+</script>

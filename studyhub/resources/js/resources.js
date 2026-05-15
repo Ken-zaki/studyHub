@@ -48,6 +48,7 @@ let editingCommentId  = null;
 // Bookmark state
 let bookmarkedIds     = new Set();   // Set of bookmarked resource IDs (for current user)
 let showingBookmarks  = false;       // true when bookmark-filter view is active
+let showingMyUploads  = false;       // true when My Uploads feed view is active
 
 // Edit modal file state
 let editNewFiles      = [];
@@ -84,7 +85,37 @@ function setSubjectFromDropdown(selectEl) {
     const at = document.getElementById('activeFilterTag');
     if (cat !== 'All') { af.style.display = 'flex'; at.textContent = '\u{1F4DA} ' + cat; }
     else { af.style.display = 'none'; }
-    loadResources();
+
+    // Show inline subject search when "Others" is selected
+    const othersSearch = document.getElementById('othersSubjectSearch');
+    if (othersSearch) {
+        if (cat === 'Others') {
+            othersSearch.style.display = 'flex';
+            othersSearch.querySelector('input').focus();
+        } else {
+            othersSearch.style.display = 'none';
+            othersSearch.querySelector('input').value = '';
+            othersSearchQuery = '';
+        }
+    }
+
+    if (cat !== 'Others') loadResources();
+    // If Others selected, wait for user to type/search
+}
+
+let othersSearchQuery = '';
+
+function applyOthersSearch() {
+    const input = document.getElementById('othersSubjectInput');
+    othersSearchQuery = input ? input.value.trim().toLowerCase() : '';
+    renderResources();
+}
+
+function clearOthersSearch() {
+    const input = document.getElementById('othersSubjectInput');
+    if (input) input.value = '';
+    othersSearchQuery = '';
+    renderResources();
 }
 
 /** Legacy helper so any existing onclick="setCategory(...)" calls still work */
@@ -240,42 +271,34 @@ function _bookmarkSVG(filled) {
     </svg>`;
 }
 
-/** Render the sidebar bookmarks list */
+/** Render the sidebar bookmarks list — always fetches fresh from DB */
 async function loadBookmarksSidebar() {
     const el = document.getElementById('bookmarksSidebar');
     if (!el || !CURRENT_USER.id) return;
 
-    if (bookmarkedIds.size === 0) {
-        el.innerHTML = '<div class="res-empty-small">No saved resources yet</div>';
-        return;
-    }
-
-    // Render from local map first for instant feedback
-    const localRows = [...bookmarkedIds].slice(0, 5)
-        .map(id => _resourceMap[id]).filter(Boolean);
-
-    const renderRows = (rows) => {
-        el.innerHTML = rows.map(r => `
-            <div class="res-recent-item" onclick="openDetailById('${escH(r.id)}')">
-                <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', r.file_url||null)}</div>
-                <div style="min-width:0;">
-                    <div class="res-recent-title">${escH(r.title)}</div>
-                    <div class="res-recent-sub">${escH(r.subject||'General')} · ${fileTypeLabel(r.file_type||'other')}</div>
-                </div>
-            </div>`).join('');
-    };
-
-    if (localRows.length) { renderRows(localRows); return; }
-
     try {
         const json = await _api('GET', '/api/resources/bookmarks?limit=5');
         if (json?.data?.length) {
+            // Keep local bookmark set in sync with DB truth
+            bookmarkedIds = new Set(json.data.map(r => String(r.id)));
+            _persistBookmarks();
             json.data.forEach(r => { _resourceMap[r.id] = r; });
-            renderRows(json.data);
+            el.innerHTML = json.data.map(r => `
+                <div class="res-recent-item" onclick="openDetailById('${escH(r.id)}')">
+                    <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', r.file_url||null)}</div>
+                    <div style="min-width:0;">
+                        <div class="res-recent-title">${escH(r.title)}</div>
+                        <div class="res-recent-sub">${escH(r.subject||'General')} · ${fileTypeLabel(r.file_type||'other')}</div>
+                    </div>
+                </div>`).join('');
         } else {
+            bookmarkedIds = new Set();
+            _persistBookmarks();
             el.innerHTML = '<div class="res-empty-small">No saved resources yet</div>';
         }
-    } catch(e) {}
+    } catch(e) {
+        el.innerHTML = '<div class="res-empty-small">Could not load saved resources</div>';
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -285,7 +308,7 @@ async function loadResources() {
     const feed = document.getElementById('resourceFeed');
     feed.innerHTML = '<div class="loading-state">Loading resources…</div>';
     try {
-        const params = new URLSearchParams({ visibility: activeVisFilter, limit: 100 });
+        const params = new URLSearchParams({ visibility: activeVisFilter, limit: 100, include_own: 1 });
         if (activeCategory !== 'All') params.set('subject', activeCategory);
         if (searchQuery) params.set('search', searchQuery);
 
@@ -309,6 +332,30 @@ async function loadResources() {
 
 function renderResources() {
     const feed = document.getElementById('resourceFeed');
+
+    // ── My Uploads mode ──────────────────────────────────────
+    if (showingMyUploads) {
+        const uploads = window._myUploadsAll || [];
+        if (!uploads.length) {
+            feed.innerHTML = `
+                <div class="res-myuploads-banner">
+                    <span class="res-myuploads-banner-text">📤 Your uploads</span>
+                    <button class="res-myuploads-banner-close" onclick="viewAllMyUploads()">✕ Exit</button>
+                </div>
+                <div class="res-empty">
+                    <div class="ei">📤</div>
+                    <p>You haven't uploaded anything yet.<br>Click "Upload Resource" to share your first resource.</p>
+                </div>`;
+            return;
+        }
+        feed.innerHTML = `
+            <div class="res-myuploads-banner">
+                <span class="res-myuploads-banner-text">📤 My Uploads — ${uploads.length} resource${uploads.length !== 1 ? 's' : ''}</span>
+                <button class="res-myuploads-banner-close" onclick="viewAllMyUploads()">✕ Exit</button>
+            </div>
+            ${uploads.map(r => cardHTML(r)).join('')}`;
+        return;
+    }
 
     // ── Bookmark-only mode ────────────────────────────────────
     if (showingBookmarks) {
@@ -335,12 +382,28 @@ function renderResources() {
     }
 
     // ── Normal feed ───────────────────────────────────────────
+    const KNOWN_SUBJECTS = new Set([
+        'Mathematics','Science','Filipino','English','PE','Health','Music','Arts',
+        'Social Studies','Computer Science','Values Education','MAPEH','History',
+        'Chemistry','Physics','Biology','Economics'
+    ]);
     const filtered = allResources.filter(r => {
         const effectiveVis = r.visibility === 'private' || r.education_level === 'private'
             ? 'private' : 'public';
         if (activeVisFilter === 'public'  && effectiveVis !== 'public')  return false;
         if (activeVisFilter === 'private' && effectiveVis !== 'private') return false;
-        if (activeCategory !== 'All' && r.subject !== activeCategory)    return false;
+        // Always show own private resources regardless of visibility filter
+        // (handled above: private filter already shows private, and the API should return them)
+        if (activeCategory !== 'All') {
+            if (activeCategory === 'Others') {
+                // Show resources with custom/unknown subjects (not in the known list)
+                if (KNOWN_SUBJECTS.has(r.subject)) return false;
+                // Further filter by the others search query if provided
+                if (othersSearchQuery && !(r.subject||'').toLowerCase().includes(othersSearchQuery)) return false;
+            } else {
+                if (r.subject !== activeCategory) return false;
+            }
+        }
         const q = searchQuery.toLowerCase();
         if (q) {
             const hit = [r.title, r.description, r.subject, ...(r.tags||[])]
@@ -387,13 +450,15 @@ function cardHTML(r) {
     const icon       = fileTypeIcon(fileType, r.file_url);
     const iconCls    = fileIconClass(fileType, r.file_url);
     const label      = r.tags?.length ? r.tags[0] : fileTypeLabel(fileType);
-    const uploader   = r.profiles
-        ? `${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username
-        : 'Unknown';
+    const isOwner    = String(r.uploaded_by) === String(CURRENT_USER.id);
+    const _profName  = r.profiles
+        ? (`${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username || '')
+        : '';
+    const _selfName  = (`${CURRENT_USER.firstName||''} ${CURRENT_USER.lastName||''}`.trim() || CURRENT_USER.username || '');
+    const uploader   = r.uploader_name || _profName || (isOwner ? _selfName : '') || 'Unknown';
     const ago        = timeAgo(r.created_at);
     const desc       = r.description ? escH(r.description.slice(0,90))+(r.description.length>90?'…':'') : '';
     const effectiveVis = r.visibility === 'private' || r.education_level === 'private' ? 'private' : 'public';
-    const isOwner    = r.uploaded_by === CURRENT_USER.id;
     const isBookmarked = bookmarkedIds.has(r.id);
 
     let actionBtn = '';
@@ -472,8 +537,13 @@ async function loadMyUploads() {
     try {
         const json = await _api('GET', '/api/resources/my-uploads');
         if (!json?.data?.length) return;
-        json.data.forEach(r => { if (!_resourceMap[r.id]) _resourceMap[r.id] = r; });
-        el.innerHTML = json.data.map(r => `
+        json.data.forEach(r => {
+            // Ensure uploaded_by is set for own uploads (some API responses omit it)
+            if (!r.uploaded_by) r.uploaded_by = CURRENT_USER.id;
+            _resourceMap[r.id] = r;  // always overwrite so uploaded_by is correct
+        });
+        const preview = json.data.slice(0, 3);
+        el.innerHTML = preview.map(r => `
             <div class="res-recent-item" onclick="openDetailById('${escH(r.id)}')">
                 <div class="res-recent-icon">${fileTypeIcon(r.file_type||'other', null)}</div>
                 <div style="min-width:0;">
@@ -481,7 +551,31 @@ async function loadMyUploads() {
                     <div class="res-recent-sub">${escH(r.subject||'General')}</div>
                 </div>
             </div>`).join('');
+        // Always show View all button so user can access all uploads
+        el.innerHTML += `<button class="res-bk-view-all" onclick="viewAllMyUploads()" style="margin-top:8px;">View all (${json.data.length})</button>`;
+        // Store full list for view-all modal
+        window._myUploadsAll = json.data;
     } catch(e){}
+}
+
+function viewAllMyUploads() {
+    if (!CURRENT_USER.id) return;
+    showingMyUploads = !showingMyUploads;
+    // Deactivate bookmark view if active
+    if (showingMyUploads && showingBookmarks) {
+        showingBookmarks = false;
+        document.getElementById('filterPublic').classList.add('active');
+    }
+    if (showingMyUploads) {
+        // Deactivate vis filter buttons while in my-uploads mode
+        document.getElementById('filterPublic').classList.remove('active');
+        document.getElementById('filterPrivate').classList.remove('active');
+    } else {
+        // Restore public filter on exit
+        document.getElementById('filterPublic').classList.add('active');
+        activeVisFilter = 'public';
+    }
+    renderResources();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -525,9 +619,7 @@ async function loadTopRatedWidget() {
                 </div>`;
         }).join('');
 
-        el.innerHTML += `<button class="res-see-top-rated" onclick="openTopRatedModal()">
-            ⭐ See all top-rated resources
-        </button>`;
+        // Community Picks shows top 5 only — no "see all" button here
 
     } catch(e) {
         el.innerHTML = '<div class="res-empty-small">Could not load ratings</div>';
@@ -775,51 +867,20 @@ async function submitUpload() {
         const tags      = typeOther ? [typeOther] : [];
 
         const base = {
-            uploaded_by: CURRENT_USER.id, title,
+            title,
             description: desc    || null,
             content:     content || null,
             subject:     finalSubj,
             file_type:   finalType,
-            education_level: vis, visibility: vis,
-            is_approved: false, tags
+            visibility:  vis,
+            link_url:    linkVal || null,
         };
 
-        if (!selectedFiles.length && !linkVal) {
-            const { error } = await _supabase.from('resources').insert({ ...base, file_url: null });
-            if (error) throw error;
-        } else if (!selectedFiles.length && linkVal) {
-            const { error } = await _supabase.from('resources').insert({
-                ...base, file_url: linkVal, file_type: finalType || 'link'
-            });
-            if (error) throw error;
-        } else {
-            let primaryUrl = null;
-            const fileRows = [];
-            for (const file of selectedFiles) {
-                const ext  = file.name.split('.').pop();
-                const path = `${CURRENT_USER.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-                const { error: upErr } = await _supabase.storage
-                    .from('resources').upload(path, file, { upsert: true });
-                if (upErr) throw upErr;
-                const { data: urlData } = _supabase.storage.from('resources').getPublicUrl(path);
-                if (!primaryUrl) primaryUrl = urlData.publicUrl;
-                fileRows.push({ file_name: file.name, file_url: urlData.publicUrl,
-                                file_size: file.size, storage_path: path });
-            }
-            const { data: inserted, error: insErr } = await _supabase.from('resources')
-                .insert({ ...base, file_url: primaryUrl,
-                          original_filename: selectedFiles[0].name,
-                          file_size: selectedFiles[0].size })
-                .select('id').single();
-            if (insErr) throw insErr;
+        const fd = new FormData();
+        Object.entries(base).forEach(([k, v]) => { if (v !== null) fd.append(k, v); });
+        selectedFiles.forEach(f => fd.append('files[]', f));
 
-            if (fileRows.length) {
-                const { error: rfErr } = await _supabase.from('resource_files').insert(
-                    fileRows.map(f => ({ ...f, resource_id: inserted.id, uploaded_by: CURRENT_USER.id }))
-                );
-                if (rfErr) console.warn('resource_files insert:', rfErr.message);
-            }
-        }
+        await _api('POST', '/api/resources', fd);
 
         closeUploadModal();
         alert('✅ Upload submitted! It will appear after admin approval.');
@@ -856,13 +917,15 @@ async function openDetailById(id) {
     let r = _resourceMap[id];
     if (!r) {
         try {
-            const { data, error } = await _supabase
-                .from('resources')
-                .select('*, profiles(first_name, last_name, username)')
-                .eq('id', id).maybeSingle();
-            if (error || !data) { console.warn('Resource not found:', id); return; }
-            _resourceMap[data.id] = data;
-            r = data;
+            const json = await _api('GET', `/api/resources/${id}`);
+            if (!json?.resource) { console.warn('Resource not found:', id); return; }
+            const fetched = json.resource;
+            // If the API doesn't return uploaded_by, check if we already know it
+            if (!fetched.uploaded_by && _resourceMap[fetched.id]?.uploaded_by) {
+                fetched.uploaded_by = _resourceMap[fetched.id].uploaded_by;
+            }
+            _resourceMap[fetched.id] = fetched;
+            r = fetched;
         } catch(e) { console.error(e); return; }
     }
     openDetail(r);
@@ -892,9 +955,12 @@ function openDetail(r) {
     document.getElementById('detailIcon').textContent  = fileTypeIcon(r.file_type||'other', r.file_url);
     document.getElementById('detailTitle').textContent = r.title || 'Untitled';
 
-    const uploader = r.profiles
-        ? `${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username
-        : 'Unknown';
+    const isDetailOwner = String(r.uploaded_by) === String(CURRENT_USER.id);
+    const _dProfName  = r.profiles
+        ? (`${r.profiles.first_name||''} ${r.profiles.last_name||''}`.trim() || r.profiles.username || '')
+        : '';
+    const _dSelfName  = (`${CURRENT_USER.firstName||''} ${CURRENT_USER.lastName||''}`.trim() || CURRENT_USER.username || '');
+    const uploader    = r.uploader_name || _dProfName || (isDetailOwner ? _dSelfName : '') || 'Unknown';
     const effectiveVis = r.visibility === 'private' || r.education_level === 'private' ? 'private' : 'public';
     document.getElementById('detailSubmeta').innerHTML = `
         <span>${escH(uploader)}</span><span class="dot">·</span>
@@ -930,33 +996,30 @@ function openDetail(r) {
         document.getElementById('detailFileBtn').style.display = 'none';
     }
 
-    const isOwner      = r.uploaded_by === CURRENT_USER.id;
-    const isBookmarked = bookmarkedIds.has(r.id);
+    const isOwner      = String(r.uploaded_by) === String(CURRENT_USER.id);
+    const isBookmarked = bookmarkedIds.has(String(r.id));
 
-    // Build bookmark button (shown for all logged-in users, including owner)
-    const bookmarkBtnHtml = CURRENT_USER.id ? `
-        <button id="detailBookmarkBtn"
-            class="res-detail-bookmark-btn ${isBookmarked ? 'bookmarked' : ''}"
-            onclick="toggleBookmark('${r.id}', event)">
-            ${_bookmarkSVG(isBookmarked)} ${isBookmarked ? 'Saved' : 'Save'}
-        </button>` : '';
+    // Update the bookmark button in the header
+    const bkBtn = document.getElementById('detailBookmarkBtn');
+    if (bkBtn) {
+        bkBtn.classList.toggle('bookmarked', isBookmarked);
+        bkBtn.onclick = (e) => toggleBookmark(r.id, e);
+        bkBtn.innerHTML = `${_bookmarkSVG(isBookmarked)} ${isBookmarked ? 'Saved' : 'Save'}`;
+    }
 
-    document.getElementById('detailActions').innerHTML = (isOwner
-        ? `<button class="res-detail-edit-btn" onclick="openEditModal()">
-               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                   <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                   <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-               </svg> Edit
-           </button>
-           <button class="res-detail-edit-btn" style="border-color:rgba(255,107,107,0.4);color:var(--accent);"
-               onclick="deleteResource('${r.id}', null)">
-               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                   <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                   <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-               </svg> Delete
-           </button>`
-        : '') + bookmarkBtnHtml;
+    // Show/hide edit button
+    const editBtn = document.getElementById('detailEditBtn');
+    if (editBtn) editBtn.style.display = isOwner ? '' : 'none';
 
+    // Show/hide delete button
+    const deleteBtn = document.getElementById('detailDeleteBtn');
+    if (deleteBtn) deleteBtn.style.display = isOwner ? '' : 'none';
+
+    // Show/hide inline owner actions bar (above hero card)
+    const ownerBar = document.getElementById('detailOwnerActionsBar');
+    if (ownerBar) ownerBar.style.display = isOwner ? 'flex' : 'none';
+
+    // Show/hide report button
     document.getElementById('reportBtn').style.display = isOwner ? 'none' : '';
     document.getElementById('rateLabel').textContent = 'Click a star to rate';
     renderRateStars(0);
@@ -965,7 +1028,7 @@ function openDetail(r) {
     loadRatings(r.id);
     loadComments(r.id);
 
-    _supabase.from('resources').update({ view_count: (r.view_count||0)+1 }).eq('id', r.id).then(()=>{});
+    // (view count tracked server-side when resource is fetched)
 }
 
 // Read-only file list shown in the detail page
@@ -974,13 +1037,9 @@ async function loadDetailFiles(r) {
     if (r.file_type === 'link') return;
 
     try {
-        const { data: files, error } = await _supabase
-            .from('resource_files')
-            .select('id, file_name, file_url, file_size')
-            .eq('resource_id', r.id)
-            .order('created_at', { ascending: true });
-
-        if (!error && files?.length) {
+        const json = await _api('GET', `/api/resources/${r.id}`);
+        const files = json?.files;
+        if (files?.length) {
             fileSec.style.display = '';
             renderDetailFileList(files);
             return;
@@ -1040,14 +1099,18 @@ function closeDetail() {
     if (starsRow) starsRow.classList.remove('locked');
 }
 
+// Close detail overlay when clicking outside the detail page
+function handleOverlayClick(event) {
+    const page = document.getElementById('resDetailPage');
+    if (page && !page.contains(event.target)) closeDetail();
+}
+
 async function deleteResource(resourceId, triggerEl) {
     if (!confirm('Are you sure you want to delete this resource? This cannot be undone.')) return;
     try {
-        const { error } = await _supabase.from('resources').delete().eq('id', resourceId);
-        if (error) throw error;
+        await _api('DELETE', `/api/resources/${resourceId}`);
         allResources = allResources.filter(r => r.id !== resourceId);
         delete _resourceMap[resourceId];
-        // Remove bookmark if any
         bookmarkedIds.delete(resourceId);
         _persistBookmarks();
         renderResources(); updateStats(); loadMyUploads(); loadBookmarksSidebar();
@@ -1063,27 +1126,21 @@ let _ratingLocked = false;
 async function loadRatings(resourceId) {
     _ratingLocked = false;
     try {
-        const { data } = await _supabase
-            .from('resource_ratings').select('rating').eq('resource_id', resourceId);
-        if (!data?.length) { renderStarsDisplay(0, 0); }
-        else {
-            const avg = data.reduce((s, r) => s + r.rating, 0) / data.length;
-            renderStarsDisplay(avg, data.length);
-        }
-
-        if (CURRENT_USER.id) {
-            const { data: mine } = await _supabase
-                .from('resource_ratings').select('rating')
-                .eq('resource_id', resourceId).eq('user_id', CURRENT_USER.id).maybeSingle();
-            if (mine) {
-                currentRating = mine.rating;
+        const json = await _api('GET', `/api/resources/${resourceId}`);
+        const res  = json?.resource;
+        if (res) {
+            renderStarsDisplay(res.avg_rating || 0, res.rating_count || 0);
+            if (res.my_rating) {
+                currentRating = res.my_rating;
                 renderRateStars(currentRating);
-                lockRatingUI(mine.rating);
+                lockRatingUI(res.my_rating);
             } else {
                 currentRating = 0;
                 renderRateStars(0);
                 unlockRatingUI();
             }
+        } else {
+            renderStarsDisplay(0, 0);
         }
     } catch(e) {}
 }
@@ -1150,25 +1207,19 @@ async function starClick(val) {
     if (!CURRENT_USER.id) { alert('Please log in to rate.'); return; }
     if (!currentResource) return;
     try {
-        const { error } = await _supabase.from('resource_ratings').insert({
-            resource_id: currentResource.id,
-            user_id:     CURRENT_USER.id,
-            rating:      val
-        });
-        if (error) {
-            if (error.code === '23505' || error.message?.toLowerCase().includes('unique')) {
-                lockRatingUI(currentRating || val);
-                return;
-            }
-            throw error;
-        }
+        await _api('POST', `/api/resources/${currentResource.id}/rate`, { rating: val });
         currentRating = val;
         renderRateStars(val);
         lockRatingUI(val);
         loadRatings(currentResource.id);
-        // Refresh top-rated widget since a new rating was submitted
         loadTopRatedWidget();
-    } catch(e) { alert('Rating failed: ' + e.message); }
+    } catch(e) {
+        if (e.message?.includes('already rated') || e.message?.includes('409')) {
+            lockRatingUI(currentRating || val);
+        } else {
+            alert('Rating failed: ' + e.message);
+        }
+    }
 }
 
 async function submitRatingOnly() {
@@ -1186,12 +1237,8 @@ async function loadComments(resourceId) {
     const el = document.getElementById('commentsList');
     el.innerHTML = '<div class="res-loading-sm">Loading comments…</div>';
     try {
-        const { data, error } = await _supabase
-            .from('resource_comments')
-            .select('*, profiles(first_name, last_name, username)')
-            .eq('resource_id', resourceId)
-            .order('created_at', { ascending: true });
-        if (error) throw error;
+        const json = await _api('GET', `/api/resources/${resourceId}/comments`);
+        const data = json?.comments || [];
         document.getElementById('commentCount').textContent = data.length;
         if (!data.length) { el.innerHTML = '<div class="res-loading-sm">No comments yet — be the first!</div>'; return; }
         el.innerHTML = data.map(c => renderCommentHTML(c)).join('');
@@ -1201,11 +1248,9 @@ async function loadComments(resourceId) {
 }
 
 function renderCommentHTML(c) {
-    const name     = c.profiles
-        ? `${c.profiles.first_name||''} ${c.profiles.last_name||''}`.trim() || c.profiles.username
-        : 'Unknown';
-    const initials = ((c.profiles?.first_name||'?')[0]+(c.profiles?.last_name||'?')[0]).toUpperCase();
-    const isOwn    = c.user_id === CURRENT_USER.id;
+    const name     = c.author_name || 'Unknown';
+    const initials = name.split(' ').map(w => w[0]||'').join('').slice(0,2).toUpperCase() || '?';
+    const isOwn    = c.is_own || String(c.user_id) === String(CURRENT_USER.id);
     return `
         <div class="res-comment-item" id="comment-${c.id}">
             <div style="width:34px;height:34px;border-radius:9px;
@@ -1221,7 +1266,7 @@ function renderCommentHTML(c) {
                         <button class="res-comment-action-btn danger" onclick="deleteComment('${c.id}')">🗑 Delete</button>
                     ` : ''}
                 </div>
-                <div class="res-comment-text" id="commentText-${c.id}">${escH(c.comment)}</div>
+                <div class="res-comment-text" id="commentText-${c.id}">${escH(c.content)}</div>
                 <div id="commentEdit-${c.id}" style="display:none;margin-top:8px;">
                     <textarea class="res-comment-input" id="commentEditInput-${c.id}"
                         style="min-height:50px;width:100%;" rows="2"></textarea>
@@ -1257,8 +1302,7 @@ async function saveEditComment(commentId) {
     const text = inp.value.trim();
     if (!text) { alert('Comment cannot be empty.'); return; }
     try {
-        const { error } = await _supabase.from('resource_comments').update({ comment: text }).eq('id', commentId);
-        if (error) throw error;
+        await _api('PUT', `/api/resources/comments/${commentId}`, { content: text });
         document.getElementById(`commentText-${commentId}`).textContent = text;
         cancelEditComment(commentId);
     } catch(e) { alert('Edit failed: ' + e.message); }
@@ -1266,8 +1310,7 @@ async function saveEditComment(commentId) {
 async function deleteComment(commentId) {
     if (!confirm('Delete this comment?')) return;
     try {
-        const { error } = await _supabase.from('resource_comments').delete().eq('id', commentId);
-        if (error) throw error;
+        await _api('DELETE', `/api/resources/comments/${commentId}`);
         document.getElementById(`comment-${commentId}`)?.remove();
         const count = document.getElementById('commentCount');
         count.textContent = Math.max(0, parseInt(count.textContent||'0') - 1);
@@ -1282,10 +1325,7 @@ async function submitComment() {
     const btn = document.getElementById('submitReviewBtn');
     btn.disabled = true; btn.textContent = 'Posting…';
     try {
-        const { error } = await _supabase.from('resource_comments').insert({
-            resource_id: currentResource.id, user_id: CURRENT_USER.id, comment: text
-        });
-        if (error) throw error;
+        await _api('POST', `/api/resources/${currentResource.id}/comments`, { content: text });
         input.value = ''; input.style.height = '';
         loadComments(currentResource.id);
     } catch(e) { alert('Failed to post comment: ' + e.message); }
@@ -1342,13 +1382,9 @@ async function loadEditFileList(r) {
     if (container) container.innerHTML = '<div style="padding:12px;color:var(--text-light);font-size:13px;">Loading files…</div>';
 
     try {
-        const { data: files, error } = await _supabase
-            .from('resource_files')
-            .select('id, file_name, file_url, file_size, storage_path')
-            .eq('resource_id', r.id)
-            .order('created_at', { ascending: true });
-
-        if (!error && files?.length) {
+        const json = await _api('GET', `/api/resources/${r.id}`);
+        const files = json?.files;
+        if (files?.length) {
             editExistingFiles = files;
         } else if (r.file_url && r.file_type !== 'link') {
             editExistingFiles = [{
@@ -1495,64 +1531,31 @@ async function saveEdit() {
     btn.disabled = true; btn.textContent = 'Saving…';
 
     try {
-        for (const f of editExistingFiles) {
-            if (f.id && f.id !== '__legacy__') {
-                await _supabase.from('resource_files').update({ file_name: f.file_name }).eq('id', f.id);
-            }
-        }
+        // Build FormData for the PUT request
+        const fd = new FormData();
+        fd.append('title',       title);
+        fd.append('description', desc    || '');
+        fd.append('content',     content || '');
+        fd.append('subject',     finalSubject);
+        fd.append('file_type',   finalType);
+        fd.append('visibility',  vis);
+        fd.append('_method',     'PUT');  // Laravel method spoofing
 
-        for (const f of editFilesToDelete) {
-            if (f.id && f.id !== '__legacy__') {
-                await _supabase.from('resource_files').delete().eq('id', f.id);
-                if (f.storage_path) {
-                    await _supabase.storage.from('resources').remove([f.storage_path]);
-                }
-            }
-        }
+        // Attach new files
+        editNewFiles.forEach(f => fd.append('files[]', f));
 
-        let primaryUrl = currentResource.file_url;
-        for (const file of editNewFiles) {
-            const ext  = file.name.split('.').pop();
-            const path = `${CURRENT_USER.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-            const { error: upErr } = await _supabase.storage
-                .from('resources').upload(path, file, { upsert: true });
-            if (upErr) throw upErr;
-            const { data: urlData } = _supabase.storage.from('resources').getPublicUrl(path);
-            const { error: rfErr } = await _supabase.from('resource_files').insert({
-                resource_id:  currentResource.id,
-                uploaded_by:  CURRENT_USER.id,
-                file_name:    file.name,
-                file_url:     urlData.publicUrl,
-                file_size:    file.size,
-                storage_path: path
-            });
-            if (rfErr) console.warn('resource_files insert:', rfErr.message);
-            if (!primaryUrl) primaryUrl = urlData.publicUrl;
-        }
+        // Tell backend which existing file IDs to remove
+        editFilesToDelete.forEach(f => {
+            if (f.id && f.id !== '__legacy__') fd.append('remove_file_ids[]', f.id);
+        });
 
-        if (editExistingFiles.length > 0 && editExistingFiles[0].id !== '__legacy__') {
-            primaryUrl = editExistingFiles[0].file_url;
-        } else if (editExistingFiles.length === 0 && editNewFiles.length === 0) {
-            primaryUrl = null;
-        }
-
-        const { error } = await _supabase.from('resources').update({
-            title,
-            description:     desc    || null,
-            content:         content || null,
-            subject:         finalSubject,
-            file_type:       finalType,
-            visibility:      vis,
-            education_level: vis,
-            file_url:        primaryUrl
-        }).eq('id', currentResource.id);
-        if (error) throw error;
+        await _api('POST', `/api/resources/${currentResource.id}`, fd);
 
         const updated = {
             ...currentResource,
             title, description: desc||null, content: content||null,
             subject: finalSubject, file_type: finalType,
-            visibility: vis, education_level: vis, file_url: primaryUrl
+            visibility: vis, education_level: vis,
         };
         _resourceMap[updated.id] = updated;
         const idx = allResources.findIndex(r => r.id === updated.id);
@@ -1577,15 +1580,14 @@ function closeReport() { document.getElementById('reportModal').classList.remove
 async function submitReport() {
     const reason = document.querySelector('input[name="reportReason"]:checked');
     if (!reason) { alert('Please select a reason.'); return; }
-    const details    = document.getElementById('reportDetails').value.trim();
-    const fullReason = details ? `${reason.value}: ${details}` : reason.value;
+    const details = document.getElementById('reportDetails').value.trim();
     try {
-        const { error } = await _supabase.from('reports').insert({
-            reported_by: CURRENT_USER.id, reported_content_type: 'resource',
-            reported_content_id: currentResource.id, reason: fullReason, status: 'pending'
+        await _api('POST', `/api/resources/${currentResource.id}/report`, {
+            reason:  reason.value,
+            details: details || null,
         });
-        if (error) throw error;
-        closeReport(); alert('✅ Report submitted. Our team will review it soon.');
+        closeReport();
+        alert('✅ Report submitted. Our team will review it soon.');
     } catch(e) { alert('Report failed: ' + e.message); }
 }
 

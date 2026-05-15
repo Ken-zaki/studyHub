@@ -1,4 +1,5 @@
 <?php
+/// DashboardController.php
 
 namespace App\Http\Controllers;
 

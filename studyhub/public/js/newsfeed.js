@@ -317,7 +317,7 @@ async function loadFeed() {
             return;
         }
 
-        feed.innerHTML = all.map(function(p){ return postCardHTML(p,0,0,0,null); }).join('');
+        feed.innerHTML = all.map(function(p){ return postCardHTML(p,0,0,0,null,0,0); }).join('');
 
         var postIds   = all.map(function(p){ return p.id; });
         var sharedIds = all.filter(function(p){ return p.shared_post_id; }).map(function(p){ return p.shared_post_id; });
@@ -334,9 +334,13 @@ async function loadFeed() {
         ];
 
         var fetched = await Promise.all(fetches);
-        var scores={}, commentCounts={}, myVotes={}, sharedMap={};
+        var scores={}, upvoteCounts={}, downvoteCounts={}, commentCounts={}, myVotes={}, sharedMap={};
 
-        (fetched[0].data||[]).forEach(function(r){ scores[r.post_id]=(scores[r.post_id]||0)+r.vote; });
+        (fetched[0].data||[]).forEach(function(r){
+            scores[r.post_id]=(scores[r.post_id]||0)+r.vote;
+            if(r.vote===1)  upvoteCounts[r.post_id]=(upvoteCounts[r.post_id]||0)+1;
+            if(r.vote===-1) downvoteCounts[r.post_id]=(downvoteCounts[r.post_id]||0)+1;
+        });
         (fetched[1].data||[]).forEach(function(r){ commentCounts[r.post_id]=(commentCounts[r.post_id]||0)+1; });
         (fetched[2].data||[]).forEach(function(r){ myVotes[r.post_id]=r.vote; });
         (fetched[3].data||[]).forEach(function(p){ sharedMap[p.id]=p; });
@@ -349,7 +353,7 @@ async function loadFeed() {
         }
 
         feed.innerHTML = all.map(function(p){
-            return postCardHTML(p, scores[p.id]||0, commentCounts[p.id]||0, myVotes[p.id]||0, sharedMap[p.shared_post_id]);
+            return postCardHTML(p, scores[p.id]||0, commentCounts[p.id]||0, myVotes[p.id]||0, sharedMap[p.shared_post_id], upvoteCounts[p.id]||0, downvoteCounts[p.id]||0);
         }).join('');
 
     } catch(err) {
@@ -363,7 +367,7 @@ function hotScore(score, createdAt) {
 }
 
 // ── POST CARD HTML ────────────────────────────────────────────
-function postCardHTML(post, score, commentCount, myVote, sharedOriginal) {
+function postCardHTML(post, score, commentCount, myVote, sharedOriginal, upvoteCount, downvoteCount) {
     var author      = post.profiles || {};
     var isOwn       = post.user_id === currentUser.id;
     var isFollowing = followingSet.has(post.user_id);
@@ -462,20 +466,9 @@ function postCardHTML(post, score, commentCount, myVote, sharedOriginal) {
     }
 
     var commentLabel = commentCount > 0
-        ? '&#128172; '+commentCount+' comment'+(commentCount!==1?'s':'') : '';
+        ? commentCount+' comment'+(commentCount!==1?'s':'') : '';
 
     return '<div class="post-card" id="post-'+post.id+'">' +
-
-        '<div class="post-vote-col">' +
-            '<button class="vote-btn '+(upvoted?'upvoted':'')+'" id="upBtn-'+post.id+'" onclick="castVote(\''+post.id+'\',1)" title="Upvote">' +
-                '<svg viewBox="0 0 24 24" fill="'+(upvoted?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>' +
-            '</button>' +
-            '<span class="vote-score '+scoreClass+'" id="score-'+post.id+'">'+score+'</span>' +
-            '<button class="vote-btn '+(downvoted?'downvoted':'')+'" id="downBtn-'+post.id+'" onclick="castVote(\''+post.id+'\',-1)" title="Downvote">' +
-                '<svg viewBox="0 0 24 24" fill="'+(downvoted?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
-            '</button>' +
-        '</div>' +
-
         '<div class="post-main">' +
             '<div class="post-header">' +
                 '<div class="post-author">' +
@@ -499,21 +492,27 @@ function postCardHTML(post, score, commentCount, myVote, sharedOriginal) {
             mediaHTML + filesHTML + linkHTML +
             (sharedHTML ? '<div style="padding:0 14px 10px;">'+sharedHTML+'</div>' : '') +
 
-            '<div class="post-counts">' +
-                '<div></div>' +
-                '<div class="post-counts-comments" onclick="openComments(\''+post.id+'\')" id="commentCount-'+post.id+'">'+commentLabel+'</div>' +
-            '</div>' +
-
-            '<div class="post-actions-bar">' +
-                '<button class="post-action-btn" onclick="openComments(\''+post.id+'\')">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Comment' +
-                '</button>' +
-                '<button class="post-action-btn" onclick="openShareModal(\''+post.id+'\')">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share' +
-                '</button>' +
-                '<button class="post-action-btn" onclick="copyPostLink(\''+post.id+'\')">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>Copy link' +
-                '</button>' +
+            '<div class="post-action-bar-b">' +
+                '<div class="vote-group-b">' +
+                    '<button class="vote-btn-b '+(upvoted?'upvoted-b':'')+'" id="upBtn-'+post.id+'" onclick="castVote(\''+post.id+'\',1)" title="Upvote">' +
+                        '<svg viewBox="0 0 24 24" fill="'+(upvoted?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;"><polyline points="18 15 12 9 6 15"/></svg>' +
+                        '<span class="vote-count upvote-count" id="upCount-'+post.id+'">'+(upvoteCount||0)+'</span>' +
+                    '</button>' +
+                    '<button class="vote-btn-b '+(downvoted?'downvoted-b':'')+'" id="downBtn-'+post.id+'" onclick="castVote(\''+post.id+'\',-1)" title="Downvote">' +
+                        '<svg viewBox="0 0 24 24" fill="'+(downvoted?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;"><polyline points="6 9 12 15 18 9"/></svg>' +
+                        '<span class="vote-count downvote-count" id="downCount-'+post.id+'">'+(downvoteCount||0)+'</span>' +
+                    '</button>' +
+                    '<span id="score-'+post.id+'" style="display:none;" class="vote-score '+scoreClass+'">'+score+'</span>' +
+                '</div>' +
+                '<div style="display:flex;gap:2px;">' +
+                    '<button class="post-action-btn-b" onclick="openComments(\''+post.id+'\')">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' +
+                        (commentCount > 0 ? commentLabel : 'Comment') +
+                    '</button>' +
+                    '<button class="post-action-btn-b" onclick="openShareModal(\''+post.id+'\')">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share' +
+                    '</button>' +
+                '</div>' +
             '</div>' +
         '</div>' +
     '</div>';
@@ -522,20 +521,33 @@ function postCardHTML(post, score, commentCount, myVote, sharedOriginal) {
 // ── VOTING ────────────────────────────────────────────────────
 async function castVote(postId, value) {
     if (!currentUser.id) return;
-    var scoreEl  = document.getElementById('score-'+postId);
-    var upBtn    = document.getElementById('upBtn-'+postId);
-    var downBtn  = document.getElementById('downBtn-'+postId);
-    var prevUp   = upBtn?.classList.contains('upvoted');
-    var prevDown = downBtn?.classList.contains('downvoted');
-    var prevVote = prevUp ? 1 : prevDown ? -1 : 0;
-    var newVote  = (value===1&&prevUp)||(value===-1&&prevDown) ? 0 : value;
+    var scoreEl    = document.getElementById('score-'+postId);
+    var upBtn      = document.getElementById('upBtn-'+postId);
+    var downBtn    = document.getElementById('downBtn-'+postId);
+    var upCountEl  = document.getElementById('upCount-'+postId);
+    var downCountEl= document.getElementById('downCount-'+postId);
+    var prevUp     = upBtn?.classList.contains('upvoted');
+    var prevDown   = downBtn?.classList.contains('downvoted');
+    var prevVote   = prevUp ? 1 : prevDown ? -1 : 0;
+    var newVote    = (value===1&&prevUp)||(value===-1&&prevDown) ? 0 : value;
     var diff = newVote - prevVote;
     var prevScore = parseInt(scoreEl?.textContent||'0');
+    var prevUpCount   = parseInt(upCountEl?.textContent||'0');
+    var prevDownCount = parseInt(downCountEl?.textContent||'0');
 
     if (scoreEl) {
         var ns = prevScore + diff;
         scoreEl.textContent = ns;
         scoreEl.className = 'vote-score '+(ns>0?'positive':ns<0?'negative':'');
+    }
+    // Update individual counts
+    if (upCountEl) {
+        var newUpCount = prevUpCount + (newVote===1 ? 1 : 0) - (prevVote===1 ? 1 : 0);
+        upCountEl.textContent = Math.max(0, newUpCount);
+    }
+    if (downCountEl) {
+        var newDownCount = prevDownCount + (newVote===-1 ? 1 : 0) - (prevVote===-1 ? 1 : 0);
+        downCountEl.textContent = Math.max(0, newDownCount);
     }
     upBtn?.classList.toggle('upvoted',   newVote===1);
     downBtn?.classList.toggle('downvoted', newVote===-1);
@@ -554,6 +566,8 @@ async function castVote(postId, value) {
     } catch(e) {
         console.error('[vote]', e);
         if (scoreEl) scoreEl.textContent = prevScore;
+        if (upCountEl)   upCountEl.textContent   = prevUpCount;
+        if (downCountEl) downCountEl.textContent = prevDownCount;
         upBtn?.classList.toggle('upvoted',    prevVote===1);
         downBtn?.classList.toggle('downvoted', prevVote===-1);
         if (upBtn)   upBtn.querySelector('svg').setAttribute('fill',   prevVote===1  ? 'currentColor':'none');

@@ -1,3 +1,9 @@
+/* ═══════════════════════════════════════════════════════════════════
+   StudyHub — user_dashboard.css
+   Shared across: calendar.blade.php, tasks.blade.php, dashboard.blade.php
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── TOKENS ──────────────────────────────────────────────────────── */
 :root {
     --primary: #1a5f7a;
     --primary-dark: #144d61;
@@ -5,20 +11,26 @@
     --accent: #ff6b6b;
     --success: #2a9d8f;
     --purple: #7c4dca;
+
     --bg-main: #fafbfc;
     --bg-sidebar: #ffffff;
     --bg-card: #ffffff;
+
     --text-primary: #1a1a1a;
     --text-secondary: #6b7280;
     --text-light: #9ca3af;
+
     --border: #e5e7eb;
     --shadow-sm: rgba(0, 0, 0, 0.03);
     --shadow-md: rgba(0, 0, 0, 0.08);
     --shadow-lg: rgba(0, 0, 0, 0.14);
+
     --sidebar-col: 80px;
     --sidebar-full: 280px;
     --right-w: 300px;
 }
+
+/* ── RESET ───────────────────────────────────────────────────────── */
 * {
     margin: 0;
     padding: 0;
@@ -31,13 +43,7 @@ body {
     overflow-x: hidden;
 }
 
-/* ── TOP BAR ──────────────────────────────────────────────── */
-/*
- * The sidebar partial renders .top-bar globally.
- * The dashboard injects its own buttons into #calTopBarLeft
- * which is placed INSIDE that same .top-bar via JS portal below.
- * We just make sure the top-bar is laid out correctly.
- */
+/* ── TOP BAR ─────────────────────────────────────────────────────── */
 .top-bar {
     position: fixed;
     top: 0;
@@ -53,8 +59,6 @@ body {
     gap: 12px;
     z-index: 900;
 }
-
-/* Dashboard action buttons live inside the top bar */
 .top-bar-left {
     display: flex;
     align-items: center;
@@ -74,7 +78,7 @@ body {
     height: 40px;
     border-radius: 10px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,6 +96,7 @@ body {
     width: 20px;
     height: 20px;
 }
+
 .notif-dot {
     position: absolute;
     top: 6px;
@@ -133,7 +138,7 @@ body {
     transform: scale(0.97);
 }
 
-/* ── TOP BAR BUTTONS ──────────────────────────────────────── */
+/* ── TOP-BAR ACTION BUTTONS ──────────────────────────────────────── */
 .btn-add-event {
     display: flex;
     align-items: center;
@@ -170,7 +175,7 @@ body {
     gap: 6px;
     padding: 8px 14px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 10px;
     font-family: "DM Sans", sans-serif;
     font-weight: 600;
@@ -187,7 +192,7 @@ body {
 .btn-select-mode.active {
     border-color: var(--accent);
     color: var(--accent);
-    background: #fff5f5;
+    background: rgba(255, 107, 107, 0.1);
 }
 .btn-select-mode svg {
     width: 15px;
@@ -200,7 +205,7 @@ body {
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
-    background: #fff3f3;
+    background: var(--bg-card);
     border: 1.5px solid #fecaca;
     border-radius: 10px;
     font-size: 13px;
@@ -231,7 +236,6 @@ body {
 .btn-bulk-delete:hover {
     background: #b91c1c;
 }
-
 .btn-bulk-cancel {
     padding: 7px 12px;
     background: transparent;
@@ -248,7 +252,7 @@ body {
     background: #fee2e2;
 }
 
-/* ── LAYOUT ──────────────────────────────────────────────── */
+/* ── LAYOUT ──────────────────────────────────────────────────────── */
 .main-content {
     margin-left: var(--sidebar-col);
     margin-top: 64px;
@@ -266,7 +270,35 @@ body {
     gap: 20px;
 }
 
-/* ── CALENDAR CARD ───────────────────────────────────────── */
+/* ── CARD (base — used on tasks + dashboard) ─────────────────────── */
+/*
+ * calendar.blade.php uses .calendar-card and .upcoming-card directly.
+ * tasks.blade.php and dashboard.blade.php use the generic .card class.
+ * Both share the same look.
+ */
+.card {
+    background: var(--bg-card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    box-shadow: 0 4px 16px var(--shadow-sm);
+}
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.card-title {
+    font-family: "Crimson Pro", serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* ── CALENDAR CARD (calendar page — kept for calendar.blade.php) ─── */
 .calendar-card {
     background: var(--bg-card);
     border-radius: 20px;
@@ -292,7 +324,7 @@ body {
     height: 36px;
     border-radius: 10px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -318,7 +350,7 @@ body {
 .cal-today-btn {
     padding: 7px 16px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 8px;
     font-family: "DM Sans", sans-serif;
     font-size: 13px;
@@ -331,7 +363,6 @@ body {
     border-color: var(--primary);
     color: var(--primary);
 }
-
 .cal-view-toggle {
     display: flex;
     background: var(--bg-main);
@@ -352,12 +383,12 @@ body {
     transition: all 0.2s;
 }
 .view-btn.active {
-    background: #fff;
+    background: var(--bg-card);
     color: var(--primary);
     box-shadow: 0 2px 8px var(--shadow-md);
 }
 
-/* ── MONTH GRID ──────────────────────────────────────────── */
+/* ── MONTH GRID ──────────────────────────────────────────────────── */
 .cal-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -402,7 +433,7 @@ body {
     border-color: var(--primary);
 }
 .cal-day.day-sel {
-    background: #fff5f5 !important;
+    background: rgba(255, 107, 107, 0.1) !important;
     border-color: var(--accent) !important;
 }
 
@@ -415,7 +446,7 @@ body {
     height: 18px;
     border-radius: 50%;
     border: 2px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     z-index: 2;
     align-items: center;
     justify-content: center;
@@ -486,7 +517,7 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     color: var(--primary);
 }
 
-/* ── UPCOMING ────────────────────────────────────────────── */
+/* ── UPCOMING CARD (calendar page) ──────────────────────────────── */
 .upcoming-card {
     background: var(--bg-card);
     border-radius: 20px;
@@ -504,6 +535,8 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     align-items: center;
     gap: 8px;
 }
+
+/* ── UPCOMING LIST ITEMS (shared: calendar + dashboard) ──────────── */
 .upcoming-list {
     display: flex;
     flex-direction: column;
@@ -519,6 +552,8 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     transition: all 0.2s;
     cursor: pointer;
     position: relative;
+    text-decoration: none; /* for <a> links on dashboard */
+    color: inherit;
 }
 .upcoming-item:hover {
     border-color: var(--primary);
@@ -526,7 +561,7 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     transform: translateY(-1px);
 }
 .upcoming-item.item-sel {
-    background: #fff5f5;
+    background: rgba(255, 107, 107, 0.1);
     border-color: var(--accent);
 }
 
@@ -541,7 +576,7 @@ body.select-mode .cal-day:not(.other-month) .day-check {
     justify-content: center;
     cursor: pointer;
     transition: all 0.15s;
-    background: #fff;
+    background: var(--bg-card);
 }
 body.select-mode .upcoming-check {
     display: flex;
@@ -587,7 +622,7 @@ body.select-mode .upcoming-check {
     white-space: nowrap;
 }
 
-/* ── TASK MANAGER ────────────────────────────────────────── */
+/* ── TASK MANAGER ────────────────────────────────────────────────── */
 .task-count-badge {
     display: inline-flex;
     align-items: center;
@@ -607,6 +642,7 @@ body.select-mode .upcoming-check {
     letter-spacing: 0.02em;
 }
 
+/* Filter selects — also works with inline styles in the blade */
 .task-filter-select {
     padding: 7px 28px 7px 12px;
     border: 1.5px solid var(--border);
@@ -615,7 +651,7 @@ body.select-mode .upcoming-check {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
-    background: #fff;
+    background: var(--bg-card);
     cursor: pointer;
     transition:
         border-color 0.2s,
@@ -636,7 +672,7 @@ body.select-mode .upcoming-check {
     color: var(--primary);
 }
 
-/* ── TASK ITEMS ──────────────────────────────────────────── */
+/* ── TASK ITEMS ──────────────────────────────────────────────────── */
 .task-item {
     display: flex;
     align-items: flex-start;
@@ -644,7 +680,7 @@ body.select-mode .upcoming-check {
     padding: 13px 16px;
     border-radius: 12px;
     border: 1.5px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     margin-bottom: 8px;
     transition: all 0.2s;
     position: relative;
@@ -684,7 +720,7 @@ body.select-mode .upcoming-check {
     background: #16a34a !important;
 }
 
-/* ── PRIORITY OPTIONS (radio pills in task modal) ──────── */
+/* ── PRIORITY PILLS (task modal radio buttons) ───────────────────── */
 .priority-option {
     display: flex;
     align-items: center;
@@ -692,7 +728,7 @@ body.select-mode .upcoming-check {
     padding: 7px 14px;
     border-radius: 9px;
     border: 1.5px solid var(--border);
-    background: #fff;
+    background: var(--bg-card);
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
@@ -704,44 +740,26 @@ body.select-mode .upcoming-check {
     border-color: var(--primary);
     background: var(--bg-main);
 }
-.priority-option[data-p="low"].sel {
-    border-color: #16a34a;
-    background: rgba(22, 163, 74, 0.08);
-    color: #16a34a;
-}
-.priority-option[data-p="medium"].sel {
-    border-color: #d97706;
-    background: rgba(217, 119, 6, 0.08);
-    color: #d97706;
-}
-.priority-option[data-p="high"].sel {
-    border-color: #dc2626;
-    background: rgba(220, 38, 38, 0.08);
-    color: #dc2626;
-}
+.priority-option[data-p="low"].sel,
 .priority-option[data-p="low"]:has(input:checked) {
     border-color: #16a34a;
     background: rgba(22, 163, 74, 0.08);
     color: #16a34a;
 }
+.priority-option[data-p="medium"].sel,
 .priority-option[data-p="medium"]:has(input:checked) {
     border-color: #d97706;
     background: rgba(217, 119, 6, 0.08);
     color: #d97706;
 }
+.priority-option[data-p="high"].sel,
 .priority-option[data-p="high"]:has(input:checked) {
     border-color: #dc2626;
     background: rgba(220, 38, 38, 0.08);
     color: #dc2626;
 }
 
-/* ── RIGHT SIDEBAR (dashboard widgets) ──────────────────── */
-/*
- * The dashboard's .right-sidebar contains Deadlines / Filter / All Events.
- * It must NOT conflict with the sidebar partial's friends rail.
- * The sidebar partial's friends .right-sidebar is only shown on other pages.
- * On the dashboard page, $showFriendRail will be false so no clash.
- */
+/* ── RIGHT SIDEBAR ───────────────────────────────────────────────── */
 .right-sidebar {
     width: var(--right-w);
     flex-shrink: 0;
@@ -766,6 +784,7 @@ body.select-mode .upcoming-check {
     }
 }
 
+/* widget-card alias — same as .card but without the bigger padding, for sidebar widgets */
 .widget-card {
     background: var(--bg-card);
     border-radius: 16px;
@@ -780,7 +799,7 @@ body.select-mode .upcoming-check {
     margin-bottom: 16px;
 }
 
-/* ── DEADLINES WIDGET ────────────────────────────────────── */
+/* ── DEADLINES WIDGET ────────────────────────────────────────────── */
 .deadline-item {
     display: flex;
     align-items: flex-start;
@@ -837,7 +856,7 @@ body.select-mode .upcoming-check {
     color: var(--primary);
 }
 
-/* ── FILTER MY EVENTS ────────────────────────────────────── */
+/* ── MY CALENDARS FILTER (calendar + dashboard sidebar) ──────────── */
 .cal-category {
     display: flex;
     align-items: center;
@@ -898,7 +917,7 @@ body.select-mode .upcoming-check {
     transform: rotate(-45deg) translateY(-1px);
 }
 
-/* ── ALL EVENTS WIDGET ───────────────────────────────────── */
+/* ── ALL EVENTS WIDGET ───────────────────────────────────────────── */
 .all-ev-search {
     width: 100%;
     padding: 8px 12px;
@@ -909,14 +928,13 @@ body.select-mode .upcoming-check {
     margin-bottom: 12px;
     box-sizing: border-box;
     transition: border-color 0.2s;
-    background: #fff;
+    background: var(--bg-card);
     color: var(--text-primary);
 }
 .all-ev-search:focus {
     outline: none;
     border-color: var(--primary);
 }
-
 .all-ev-group-label {
     font-size: 10px;
     font-weight: 700;
@@ -929,7 +947,6 @@ body.select-mode .upcoming-check {
 .all-ev-group-label:first-child {
     margin-top: 0;
 }
-
 .all-ev-item {
     display: flex;
     align-items: flex-start;
@@ -951,10 +968,9 @@ body.select-mode .upcoming-check {
     transform: translateY(-1px);
 }
 .all-ev-item.item-sel {
-    background: #fff5f5;
+    background: rgba(255, 107, 107, 0.1);
     border-color: var(--accent);
 }
-
 .all-ev-check {
     display: none;
     width: 16px;
@@ -965,7 +981,7 @@ body.select-mode .upcoming-check {
     align-items: center;
     justify-content: center;
     margin-top: 1px;
-    background: #fff;
+    background: var(--bg-card);
     transition: all 0.15s;
 }
 body.select-mode .all-ev-check {
@@ -983,7 +999,6 @@ body.select-mode .all-ev-check {
     border-bottom: 2px solid #fff;
     transform: rotate(-45deg) translateY(-1px);
 }
-
 .all-ev-dot {
     width: 8px;
     height: 8px;
@@ -1024,11 +1039,72 @@ body.select-mode .all-ev-check {
     padding: 16px 0;
 }
 
-/* ── DAY POPOVER ─────────────────────────────────────────── */
+/* ── TASK SUMMARY STATS (dashboard only) ─────────────────────────── */
+.stat-tile {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+}
+.stat-tile-num {
+    font-family: "Crimson Pro", serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+.stat-tile-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-top: 4px;
+    letter-spacing: 0.03em;
+}
+
+/* ── MINI CALENDAR (dashboard only) ─────────────────────────────── */
+.mini-cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+}
+.mini-cal-cell:hover {
+    background: var(--bg-main);
+}
+.mini-cal-cell.today {
+    background: linear-gradient(
+        135deg,
+        var(--primary) 0%,
+        var(--secondary) 100%
+    );
+    color: #fff;
+}
+.mini-cal-cell.other-month {
+    opacity: 0.35;
+}
+.mini-cal-cell .event-dot {
+    position: absolute;
+    bottom: 3px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--primary);
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* ── DAY POPOVER ─────────────────────────────────────────────────── */
 .day-popover {
     position: fixed;
     z-index: 1500;
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
     border: 1px solid var(--border);
     box-shadow: 0 16px 40px var(--shadow-lg);
@@ -1082,7 +1158,6 @@ body.select-mode .all-ev-check {
     background: #fee2e2;
     color: var(--accent);
 }
-
 .popover-events {
     display: flex;
     flex-direction: column;
@@ -1125,7 +1200,6 @@ body.select-mode .all-ev-check {
     color: var(--text-light);
     margin-top: 1px;
 }
-
 .popover-ev-del {
     width: 22px;
     height: 22px;
@@ -1152,7 +1226,6 @@ body.select-mode .all-ev-check {
     width: 13px;
     height: 13px;
 }
-
 .popover-empty {
     font-size: 13px;
     color: var(--text-light);
@@ -1181,7 +1254,7 @@ body.select-mode .all-ev-check {
     background: rgba(26, 95, 122, 0.04);
 }
 
-/* ── DAY VIEW ────────────────────────────────────────────── */
+/* ── DAY VIEW ────────────────────────────────────────────────────── */
 #dayGrid {
     overflow: hidden;
 }
@@ -1197,7 +1270,7 @@ body.select-mode .all-ev-check {
     border-radius: 4px;
 }
 
-/* ── MODALS ──────────────────────────────────────────────── */
+/* ── MODALS ──────────────────────────────────────────────────────── */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1214,8 +1287,15 @@ body.select-mode .all-ev-check {
     opacity: 1;
     pointer-events: all;
 }
-.modal {
-    background: #fff;
+
+/*
+ * .modal     — used by calendar.blade.php (original class name)
+ * .modal-card — used by tasks.blade.php  (new split pages)
+ * Both are identical so they share the same rules.
+ */
+.modal,
+.modal-card {
+    background: var(--bg-card);
     border-radius: 20px;
     width: 90%;
     max-width: 500px;
@@ -1226,9 +1306,11 @@ body.select-mode .all-ev-check {
     transition: transform 0.2s;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
 }
-.modal-overlay.open .modal {
+.modal-overlay.open .modal,
+.modal-overlay.open .modal-card {
     transform: scale(1);
 }
+
 .confirm-modal {
     max-width: 400px;
 }
@@ -1262,6 +1344,21 @@ body.select-mode .all-ev-check {
     color: var(--accent);
 }
 
+/* modal-body and modal-footer are layout helpers — no base style needed,
+   but defining them prevents any inherited margin weirdness */
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.modal-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+/* ── FORM ELEMENTS ───────────────────────────────────────────────── */
 .form-group {
     margin-bottom: 14px;
 }
@@ -1280,7 +1377,7 @@ body.select-mode .all-ev-check {
     font-family: "DM Sans", sans-serif;
     font-size: 14px;
     transition: border-color 0.2s;
-    background: #fff;
+    background: var(--bg-card);
     color: var(--text-primary);
 }
 .form-input:focus {
@@ -1288,29 +1385,15 @@ body.select-mode .all-ev-check {
     border-color: var(--primary);
 }
 
-.modal-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: space-between;
-    margin-top: 20px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-.btn-cancel {
-    padding: 10px 22px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #fff;
-    font-family: "DM Sans", sans-serif;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--text-secondary);
-}
-.btn-cancel:hover {
-    background: var(--bg-main);
-}
+/* ── SHARED BUTTONS ──────────────────────────────────────────────── */
+/*
+ * .btn-primary / .btn-secondary — used in tasks.blade.php modal footer
+ * .btn-save / .btn-cancel / .btn-danger / .btn-del-ev — used in calendar.blade.php
+ * All kept so both pages work from the same stylesheet.
+ */
+.btn-primary,
 .btn-save {
-    padding: 10px 26px;
+    padding: 9px 22px;
     border-radius: 10px;
     border: none;
     background: linear-gradient(
@@ -1321,27 +1404,34 @@ body.select-mode .all-ev-check {
     color: #fff;
     font-family: "DM Sans", sans-serif;
     font-weight: 600;
-    cursor: pointer;
-}
-.btn-save:hover {
-    opacity: 0.9;
-}
-.btn-del-ev {
-    padding: 10px 20px;
-    border-radius: 10px;
-    border: 1.5px solid #fecaca;
-    background: #fff;
-    color: #dc2626;
-    font-family: "DM Sans", sans-serif;
     font-size: 14px;
-    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
-.btn-del-ev:hover {
-    background: #fff0f0;
-    border-color: #dc2626;
+.btn-primary:hover,
+.btn-save:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
 }
+
+.btn-secondary,
+.btn-cancel {
+    padding: 9px 22px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-family: "DM Sans", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-secondary:hover,
+.btn-cancel:hover {
+    background: var(--bg-main);
+}
+
 .btn-danger {
     padding: 10px 26px;
     border-radius: 10px;
@@ -1358,6 +1448,32 @@ body.select-mode .all-ev-check {
     background: #b91c1c;
 }
 
+.btn-del-ev {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1.5px solid #fecaca;
+    background: var(--bg-card);
+    color: #dc2626;
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-del-ev:hover {
+    border-color: #dc2626;
+}
+
+/* modal actions row alias (calendar page uses this class) */
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    margin-top: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 /* Recurring day toggle buttons */
 .rday {
     padding: 5px 10px;
@@ -1366,7 +1482,7 @@ body.select-mode .all-ev-check {
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    background: #fff;
+    background: var(--bg-card);
     color: var(--text-secondary);
     transition: all 0.15s;
     font-family: "DM Sans", sans-serif;
@@ -1377,7 +1493,7 @@ body.select-mode .all-ev-check {
     color: var(--primary);
 }
 
-/* ── SHARED STATE ────────────────────────────────────────── */
+/* ── SHARED STATE BOXES ──────────────────────────────────────────── */
 .state-box {
     text-align: center;
     padding: 28px;
@@ -1386,7 +1502,7 @@ body.select-mode .all-ev-check {
 }
 .state-box.err {
     color: #dc2626;
-    background: #fff5f5;
+    background: rgba(255, 107, 107, 0.1);
     border-radius: 12px;
     border: 1px solid #fecaca;
 }
@@ -1403,4 +1519,313 @@ body.select-mode .all-ev-check {
     to {
         transform: rotate(360deg);
     }
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.top-bar-greeting {
+    flex: 1; /* pushes bell + avatar to the right */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+/* ── Topbar greeting & date ─────────────────────────────────────── */
+.dash-greeting {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+}
+.dash-topbar-date {
+    font-size: 12px;
+    color: var(--text-light);
+    display: block;
+    margin-top: 1px;
+}
+
+/* ── Focus session button (FR-2.4) ──────────────────────────────── */
+.dash-focus-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: var(--primary, #1a5f7a);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+        opacity 0.15s,
+        transform 0.1s;
+}
+.dash-focus-btn:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+/* ── Metric summary row ──────────────────────────────────────────── */
+.dash-metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 900px) {
+    .dash-metric-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 540px) {
+    .dash-metric-row {
+        grid-template-columns: 1fr;
+    }
+}
+.dash-metric-card {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+.dash-metric-val {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: "Crimson Pro", serif;
+    line-height: 1.1;
+}
+.dash-metric-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 3px;
+}
+.dash-metric-sub {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-top: 3px;
+}
+
+/* ── Two-column layout (schedule + tasks) ───────────────────────── */
+.dash-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 780px) {
+    .dash-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Today's schedule session items ─────────────────────────────── */
+.dash-session-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.dash-session-item:last-child {
+    border-bottom: none;
+}
+
+.dash-session-bar {
+    width: 3px;
+    min-height: 38px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.dash-session-info {
+    flex: 1;
+    min-width: 0;
+}
+.dash-session-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-session-time {
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+.dash-session-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ── Upcoming task items ─────────────────────────────────────────── */
+.dash-task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+}
+.dash-task-item:last-child {
+    border-bottom: none;
+}
+
+.dash-task-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-dark, #b0b8c1);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
+}
+.dash-task-check.done {
+    background: var(--primary, #1a5f7a);
+    border-color: var(--primary, #1a5f7a);
+}
+.dash-priority-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.dash-priority-high {
+    background: #e24b4a;
+}
+.dash-priority-med {
+    background: #ef9f27;
+}
+.dash-priority-low {
+    background: #639922;
+}
+
+.dash-task-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-task-name.done {
+    color: var(--text-light);
+    text-decoration: line-through;
+}
+.dash-task-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.dash-task-due {
+    font-size: 11px;
+    color: var(--text-light);
+    white-space: nowrap;
+}
+
+/* ── Study group items (FR-2.3) ──────────────────────────────────── */
+.dash-group-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.dash-group-item:last-child {
+    border-bottom: none;
+}
+
+.dash-group-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.dash-group-info {
+    flex: 1;
+    min-width: 0;
+}
+.dash-group-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.dash-group-meta {
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+.dash-group-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    background: rgba(26, 95, 122, 0.1);
+    color: var(--primary, #1a5f7a);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ── Weekly summary progress bars (FR-2.5) ──────────────────────── */
+.dash-progress-wrap {
+    margin-top: 10px;
+}
+.dash-progress-wrap:first-child {
+    margin-top: 0;
+}
+.dash-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-bottom: 5px;
+}
+.dash-progress-bar {
+    height: 6px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+}
+.dash-progress-fill {
+    height: 6px;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* ── Title truncation — prevents long titles from squishing badges ── */
+
+/* Deadlines widget */
+.deadline-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* Upcoming This Week list */
+.upcoming-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* Upcoming Tasks (dash-task-name already has these but ensure max-width) */
+.dash-task-name {
+    max-width: 160px;
 }

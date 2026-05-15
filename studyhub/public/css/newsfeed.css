@@ -200,44 +200,70 @@
     background: var(--bg-card); color: var(--primary);
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-/* ── POST CARD (Reddit style with vote column) ── */
+/* ── POST CARD (Design B — no side column) ── */
 .post-card {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: 16px; margin-bottom: 12px; overflow: hidden;
-    display: flex; transition: border-color 0.15s;
+    display: flex; flex-direction: column; transition: border-color 0.15s;
 }
 .post-card:hover { border-color: rgba(26,95,122,0.3); }
-
-/* Vote column */
-.post-vote-col {
-    width: 44px; background: var(--bg-main); flex-shrink: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 0; gap: 3px;
-    border-right: 1px solid var(--border);
-}
-.vote-btn {
-    width: 28px; height: 28px; border-radius: 6px; border: none;
-    background: none; cursor: pointer; color: var(--text-light);
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s;
-}
-.vote-btn svg { width: 16px; height: 16px; }
-.vote-btn:hover { background: rgba(255,107,107,0.1); color: var(--accent); }
-.vote-btn.upvoted { color: #e05d26; background: rgba(224,93,38,0.1); }
-.vote-btn.upvoted svg { fill: #e05d26; }
-.vote-btn.downvoted { color: #5b8dd9; background: rgba(91,141,217,0.1); }
-.vote-btn.downvoted svg { fill: #5b8dd9; }
-.vote-score {
-    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
-    color: var(--text-primary); min-width: 20px; text-align: center;
-    line-height: 1;
-}
-.vote-score.positive { color: #e05d26; }
-.vote-score.negative { color: #5b8dd9; }
 
 /* Post main content */
 .post-main { flex: 1; min-width: 0; }
 
+/* Bottom action bar */
+.post-action-bar-b {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--bg-main);
+    border-top: 1px solid var(--border);
+}
+
+/* Vote group — upvote + downvote buttons side by side */
+.vote-group-b {
+    display: flex; align-items: center; gap: 4px;
+}
+
+.vote-btn-b {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 20px; border: none;
+    background: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+    color: var(--text-secondary);
+    transition: background 0.15s, color 0.15s;
+}
+.vote-btn-b svg { flex-shrink: 0; }
+.vote-btn-b:hover  { background: var(--bg-card); color: var(--text-primary); }
+.vote-btn-b.upvoted-b   { background: rgba(224,93,38,0.1); color: #e05d26; }
+.vote-btn-b.upvoted-b svg   { fill: #e05d26; stroke: #e05d26; }
+.vote-btn-b.downvoted-b { background: rgba(91,141,217,0.1); color: #5b8dd9; }
+.vote-btn-b.downvoted-b svg { fill: #5b8dd9; stroke: #5b8dd9; }
+
+/* Individual up/down counts (inside vote-btn-b) */
+.vote-count {
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+    line-height: 1;
+}
+.upvote-count   { color: inherit; }
+.downvote-count { color: inherit; }
+
+/* Right-side action buttons */
+.post-action-btn-b {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 20px; border: none;
+    background: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    color: var(--text-secondary);
+    transition: background 0.15s, color 0.15s;
+}
+.post-action-btn-b:hover { background: var(--bg-card); color: var(--text-primary); }
+
+/* Hidden score span kept for JS castVote compatibility */
+.vote-score { display: none !important; }
+.vote-score.positive { color: #e05d26; }
+.vote-score.negative { color: #5b8dd9; }
+
+/* Post header */
 .post-header {
     display: flex; align-items: flex-start; justify-content: space-between;
     padding: 12px 14px 0; gap: 10px;
@@ -355,31 +381,6 @@
 .shared-post-header { margin-bottom: 4px; }
 .shared-post-embed .post-media { margin-top: 8px; border-radius: 8px; }
 .shared-post-embed .post-link-preview { margin: 8px 0 0; }
-
-/* ── ACTION BAR ── */
-.post-counts {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 6px 14px; margin-top: 8px;
-    font-size: 12px; color: var(--text-light); border-bottom: 1px solid var(--border);
-}
-.post-counts-likes { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-.post-counts-likes:hover { color: var(--primary); }
-.post-counts-comments { cursor: pointer; }
-.post-counts-comments:hover { color: var(--primary); }
-
-.post-actions-bar { display: flex; align-items: center; padding: 4px 6px; }
-.post-action-btn {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
-    padding: 8px 6px; border-radius: 10px; border: none; background: none;
-    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
-    color: var(--text-secondary); cursor: pointer; transition: background 0.18s, color 0.18s;
-}
-.post-action-btn svg { width: 16px; height: 16px; transition: transform 0.2s; }
-.post-action-btn:hover { background: var(--bg-main); color: var(--primary); }
-.post-action-btn:hover svg { transform: scale(1.15); }
-.post-action-btn.liked { color: #e03d3d; }
-.post-action-btn.liked svg { fill: #e03d3d; stroke: #e03d3d; }
-.post-action-btn.liked:hover { background: rgba(220,38,38,0.07); color: #b91c1c; }
 
 /* ── COMMENTS DRAWER ── */
 .comments-overlay {
@@ -556,12 +557,11 @@
 @media (max-width: 860px) {
     .post-media.count-many { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 600px) {
+@media (max-width:600px) {
     .cp-attach-btn span { display: none; }
     .cp-actions-row { flex-direction: column; align-items: stretch; }
     .feed-sort-bar { overflow-x: auto; flex-wrap: nowrap; }
     .sort-tab { white-space: nowrap; }
-    .post-vote-col { width: 36px; }
 }
 
 /* ── FILTER WIDGET (sidebar) ── */

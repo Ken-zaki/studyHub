@@ -13,10 +13,13 @@ use App\Http\Controllers\StudyGroupController;
 use App\Http\Controllers\CalendarShareController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\OgPreviewController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\TaskController;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
-use App\Http\Controllers\DashboardController;
+
 
 // ──────────────────────────────────────────────────────────────
 // ROLE & AUTH HELPERS
@@ -465,16 +468,13 @@ Route::post('/logout', function () {
 // AUTHENTICATED ROUTES (students, moderators, admins)
 // ──────────────────────────────────────────────────────────────
 
-Route::get('/user_dashboard', [DashboardController::class, 'user_dashboard'])->name('user_dashboard');
-
-Route::get('/dashboard', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.dashboard', ['activeNav' => 'dashboard']);
-})->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/calendar',  [CalendarController::class,  'index'])->name('calendar');
+Route::get('/tasks',     [TaskController::class,      'index'])->name('tasks');
 
 // Newsfeed page
 Route::get('/newsfeed', [NewsfeedController::class, 'index'])->name('newsfeed');
- 
+
 // OG metadata proxy — fetches link previews server-side to
 // avoid CORS issues when the composer previews a pasted URL.
 Route::get('/api/og-preview', [NewsfeedController::class, 'ogPreview'])->name('og.preview');
@@ -508,20 +508,31 @@ Route::post('/calendar/sharing/revoke/{recipientId}', [CalendarShareController::
 Route::post('/calendar/sharing/revoke-received/{ownerId}', [CalendarShareController::class, 'revokeReceivedShare'])->name('calendar.sharing.revoke-received');
 Route::post('/calendar/sharing/group/{groupId}',  [CalendarShareController::class, 'shareWithGroup'])     ->name('calendar.sharing.group');
 
+
+// ─────────────────────────────────────────────────────────────
+// RESOURCES ROUTES
+// ─────────────────────────────────────────────────────────────
+
 // Page
 Route::get('/resources', [ResourceController::class, 'index'])->name('resources');
- 
-// Feed & discovery (used by newsfeed sidebar + resources page)
-Route::get('/api/resources',          [ResourceController::class, 'list']);
-Route::get('/api/resources/trending', [ResourceController::class, 'trending']);
-Route::get('/api/resources/my-uploads',[ResourceController::class, 'myUploads']);
-Route::get('/api/resources/{id}',     [ResourceController::class, 'show']);
- 
+
+// Feed & discovery
+Route::get('/api/resources',              [ResourceController::class, 'list']);
+Route::get('/api/resources/trending',     [ResourceController::class, 'trending']);
+Route::get('/api/resources/my-uploads',   [ResourceController::class, 'myUploads']);
+
+// ── NEW: must be BEFORE the {id} wildcard ──────────────────────
+Route::get ('/api/resources/bookmarks',   [ResourceController::class, 'bookmarks']);
+Route::get ('/api/resources/top-rated',   [ResourceController::class, 'topRated']);
+// ──────────────────────────────────────────────────────────────
+
+Route::get('/api/resources/{id}',         [ResourceController::class, 'show']);
+
 // CRUD
-Route::post  ('/api/resources',        [ResourceController::class, 'store']);
-Route::put   ('/api/resources/{id}',   [ResourceController::class, 'update']);
-Route::delete('/api/resources/{id}',   [ResourceController::class, 'destroy']);
- 
+Route::post  ('/api/resources',           [ResourceController::class, 'store']);
+Route::put   ('/api/resources/{id}',      [ResourceController::class, 'update']);
+Route::delete('/api/resources/{id}',      [ResourceController::class, 'destroy']);
+
 // Ratings & comments
 Route::post  ('/api/resources/{id}/rate',          [ResourceController::class, 'rate']);
 Route::get   ('/api/resources/{id}/comments',      [ResourceController::class, 'comments']);
@@ -529,12 +540,15 @@ Route::post  ('/api/resources/{id}/comments',      [ResourceController::class, '
 Route::put   ('/api/resources/comments/{commentId}',[ResourceController::class, 'updateComment']);
 Route::delete('/api/resources/comments/{commentId}',[ResourceController::class, 'deleteComment']);
 Route::post  ('/api/resources/comments/{commentId}/upvote', [ResourceController::class, 'upvoteComment']);
- 
+
+// ── NEW: bookmark toggle (must be before {id} or use specific path) ──
+Route::post('/api/resources/{id}/bookmark', [ResourceController::class, 'toggleBookmark']);
+
 // Reports & admin
 Route::post('/api/resources/{id}/report',  [ResourceController::class, 'report']);
 Route::post('/api/resources/{id}/approve', [ResourceController::class, 'approve']);
- 
-// Study groups discovery (used by newsfeed sidebar)
+
+// Study groups discovery
 Route::get('/api/study-groups/active', [ResourceController::class, 'activeGroups']);
 
 Route::get('/notifications', function () {
@@ -814,14 +828,18 @@ Route::get('/profile/{userId}', function ($userId) {
     $provider = new SupabaseServiceProvider();
     $viewedProfile = $provider->getProfileById($userId);
 
+    // If the route param is a username (not a UUID), resolve to the actual UUID.
+    // The profile card links use /profile/{username}, but Friendship expects UUIDs.
+    $resolvedUserId = (string) ($viewedProfile['id'] ?? $userId);
+
     $relationshipState = 'none';
     $pendingRequestId = null;
 
-    if (Friendship::areFriends($currentUserId, $userId)) {
+    if (Friendship::areFriends($currentUserId, $resolvedUserId)) {
         $relationshipState = 'friends';
     } else {
         $pendingRequest = FriendRequest::query()
-            ->between($currentUserId, $userId)
+            ->between($currentUserId, $resolvedUserId)
             ->where('status', 'pending')
             ->first();
 
@@ -834,14 +852,14 @@ Route::get('/profile/{userId}', function ($userId) {
     }
 
     $friendRows = Friendship::query()
-        ->where('user_id', $userId)
-        ->orWhere('friend_id', $userId)
+        ->where('user_id', $resolvedUserId)
+        ->orWhere('friend_id', $resolvedUserId)
         ->get(['user_id', 'friend_id']);
 
     $friendIds = [];
     foreach ($friendRows as $row) {
-        $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
-        if ($candidate !== '' && $candidate !== $userId) {
+        $candidate = (string) ($row->user_id === $resolvedUserId ? $row->friend_id : $row->user_id);
+        if ($candidate !== '' && $candidate !== $resolvedUserId) {
             $friendIds[$candidate] = true;
         }
     }
@@ -866,10 +884,26 @@ Route::get('/profile/{userId}', function ($userId) {
 })->name('profile.view');
 
 // ── FOCUS MODE ────────────────────────────────────────────────
-Route::get('/focus-mode',             [FocusModeController::class, 'index'])->name('focus-mode');
-Route::post('/focus-mode/session',    [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
-Route::post('/focus-mode/materials',  [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
-Route::post('/focus-mode/flashcards', [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
+
+Route::get('/focus-mode',                              [FocusModeController::class, 'index'])->name('focus-mode');
+Route::post('/focus-mode/session',                     [FocusModeController::class, 'storeSession'])->name('focus-mode.session');
+Route::post('/focus-mode/materials',                   [FocusModeController::class, 'storeMaterial'])->name('focus-mode.materials');
+Route::delete('/focus-mode/materials/{id}',            [FocusModeController::class, 'destroyMaterial'])->name('focus-mode.materials.destroy');
+Route::get('/focus-mode/materials/{id}/file',          [FocusModeController::class, 'serveMaterial'])->name('focus-mode.materials.file');
+Route::get('/focus-mode/materials/{id}/notes',         [FocusModeController::class, 'showNote'])->name('focus-mode.materials.notes');
+Route::post('/focus-mode/materials/{id}/notes',        [FocusModeController::class, 'saveNote'])->name('focus-mode.materials.notes.save');
+Route::post('/focus-mode/decks',                       [FocusModeController::class, 'storeDeck'])->name('focus-mode.decks.store');
+Route::delete('/focus-mode/decks/{id}',                [FocusModeController::class, 'destroyDeck'])->name('focus-mode.decks.destroy');
+Route::post('/focus-mode/flashcards',                  [FocusModeController::class, 'storeFlashcard'])->name('focus-mode.flashcards');
+Route::delete('/focus-mode/flashcards/{id}',           [FocusModeController::class, 'destroyFlashcard'])->name('focus-mode.flashcards.destroy');
+Route::post('/focus-mode/quiz-sets',                   [FocusModeController::class, 'storeQuizSet'])->name('focus-mode.quiz-sets.store');
+Route::delete('/focus-mode/quiz-sets/{id}',            [FocusModeController::class, 'destroyQuizSet'])->name('focus-mode.quiz-sets.destroy');
+Route::post('/focus-mode/quizzes',                     [FocusModeController::class, 'storeQuiz'])->name('focus-mode.quizzes');
+Route::delete('/focus-mode/quizzes/{id}',              [FocusModeController::class, 'destroyQuiz'])->name('focus-mode.quizzes.destroy');
+
+// Public — no auth needed for background music streaming
+Route::get('/focus-mode/music/stream',                 [FocusModeController::class, 'streamMusic'])->name('focus-mode.music.stream');
+Route::get('/focus-mode/tracks',                       [FocusModeController::class, 'tracks']);
 
 // ──────────────────────────────────────────────────────────────
 // ADMIN ROUTES (admin only)

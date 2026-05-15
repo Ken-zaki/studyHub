@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Resources - StudyHub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,6 +79,26 @@
                     </select>
                 </div>
 
+                <!-- Others subject search (shown only when Others is selected) -->
+                <div id="othersSubjectSearch" style="display:none; align-items:center; gap:6px; width:100%;">
+                    <div class="res-others-search-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                        </svg>
+                        <input type="text" id="othersSubjectInput"
+                            placeholder="Search custom subjects…"
+                            oninput="applyOthersSearch()"
+                            onkeydown="if(event.key==='Enter') applyOthersSearch()">
+                        <button class="res-search-clear" id="othersClear" onclick="clearOthersSearch()">✕</button>
+                    </div>
+                    <button class="res-others-search-btn" onclick="applyOthersSearch()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                        </svg>
+                        Search
+                    </button>
+                </div>
+
                 <div class="res-filter-group">
                     <button class="res-filter-btn active" id="filterPublic" onclick="setVisibility('public', this)">🌐
                         Public</button>
@@ -111,7 +132,10 @@
 
             <!-- My Uploads -->
             <div class="widget-card">
-                <div class="widget-title">📤 My Uploads</div>
+                <div class="widget-title">
+                    📤 My Uploads
+                    <button class="res-bk-view-all" onclick="viewAllMyUploads()" title="View all uploads">View all</button>
+                </div>
                 <button class="res-upload-btn-sm" onclick="openUploadModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         style="width:15px;height:15px;">
@@ -349,12 +373,27 @@
                         Save
                     </button>
                     <button class="res-edit-btn" id="detailEditBtn" style="display:none;" onclick="openEditModal()">✏️ Edit</button>
+                    <button class="res-edit-btn" id="detailDeleteBtn" style="display:none;border-color:rgba(255,107,107,0.4);color:#ef4444;" onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
                 </div>
             </div>
 
             <div class="res-detail-body">
                 <!-- LEFT: main content -->
                 <div>
+                    <!-- Back + owner actions row (above the hero card) -->
+                    <div class="res-detail-top-bar">
+                        <button class="res-detail-back-inline" onclick="closeDetail()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                            Back
+                        </button>
+                        <div class="res-detail-owner-actions" id="detailOwnerActionsBar" style="display:none;">
+                            <button class="res-edit-btn-inline" onclick="openEditModal()">✏️ Edit</button>
+                            <button class="res-delete-btn-inline" onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
+                        </div>
+                    </div>
+
                     <div class="res-detail-hero">
                         <div class="res-detail-icon" id="detailIcon"></div>
                         <div class="res-detail-meta">
@@ -628,10 +667,19 @@
     </div>
 
     <script>
-        const SB_URL = '{{ config('services.supabase.url') }}';
+        const SB_URL  = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC = '{{ config('services.supabase.service_key') }}';
-        const UID = '{{ session('user_id') }}';
+        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
+        const UID     = '{{ session('user_id') }}';
+
+        // CURRENT_USER is referenced throughout resources.js
+        const CURRENT_USER = {
+            id:        '{{ session('user_id', '') }}',
+            firstName: '{{ session('user_first_name', '') }}',
+            lastName:  '{{ session('user_last_name', '') }}',
+            username:  '{{ session('username', '') }}',
+            photoUrl:  '{{ session('profile_photo_url', '') }}',
+        };
     </script>
 
     <script src="{{ asset('js/notifications.js') }}"></script>
