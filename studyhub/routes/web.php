@@ -479,11 +479,6 @@ Route::get('/newsfeed', [NewsfeedController::class, 'index'])->name('newsfeed');
 // avoid CORS issues when the composer previews a pasted URL.
 Route::get('/api/og-preview', [NewsfeedController::class, 'ogPreview'])->name('og.preview');
 
-Route::get('/calendar', function () {
-    if ($r = requireAuth()) return $r;
-    return view('home.calendar', ['activeNav' => 'calendar']);
-})->name('calendar');
-
 // ── STUDY GROUPS ──────────────────────────────────────────────
 Route::get('/study-groups',                    [StudyGroupController::class, 'index'])       ->name('study-groups');
 Route::get('/study-groups/api/friends',        [StudyGroupController::class, 'getFriends'])  ->name('study-groups.friends');

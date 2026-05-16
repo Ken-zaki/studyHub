@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        ['newsfeed', 'study-groups', 'resources', 'messages', 'friends', 'focus-mode', 'calendar', 'notifications'],
+        ['newsfeed', 'study-groups', 'resources', 'messages', 'friends', 'focus-mode'],
         true,
     );
 
@@ -70,14 +70,14 @@
     <div class="global-search-wrap">
         <div class="global-search-input-wrap">
             <svg class="global-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input type="text" id="globalUserSearch" placeholder="Search people..." autocomplete="off">
             <button class="global-search-clear" id="globalSearchClear" title="Clear" style="display:none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
             </button>
         </div>
@@ -85,85 +85,95 @@
     </div>
 
     <style>
-    .global-search-wrap {
-        padding: 8px 12px 4px;
-        position: relative;
-    }
-    .global-search-input-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: var(--bg-hover, rgba(0,0,0,0.05));
-        border: 1.5px solid transparent;
-        border-radius: 12px;
-        padding: 8px 10px;
-        transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
-    }
-    .global-search-input-wrap:focus-within {
-        border-color: var(--primary, #1a5f7a);
-        background: var(--bg-card, #fff);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1a5f7a) 12%, transparent);
-    }
-    .global-search-icon {
-        width: 15px;
-        height: 15px;
-        flex-shrink: 0;
-        color: var(--text-light, #9ca3af);
-        transition: color 0.18s;
-    }
-    .global-search-input-wrap:focus-within .global-search-icon {
-        color: var(--primary, #1a5f7a);
-    }
-    #globalUserSearch {
-        flex: 1;
-        border: none;
-        outline: none;
-        background: transparent;
-        font-size: 13px;
-        color: var(--text-primary, #1a1a1a);
-        font-family: inherit;
-        min-width: 0;
-    }
-    #globalUserSearch::placeholder {
-        color: var(--text-light, #9ca3af);
-    }
-    .global-search-clear {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-        flex-shrink: 0;
-        background: var(--text-light, #9ca3af);
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        padding: 0;
-        transition: background 0.15s;
-    }
-    .global-search-clear:hover {
-        background: var(--primary, #1a5f7a);
-    }
-    .global-search-clear svg {
-        width: 9px;
-        height: 9px;
-        stroke: white;
-    }
-    .global-search-results {
-        display: none;
-        position: absolute;
-        top: calc(100% - 2px);
-        left: 12px;
-        right: 12px;
-        background: var(--bg-card, #fff);
-        border: 1.5px solid var(--border, #e5e7eb);
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-        z-index: 999;
-        overflow: hidden;
-        max-height: 280px;
-        overflow-y: auto;
-    }
+        .global-search-wrap {
+            padding: 8px 12px 4px;
+            position: relative;
+        }
+
+        .global-search-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+            border: 1.5px solid transparent;
+            border-radius: 12px;
+            padding: 8px 10px;
+            transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+        }
+
+        .global-search-input-wrap:focus-within {
+            border-color: var(--primary, #1a5f7a);
+            background: var(--bg-card, #fff);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1a5f7a) 12%, transparent);
+        }
+
+        .global-search-icon {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            color: var(--text-light, #9ca3af);
+            transition: color 0.18s;
+        }
+
+        .global-search-input-wrap:focus-within .global-search-icon {
+            color: var(--primary, #1a5f7a);
+        }
+
+        #globalUserSearch {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13px;
+            color: var(--text-primary, #1a1a1a);
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #globalUserSearch::placeholder {
+            color: var(--text-light, #9ca3af);
+        }
+
+        .global-search-clear {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            background: var(--text-light, #9ca3af);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.15s;
+        }
+
+        .global-search-clear:hover {
+            background: var(--primary, #1a5f7a);
+        }
+
+        .global-search-clear svg {
+            width: 9px;
+            height: 9px;
+            stroke: white;
+        }
+
+        .global-search-results {
+            display: none;
+            position: absolute;
+            top: calc(100% - 2px);
+            left: 12px;
+            right: 12px;
+            background: var(--bg-card, #fff);
+            border: 1.5px solid var(--border, #e5e7eb);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            overflow: hidden;
+            max-height: 280px;
+            overflow-y: auto;
+        }
     </style>
 
     <nav class="sidebar-nav">
@@ -296,7 +306,8 @@
         <form method="POST" action="{{ route('logout') }}" style="margin:0;">
             @csrf
             <button type="submit" class="sidebar-logout-btn" title="Logout">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24"
+                    height="24">
                     <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                     <polyline points="16 17 21 12 16 7" />
                     <line x1="21" y1="12" x2="9" y2="12" />
@@ -361,62 +372,66 @@
 @endif
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const input = document.getElementById('globalUserSearch');
-    const box   = document.getElementById('globalSearchResults');
-    const clear = document.getElementById('globalSearchClear');
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('globalUserSearch');
+        const box = document.getElementById('globalSearchResults');
+        const clear = document.getElementById('globalSearchClear');
 
-    if (!input || !box) return;
+        if (!input || !box) return;
 
-    let timer = null;
+        let timer = null;
 
-    function toggleClear() {
-        if (clear) clear.style.display = input.value.length ? 'flex' : 'none';
-    }
-
-    if (clear) {
-        clear.addEventListener('click', function () {
-            input.value = '';
-            box.style.display = 'none';
-            box.innerHTML = '';
-            toggleClear();
-            input.focus();
-        });
-    }
-
-    input.addEventListener('input', function () {
-        toggleClear();
-        const q = this.value.trim();
-
-        clearTimeout(timer);
-
-        if (q.length < 2) {
-            box.style.display = 'none';
-            box.innerHTML = '';
-            return;
+        function toggleClear() {
+            if (clear) clear.style.display = input.value.length ? 'flex' : 'none';
         }
 
-        timer = setTimeout(async function () {
-            try {
-                const res = await fetch(`/api/search/users?q=${encodeURIComponent(q)}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
+        if (clear) {
+            clear.addEventListener('click', function() {
+                input.value = '';
+                box.style.display = 'none';
+                box.innerHTML = '';
+                toggleClear();
+                input.focus();
+            });
+        }
 
-                const data  = await res.json();
-                const users = data.users || [];
+        input.addEventListener('input', function() {
+            toggleClear();
+            const q = this.value.trim();
 
-                if (!users.length) {
-                    box.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">No users found.</div>`;
-                    box.style.display = 'block';
-                    return;
-                }
+            clearTimeout(timer);
 
-                box.innerHTML = users.map(user => {
-                    const avatar = user.photo
-                        ? `<img src="${user.photo}" alt="">`
-                        : `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
+            if (q.length < 2) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+                return;
+            }
 
-                    return `
+            timer = setTimeout(async function() {
+                try {
+                    const res = await fetch(
+                    `/api/search/users?q=${encodeURIComponent(q)}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    const data = await res.json();
+                    const users = data.users || [];
+
+                    if (!users.length) {
+                        box.innerHTML =
+                            `<div style="padding:12px;color:#999;font-size:13px;">No users found.</div>`;
+                        box.style.display = 'block';
+                        return;
+                    }
+
+                    box.innerHTML = users.map(user => {
+                        const avatar = user.photo ?
+                            `<img src="${user.photo}" alt="">` :
+                            `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
+
+                        return `
                         <a href="${user.url}" class="global-search-result">
                             ${avatar}
                             <div>
@@ -426,20 +441,21 @@ document.addEventListener('DOMContentLoaded', function () {
                             ${user.is_friend ? `<span class="global-search-badge">Friend</span>` : ''}
                         </a>
                     `;
-                }).join('');
+                    }).join('');
 
-                box.style.display = 'block';
-            } catch (e) {
-                box.innerHTML = `<div style="padding:12px;color:#d33;font-size:13px;">Search failed.</div>`;
-                box.style.display = 'block';
+                    box.style.display = 'block';
+                } catch (e) {
+                    box.innerHTML =
+                        `<div style="padding:12px;color:#d33;font-size:13px;">Search failed.</div>`;
+                    box.style.display = 'block';
+                }
+            }, 250);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.global-search-wrap')) {
+                box.style.display = 'none';
             }
-        }, 250);
+        });
     });
-
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('.global-search-wrap')) {
-            box.style.display = 'none';
-        }
-    });
-});
 </script>
