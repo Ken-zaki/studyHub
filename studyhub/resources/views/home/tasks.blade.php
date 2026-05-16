@@ -50,29 +50,19 @@
                             <option value="low">🟢 Low</option>
                         </select>
 
-                        {{--
-                            FR-4.4: Progress monitoring with To-do / In Progress / Done.
-                            CHANGE: Replaced "Active / Completed" (2 states) with the
-                            three states specified in FR-4.4. "All Tasks" still available.
-                            tasks.js must filter tasks by task.status value.
-                        --}}
                         <select id="taskFilterStatus"
                             style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);
                                        font-size:13px;font-family:inherit;color:var(--text-secondary);
                                        background:var(--bg-main);cursor:pointer;outline:none;">
                             <option value="all">All Tasks</option>
-                            <option value="todo">To-do</option>
-                            <option value="in_progress">In Progress</option>
+                            <option value="to-do">To-do</option>
+                            <option value="in-progress">In Progress</option>
                             <option value="done">Done</option>
                         </select>
                     </div>
                 </div>
 
                 {{-- Progress Bar (FR-4.4) --}}
-                {{--
-                    Shows completion ratio across the current filter.
-                    tasks.js calculates: done / total and animates the bar.
-                --}}
                 <div id="taskProgress" style="display:none;margin-bottom:14px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                         <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">Progress</span>
@@ -88,21 +78,10 @@
                 </div>
 
                 {{-- Subject Chips (FR-4.5) --}}
-                {{--
-                    CHANGE: Renamed from "Label Chips" to "Subject Chips".
-                    FR-4.5 calls these "subject tags" — keeping the label consistent.
-                    tasks.js renders one chip per unique task.label value;
-                    clicking a chip filters the list to that subject only.
-                --}}
                 <div id="taskLabelChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;min-height:4px;">
                 </div>
 
                 {{-- Status tab strip (FR-4.4) --}}
-                {{--
-                    NEW: Visual kanban-style tab strip so users can switch between
-                    To-do / In Progress / Done with one click, mirroring the dropdown filter.
-                    tasks.js should sync this strip with #taskFilterStatus.
-                --}}
                 <div id="statusTabStrip"
                     style="display:flex;gap:4px;margin-bottom:16px;
                            border-bottom:2px solid var(--border);padding-bottom:0;">
@@ -114,14 +93,14 @@
                                margin-bottom:-2px;transition:.15s;">
                         All
                     </button>
-                    <button data-status="todo" onclick="setStatusTab('todo')" class="status-tab"
+                    <button data-status="to-do" onclick="setStatusTab('to-do')" class="status-tab"
                         style="padding:7px 14px;border:none;background:none;
                                font-size:13px;font-weight:600;cursor:pointer;
                                color:var(--text-secondary);border-bottom:2px solid transparent;
                                margin-bottom:-2px;transition:.15s;">
                         To-do
                     </button>
-                    <button data-status="in_progress" onclick="setStatusTab('in_progress')" class="status-tab"
+                    <button data-status="in-progress" onclick="setStatusTab('in-progress')" class="status-tab"
                         style="padding:7px 14px;border:none;background:none;
                                font-size:13px;font-weight:600;cursor:pointer;
                                color:var(--text-secondary);border-bottom:2px solid transparent;
@@ -138,17 +117,6 @@
                 </div>
 
                 {{-- Task List --}}
-                {{--
-                    tasks.js renders task rows here.
-                    Each row must include:
-                      - Checkbox to mark done (updates status → 'done')
-                      - Title
-                      - Status pill: To-do / In Progress / Done (FR-4.4)
-                      - Priority badge: Low / Medium / High (FR-4.2)
-                      - Due date (FR-4.3)
-                      - Subject tag chip (FR-4.5)
-                      - Expand arrow to show subtasks (FR-4.1)
-                --}}
                 <div id="taskList">
                     <div class="state-box" style="text-align:center;padding:40px 20px;color:var(--text-light);">
                         Loading tasks…
@@ -163,7 +131,7 @@
         {{-- ── RIGHT SIDEBAR ──────────────────────────────────────────── --}}
         <aside class="right-sidebar">
 
-            {{-- Quick Add Task (FR-4.1) --}}
+            {{-- Quick Add Task --}}
             <div class="card" style="margin-bottom:20px;">
                 <h3 class="card-title" style="margin-bottom:14px;">Quick Add</h3>
                 <button onclick="openTaskModal()" class="btn-add-event"
@@ -178,10 +146,6 @@
             </div>
 
             {{-- Task Overview mini stats (FR-4.4) --}}
-            {{--
-                NEW CARD: Quick count of tasks by status in the sidebar,
-                mirroring the dashboard. Populated by tasks.js.
-            --}}
             <div class="card" style="margin-bottom:20px;">
                 <h3 class="card-title" style="margin-bottom:12px;">Overview</h3>
                 <div id="taskSidebarStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
@@ -189,27 +153,25 @@
                         style="text-align:center;padding:10px 4px;border-radius:10px;
                                 background:var(--bg-main);border:1px solid var(--border);">
                         <div id="statTodo" style="font-size:20px;font-weight:700;color:var(--primary,#1a5f7a);">–</div>
-                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">
-                            To-do</div>
+                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">To-do</div>
                     </div>
                     <div
                         style="text-align:center;padding:10px 4px;border-radius:10px;
                                 background:var(--bg-main);border:1px solid var(--border);">
                         <div id="statInProgress" style="font-size:20px;font-weight:700;color:#8b5cf6;">–</div>
-                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">
-                            In Progress</div>
+                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">In Progress
+                        </div>
                     </div>
                     <div
                         style="text-align:center;padding:10px 4px;border-radius:10px;
                                 background:var(--bg-main);border:1px solid var(--border);">
                         <div id="statDone" style="font-size:20px;font-weight:700;color:var(--secondary,#2a9d8f);">–</div>
-                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">
-                            Done</div>
+                        <div style="font-size:10px;font-weight:600;color:var(--text-light);margin-top:2px;">Done</div>
                     </div>
                 </div>
             </div>
 
-            {{-- Upcoming Deadlines (FR-2.2 / FR-4.3) --}}
+            {{-- Upcoming Deadlines --}}
             <div class="card">
                 <h3 class="card-title" style="margin-bottom:14px;">Upcoming Deadlines</h3>
                 <div id="deadlinesList">
@@ -219,16 +181,14 @@
                 </div>
             </div>
 
+            {{-- Subject Tags Card --}}
             <div class="card" id="subjectTagsCard" style="margin-bottom:20px;">
-
-                {{-- Header --}}
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <h3 class="card-title" style="margin:0;">Subject Tags</h3>
                     <button id="btnAddSubjectTag"
                         style="display:flex;align-items:center;gap:5px;padding:5px 10px;
-                   border-radius:8px;border:none;font-size:12px;font-weight:700;
-                   background:var(--primary,#1a5f7a);color:#fff;cursor:pointer;
-                   transition:.15s;"
+                               border-radius:8px;border:none;font-size:12px;font-weight:700;
+                               background:var(--primary,#1a5f7a);color:#fff;cursor:pointer;transition:.15s;"
                         onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12"
                             height="12">
@@ -238,18 +198,14 @@
                         Add Subject
                     </button>
                 </div>
-
-                {{-- Scrollable subject list --}}
                 <div id="subjectTagsList"
                     style="display:flex;flex-direction:column;gap:6px;
-               max-height:220px;overflow-y:auto;
-               padding-right:2px;">
+                           max-height:220px;overflow-y:auto;padding-right:2px;">
                     <div style="font-size:12px;color:var(--text-light);text-align:center;padding:18px 0;">
                         Loading subjects…
                     </div>
                 </div>
-
-            </div>{{-- /subjectTagsCard --}}
+            </div>
 
         </aside>{{-- /right-sidebar --}}
 
@@ -258,11 +214,8 @@
 
     {{-- ══════════════════════════════════════════════════════════════════
          TASK MODAL (Add / Edit)
-         FR-4.1: Task + subtasks
-         FR-4.2: Priority (Low / Medium / High)
-         FR-4.3: Due date visible
-         FR-4.4: Status (To-do / In Progress / Done)
-         FR-4.5: Subject tags
+         Status is intentionally NOT here — it lives as an inline dropdown
+         on each task row and is changed there directly (no modal needed).
     ══════════════════════════════════════════════════════════════════ --}}
     <div id="taskModal" class="modal-overlay">
         <div class="modal-card" style="max-width:480px;width:100%;">
@@ -295,64 +248,24 @@
                     <div style="display:flex;gap:8px;">
                         <label class="priority-option" data-p="high"
                             style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
+                                   padding:8px;border-radius:10px;border:1.5px solid var(--border);
+                                   cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
                             <input type="radio" name="taskPriority" value="high" style="display:none">
                             🔴 High
                         </label>
                         <label class="priority-option" data-p="medium"
                             style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
+                                   padding:8px;border-radius:10px;border:1.5px solid var(--border);
+                                   cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
                             <input type="radio" name="taskPriority" value="medium" style="display:none">
                             🟡 Medium
                         </label>
                         <label class="priority-option sel" data-p="low"
                             style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
+                                   padding:8px;border-radius:10px;border:1.5px solid var(--border);
+                                   cursor:pointer;font-size:13px;font-weight:600;transition:.15s;">
                             <input type="radio" name="taskPriority" value="low" checked style="display:none">
                             🟢 Low
-                        </label>
-                    </div>
-                </div>
-
-                {{-- Status (FR-4.4) --}}
-                {{--
-                    CHANGE: Added Status field — previously missing from the modal entirely.
-                    This is the core of FR-4.4: users must be able to set
-                    To-do / In Progress / Done on each task.
-                    tasks.js must:
-                      - Read this value when saving (task.status)
-                      - Pre-fill it when editing an existing task
-                      - Update the task row's status pill after save
-                --}}
-                <div class="form-group">
-                    <label class="form-label" for="taskStatus">Status</label>
-                    <div style="display:flex;gap:8px;">
-                        <label class="status-option" data-s="todo"
-                            style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;"
-                            onclick="setTaskStatus('todo')">
-                            <input type="radio" name="taskStatus" value="todo" checked style="display:none">
-                            📋 To-do
-                        </label>
-                        <label class="status-option" data-s="in_progress"
-                            style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;"
-                            onclick="setTaskStatus('in_progress')">
-                            <input type="radio" name="taskStatus" value="in_progress" style="display:none">
-                            🔄 In Progress
-                        </label>
-                        <label class="status-option" data-s="done"
-                            style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                                      padding:8px;border-radius:10px;border:1.5px solid var(--border);
-                                      cursor:pointer;font-size:13px;font-weight:600;transition:.15s;"
-                            onclick="setTaskStatus('done')">
-                            <input type="radio" name="taskStatus" value="done" style="display:none">
-                            ✅ Done
                         </label>
                     </div>
                 </div>
@@ -370,29 +283,22 @@
                 </div>
 
                 {{-- Subject Tag (FR-4.5) --}}
-                {{--
-                    CHANGE: Renamed from "Label" to "Subject" to match FR-4.5
-                    and align with the calendar's subject color system.
-                    tasks.js can render a color dot next to this field if a matching
-                    subject color exists in Supabase (user_subject_colors table).
-                --}}
                 <div class="form-group">
                     <label class="form-label" for="taskLabelSelect">Subject tag</label>
                     <div style="position:relative;">
                         <select id="taskLabelSelect" class="form-input"
                             style="appearance:none;padding-right:32px;cursor:pointer;">
                             <option value="">— None —</option>
-                            <!-- Populated by tasks.js loadSubjectsIntoSelect() -->
+                            {{-- Populated by tasks.js loadSubjectsIntoSelect() --}}
                         </select>
-                        <!-- Colour dot shown next to selected subject -->
                         <span id="taskLabelDot"
                             style="position:absolute;left:12px;top:50%;transform:translateY(-50%);
-                   width:9px;height:9px;border-radius:50%;background:transparent;
-                   pointer-events:none;display:none;"></span>
+                                   width:9px;height:9px;border-radius:50%;background:transparent;
+                                   pointer-events:none;display:none;"></span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"
                             height="14"
                             style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                    pointer-events:none;color:var(--text-secondary);">
+                                   pointer-events:none;color:var(--text-secondary);">
                             <polyline points="6 9 12 15 18 9" />
                         </svg>
                     </div>
@@ -405,22 +311,7 @@
                         style="resize:vertical;"></textarea>
                 </div>
 
-                {{-- ── Subtasks (FR-4.1) ───────────────────────────────── --}}
-                {{--
-                    NEW SECTION: FR-4.1 requires tasks AND subtasks.
-                    Previously this was completely missing from the modal.
-
-                    tasks.js must:
-                      1. Save subtasks to a separate Supabase table:
-                           subtasks (id, task_id FK, title, status, created_at)
-                      2. Load existing subtasks when editing a task (by task.id)
-                      3. addSubtask() appends a row to #subtaskList
-                      4. Each subtask row: checkbox (done toggle) + text input + remove btn
-                      5. On save: upsert subtasks, delete removed ones
-
-                    The subtask rows are rendered by tasks.js into #subtaskList.
-                    This blade only provides the shell + add button.
-                --}}
+                {{-- Subtasks (FR-4.1) --}}
                 <div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:2px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                         <label class="form-label" style="margin:0;">Subtasks</label>
@@ -437,20 +328,10 @@
                             Add subtask
                         </button>
                     </div>
-                    {{--
-                        tasks.js renders subtask rows here.
-                        Each row structure (for reference):
-                        <div class="subtask-row" data-id="...">
-                          <input type="checkbox" class="subtask-check" ...>
-                          <input type="text" class="subtask-title form-input" value="...">
-                          <button class="subtask-remove">✕</button>
-                        </div>
-                    --}}
                     <div id="subtaskList" style="display:flex;flex-direction:column;gap:8px;min-height:4px;">
                         {{-- Populated by tasks.js --}}
                     </div>
                 </div>
-                {{-- /subtasks --}}
 
             </div>{{-- /modal-body --}}
 
@@ -505,9 +386,10 @@
         </div>
     </div>{{-- /confirmModal --}}
 
+
     {{-- ══════════════════════════════════════════════════════════════════
-     SUBJECT TAG MODAL (Add / Edit)
-    ═════════════════════════════════════════════════════════════════ --}}
+         SUBJECT TAG MODAL (Add / Edit)
+    ══════════════════════════════════════════════════════════════════ --}}
     <div id="subjectModal" class="modal-overlay">
         <div class="modal-card" style="max-width:400px;width:100%;">
 
@@ -524,7 +406,6 @@
 
             <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
 
-                {{-- Subject Name --}}
                 <div class="form-group">
                     <label class="form-label" for="subjectName">
                         Subject Name <span style="color:var(--accent)">*</span>
@@ -533,7 +414,6 @@
                         autocomplete="off">
                 </div>
 
-                {{-- Color Picker --}}
                 <div class="form-group">
                     <label class="form-label">Color</label>
                     <div id="subjectColorPicker"
@@ -543,18 +423,17 @@
                     <input type="hidden" id="subjectColorValue" value="#9ca3af">
                 </div>
 
-                {{-- Live preview --}}
                 <div
                     style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);
-                        background:var(--bg-main);display:flex;align-items:center;gap:8px;">
+                            background:var(--bg-main);display:flex;align-items:center;gap:8px;">
                     <span style="font-size:12px;color:var(--text-secondary);">Preview:</span>
                     <span id="subjectPreviewChip"
                         style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;
-                             background:rgba(156,163,175,.15);color:#9ca3af;
-                             display:inline-flex;align-items:center;gap:5px;transition:.2s;">
+                               background:rgba(156,163,175,.15);color:#9ca3af;
+                               display:inline-flex;align-items:center;gap:5px;transition:.2s;">
                         <span id="subjectPreviewDot"
                             style="width:8px;height:8px;border-radius:50%;
-                                 background:#9ca3af;display:inline-block;transition:.2s;"></span>
+                                   background:#9ca3af;display:inline-block;transition:.2s;"></span>
                         <span id="subjectPreviewName">Subject</span>
                     </span>
                 </div>
@@ -564,8 +443,8 @@
             <div class="modal-footer" style="display:flex;align-items:center;gap:8px;margin-top:20px;">
                 <button id="btnDelSubject"
                     style="display:none;padding:9px 16px;border-radius:10px;
-                       border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;
-                       font-size:13px;font-weight:600;cursor:pointer;transition:.15s;"
+                           border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;
+                           font-size:13px;font-weight:600;cursor:pointer;transition:.15s;"
                     onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff5f5'">
                     Delete
                 </button>
@@ -591,42 +470,26 @@
     <script src="{{ asset('js/tasks.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
-    {{-- ── Status tab strip sync + status option highlight ─────────── --}}
+    {{-- ── Status tab strip sync ─────────────────────────────────────── --}}
     {{--
         setStatusTab() keeps the tab strip and the #taskFilterStatus dropdown in sync.
-        setTaskStatus() highlights the selected status option in the modal.
-        tasks.js may also call these directly.
+        Status is no longer set inside the modal — it lives as an inline dropdown
+        on each task row. setTaskStatus() is therefore not needed here.
     --}}
     <script>
         function setStatusTab(status) {
-            // Sync dropdown
             const dropdown = document.getElementById('taskFilterStatus');
             if (dropdown) dropdown.value = status;
 
-            // Sync tab strip highlight
             document.querySelectorAll('.status-tab').forEach(btn => {
                 const active = btn.dataset.status === status;
                 btn.style.color = active ? 'var(--primary,#1a5f7a)' : 'var(--text-secondary)';
                 btn.style.borderBottom = active ? '2px solid var(--primary,#1a5f7a)' : '2px solid transparent';
             });
 
-            // Trigger tasks.js filter if available
             if (typeof filterTasks === 'function') filterTasks();
         }
 
-        function setTaskStatus(status) {
-            // Highlight selected status option in the modal
-            document.querySelectorAll('.status-option').forEach(opt => {
-                const active = opt.dataset.s === status;
-                opt.style.borderColor = active ? 'var(--primary,#1a5f7a)' : 'var(--border)';
-                opt.style.background = active ? 'rgba(26,95,122,.08)' : 'transparent';
-                opt.style.color = active ? 'var(--primary,#1a5f7a)' : 'var(--text-secondary)';
-                const radio = opt.querySelector('input[type=radio]');
-                if (radio) radio.checked = active;
-            });
-        }
-
-        // Sync dropdown → tab strip on manual change
         document.addEventListener('DOMContentLoaded', function() {
             const dropdown = document.getElementById('taskFilterStatus');
             if (dropdown) {

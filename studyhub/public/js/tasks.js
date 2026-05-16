@@ -667,7 +667,8 @@ function taskItemHTML(t) {
                        display:flex;align-items:center;justify-content:center;">
                 ${isSel ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
            </button>`
-        : `<button class="task-check-btn" title="Cycle status" onclick="cycleTaskStatus('${t.id}')"
+        : `<button class="task-check-btn" title="Mark done / undone"
+                onclick="cycleTaskStatus('${t.id}')"
                 style="width:20px;height:20px;border-radius:50%;flex-shrink:0;cursor:pointer;
                        border:2px solid ${PRI_COLOR[t.priority || "low"]};
                        background:${isDoneT ? PRI_COLOR[t.priority || "low"] : status === "in-progress" ? "rgba(139,92,246,0.18)" : "transparent"};
@@ -685,10 +686,21 @@ function taskItemHTML(t) {
         ? `onclick="event.stopPropagation();toggleTaskSel('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`
         : `onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`;
 
-    const statusPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
-                                      background:${STATUS_BG[status]};color:${STATUS_COLOR[status]};">
-                            ${STATUS_ICON[status]} ${STATUS_LABEL[status]}
-                        </span>`;
+    // Inline status dropdown — shown outside the modal, on the row itself
+    const statusDropdown = !selectMode
+        ? `
+        <select onchange="changeTaskStatus('${t.id}', this.value)"
+                onclick="event.stopPropagation()"
+                style="padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600;
+                       border:none;cursor:pointer;outline:none;font-family:inherit;
+                       background:${STATUS_BG[status]};color:${STATUS_COLOR[status]};">
+            <option value="to-do"       ${status === "to-do" ? "selected" : ""}>📋 To-do</option>
+            <option value="in-progress" ${status === "in-progress" ? "selected" : ""}>🔄 In Progress</option>
+            <option value="done"        ${status === "done" ? "selected" : ""}>✅ Done</option>
+        </select>`
+        : `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
+                                   background:${STATUS_BG[status]};color:${STATUS_COLOR[status]};">
+                          ${STATUS_ICON[status]} ${STATUS_LABEL[status]}</span>`;
 
     const priPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                                    background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]};">
@@ -700,8 +712,7 @@ function taskItemHTML(t) {
         ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                          background:${subjectColor}22;color:${subjectColor};
                          display:inline-flex;align-items:center;gap:4px;">
-                <span style="width:7px;height:7px;border-radius:50%;
-                              background:${subjectColor};display:inline-block;"></span>
+                <span style="width:7px;height:7px;border-radius:50%;background:${subjectColor};display:inline-block;"></span>
                 ${esc(t.label)}
            </span>`
         : "";
@@ -736,7 +747,6 @@ function taskItemHTML(t) {
                               ${isDoneT && !selectMode ? "text-decoration:line-through;opacity:.45;" : ""}">
                     ${esc(t.title)}
                 </span>
-                ${statusPill}
                 ${priPill}
                 ${labelChip}
             </div>
@@ -746,6 +756,7 @@ function taskItemHTML(t) {
                 ${subBadge}
             </div>
         </div>
+        ${statusDropdown}
         <button onclick="promptDeleteTask('${t.id}')"
             style="background:none;border:none;cursor:pointer;color:var(--text-light);
                    padding:4px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;"
@@ -978,15 +989,11 @@ async function saveTask() {
     const pri =
         document.querySelector('input[name="taskPriority"]:checked')?.value ||
         "low";
-    const status =
-        document.querySelector('input[name="taskStatus"]:checked')?.value ||
-        "to-do";
     const label = document.getElementById("taskLabelSelect")?.value || null;
 
     const data = {
         title,
         priority: pri,
-        status,
         due_date: document.getElementById("taskDueDate").value || null,
         due_time: document.getElementById("taskDueTime").value || null,
         label: label || null,
@@ -1055,8 +1062,6 @@ async function openTaskModal(id = null) {
             l.classList.toggle("sel", active);
             l.querySelector("input").checked = active;
         });
-
-        setTaskStatus(t.status || "to-do");
         document.getElementById("btnDelTask").style.display = "block";
 
         await loadSubtasks(id);
@@ -1094,8 +1099,6 @@ function resetTaskForm() {
         l.classList.toggle("sel", l.dataset.p === "low");
         l.querySelector("input").checked = l.dataset.p === "low";
     });
-
-    setTaskStatus("to-do");
 
     _subtasks = [];
     const subList = document.getElementById("subtaskList");
@@ -1232,5 +1235,16 @@ async function execDelete() {
     } finally {
         btn.textContent = "Yes, Delete";
         btn.disabled = false;
+    }
+}
+
+async function changeTaskStatus(id, newStatus) {
+    try {
+        await taskUpdate(id, { status: newStatus });
+        const i = allTasks.findIndex((x) => x.id === id);
+        if (i !== -1) allTasks[i] = { ...allTasks[i], status: newStatus };
+        renderTaskManager();
+    } catch (err) {
+        alert("Failed to update status: " + err.message);
     }
 }
