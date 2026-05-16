@@ -1,0 +1,712 @@
+/* ═══════════════════════════════════════════════════════════════
+   FLASHCARDS / DECKS — Complete Stylesheet
+   Includes: Deck Browser, Deck Cards, Modal, Flashcard Viewer
+   Font: DM Sans (assumed loaded in host page)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── CSS Variables ── */
+:root {
+    --accent-orange:  #f4843a;
+    --accent-yellow:  #f0c040;
+    --accent-teal:    #2a9d8f;
+    --bg-card:        #ececea;
+    --bg-modal:       #eae7e0;
+    --bg-input:       #dedad5;
+    --bg-input-focus: #d4d0cb;
+    --text-primary:   #1a1a1a;
+    --text-secondary: #666;
+    --text-muted:     #c9afc0;
+    --shadow-sm:      0 2px 8px rgba(0,0,0,0.07);
+    --shadow-md:      0 8px 22px rgba(0,0,0,0.13);
+    --shadow-lg:      0 24px 64px rgba(0,0,0,0.18);
+    --radius-card:    18px;
+    --radius-modal:   24px;
+    --radius-pill:    50px;
+    --transition:     0.2s ease;
+}
+
+
+/* ════════════════════════════════════════════
+   DECK BROWSER
+   ════════════════════════════════════════════ */
+
+/* Page heading */
+/*.flashcard-screen-heading {
+    text-align: center;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    margin: 0 0 32px;
+    margin-top: -100px;
+}
+
+/* Deck Browser wrapper */
+#deckBrowser {
+    width: 100%;
+}
+
+/* "My Decks" section label */
+.deck-section-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 20px;
+    size: 1.7rem;
+    margin-top: -50px;
+}
+
+/* Deck grid */
+.deck-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 28px;
+    min-height: 0;
+}
+
+/* Empty state */
+.deck-empty-state {
+    width: 100%;
+    text-align: center;
+    padding: 60px 24px 40px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+}
+
+/* ── Deck card ── */
+.deck-card {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: 200px;
+    min-height: 110px;
+    background: var(--bg-card);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    cursor: pointer;
+    border: none;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition), box-shadow var(--transition);
+    user-select: none;
+    text-align: left;
+    padding: 0;
+}
+.deck-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+.deck-card:focus-visible {
+    outline: 3px solid var(--accent-teal);
+    outline-offset: 3px;
+}
+
+/* Coloured left accent bar */
+.deck-card-accent {
+    width: 18px;
+    flex-shrink: 0;
+    align-self: stretch;
+}
+.deck-card:nth-child(3n+1) .deck-card-accent { background: var(--accent-orange); }
+.deck-card:nth-child(3n+2) .deck-card-accent { background: var(--accent-orange); }
+.deck-card:nth-child(3n+3) .deck-card-accent { background: var(--accent-orange); }
+
+/* Card body */
+.deck-card-body {
+    flex: 1;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.deck-card-name {
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.deck-card-count {
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.deck-card-desc {
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    color: var(--text-secondary);
+    word-break: break-word;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+
+/* Delete button (shows on hover) */
+.deck-delete-btn {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    background: rgba(0,0,0,0.12);
+    border: none;
+    border-radius: 7px;
+    color: #555;
+    font-size: 12px;
+    padding: 3px 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.18s, background 0.18s;
+    line-height: 1;
+    font-family: "DM Sans", sans-serif;
+}
+.deck-card:hover .deck-delete-btn { opacity: 1; }
+.deck-delete-btn:hover {
+    background: rgba(220,38,38,0.75);
+    color: #fff;
+}
+
+/* "+ Add Decks" button */
+.deck-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 0;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a5f7a;
+    transition: opacity 0.18s;
+    margin-top: 4px;
+}
+.deck-add-btn:hover { opacity: 0.75; }
+
+.deck-add-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--accent-teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(42,157,143,0.35);
+    transition: transform 0.18s, box-shadow 0.18s;
+    background-color: #1a5f7a;
+}
+.deck-add-btn:hover .deck-add-circle {
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(42,157,143,0.45);
+}
+.deck-add-circle svg {
+    width: 22px;
+    height: 22px;
+}
+.deck-add-circle svg path {
+    stroke: #ffffff !important;
+}
+
+
+/* ════════════════════════════════════════════
+   CREATE DECK MODAL
+   ════════════════════════════════════════════ */
+
+/* Modal backdrop */
+.deck-create-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,10,0.35);
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.deck-create-backdrop.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Modal card */
+.deck-create-form {
+    background: var(--bg-modal);
+    border-radius: var(--radius-modal);
+    padding: 36px 40px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: min(480px, 92vw);
+    box-shadow: var(--shadow-lg);
+    box-sizing: border-box;
+}
+
+.deck-modal-title {
+    font-family: "DM Sans", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Text inputs */
+.deck-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    color: var(--text-primary);
+    box-sizing: border-box;
+    outline: none;
+    transition: background 0.18s;
+}
+.deck-input::placeholder { color: #aaa; }
+.deck-input:focus { background: var(--bg-input-focus); }
+
+/* Action row */
+.deck-form-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: flex-start;
+}
+
+.deck-cancel-btn,
+.deck-save-btn {
+    padding: 12px 32px;
+    border-radius: var(--radius-pill);
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.18s, transform 0.18s;
+    color: #fff;
+}
+
+.deck-save-btn { background: var(--accent-orange); }
+.deck-save-btn:hover { transform: translateY(-1px); opacity: 0.9; }
+
+.deck-cancel-btn { background: var(--accent-teal); }
+.deck-cancel-btn:hover { opacity: 0.85; }
+
+.deck-status {
+    font-size: 13px;
+    color: var(--accent-teal);
+    min-height: 18px;
+    font-family: "DM Sans", sans-serif;
+}
+.deck-status.error { color: #e53e3e; }
+
+
+/* ════════════════════════════════════════════
+   DECK CONTENT AREA (after clicking a deck)
+   ════════════════════════════════════════════ */
+
+#deckContent {
+    width: 100%;
+}
+
+.deck-content-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+/* Back button */
+.deck-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 9px 20px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background var(--transition), transform var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+.deck-back-btn:hover {
+    background: #e0ddd8;
+    transform: translateX(-2px);
+}
+
+.deck-content-title {
+    font-family: "DM Sans", sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+
+
+/* ════════════════════════════════════════════
+   FLASHCARD STAGE  (matches JS-generated HTML)
+
+   JS builds this structure inside #flashcardStageTrack:
+   ┌─ .flashcard-slide  (one per card, laid out horizontally)
+   │   └─ .flashcard-card  ← click toggles .flipped
+   │       └─ .flashcard-card-inner  ← rotates 180deg
+   │           ├─ .flashcard-card-front
+   │           │   ├─ .flashcard-card-label  ("Question")
+   │           │   └─ .flashcard-card-text
+   │           └─ .flashcard-card-back
+   │               ├─ .flashcard-card-label  ("Answer")
+   │               └─ .flashcard-card-text
+   └─ …
+   ════════════════════════════════════════════ */
+
+/* ── Stage wrapper ── */
+.flashcard-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    margin: 24px 0 8px;
+}
+
+/* Viewport clips the sliding track */
+.flashcard-stage-viewport {
+    flex: 1;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+}
+
+/* Track — slides sit side-by-side, JS translates it */
+#flashcardStageTrack {
+    display: flex;
+    gap: 24px;
+    transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+/* Each slide occupies exactly the viewport width */
+.flashcard-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 0 16px;
+    box-sizing: border-box;
+}
+
+/* ── 3-D flip card ── */
+/* The card itself is the perspective container */
+.flashcard-card {
+    width: 100%;
+    max-width: 560px;
+    min-height: 240px;
+    perspective: 1200px;
+    cursor: pointer;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* Anchor for delete button */
+.flashcard-card { position: relative; }
+
+/* Delete button shown on flashcard slides */
+.flashcard-card-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: #bdbdbd;
+    border-radius: 8px;
+    transition: color 0.15s, background 0.15s, transform 0.12s;
+    z-index: 3;
+}
+.flashcard-card-delete-btn:hover { color: #e53e3e; background: #fff0f0; }
+
+/* Inner wrapper rotates on flip */
+.flashcard-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    transform-style: preserve-3d;
+    transition: transform 0.55s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    border-radius: var(--radius-card);
+}
+
+/* Flipped state — toggled by JS on .flashcard-card */
+.flashcard-card.flipped .flashcard-card-inner {
+    transform: rotateY(180deg);
+}
+
+/* ── Card faces (shared) ── */
+.flashcard-card-front,
+.flashcard-card-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: var(--radius-card);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 40px;
+    box-sizing: border-box;
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    overflow: hidden;
+}
+
+/* Front — warm light */
+.flashcard-card-front {
+    background: var(--bg-card);
+}
+
+/* Orange accent stripe on top of front */
+.flashcard-card-front::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: var(--accent-orange);
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+/* "Tap to flip" hint on front */
+.flashcard-card-front::after {
+    content: "click to flip ↺";
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+/* Back — teal tint, already rotated 180deg */
+.flashcard-card-back {
+    background: #e3f2f0;
+    transform: rotateY(180deg);
+}
+
+/* Teal accent stripe on top of back */
+.flashcard-card-back::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: var(--accent-teal);
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+/* ── Face labels ("Question" / "Answer") ── */
+.flashcard-card-label {
+    font-family: "DM Sans", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    align-self: flex-start;
+}
+
+/* ── Card body text ── */
+.flashcard-card-text {
+    font-family: "DM Sans", sans-serif;
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+/* ── Empty state slide ── */
+.flashcard-empty-slide {
+    width: 100%;
+    text-align: center;
+    padding: 60px 24px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1.7;
+    background: var(--bg-card);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── Navigation arrows (‹ ›) ── */
+.flashcard-nav {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: var(--bg-card);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    font-size: 22px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700;
+    user-select: none;
+    line-height: 1;
+}
+.flashcard-nav:hover {
+    background: #e0ddd8;
+    transform: scale(1.06);
+    box-shadow: var(--shadow-md);
+}
+.flashcard-nav:active { transform: scale(0.95); }
+.flashcard-nav:disabled {
+    opacity: 0.25;
+    cursor: default;
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+.flashcard-nav-left  { margin-right: 12px; }
+.flashcard-nav-right { margin-left:  12px; }
+
+/* ── Card counter "1 / 5" ── */
+.flashcard-stage-counter {
+    text-align: center;
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+    margin-bottom: 16px;
+}
+
+
+/* ════════════════════════════════════════════
+   ADD / EDIT FLASHCARD MODAL
+   (same base as deck-create-form)
+   ════════════════════════════════════════════ */
+
+.flashcard-edit-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,10,0.35);
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.flashcard-edit-backdrop.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.flashcard-edit-form {
+    background: var(--bg-modal);
+    border-radius: var(--radius-modal);
+    padding: 36px 40px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: min(520px, 92vw);
+    box-shadow: var(--shadow-lg);
+    box-sizing: border-box;
+}
+
+.flashcard-edit-form .deck-modal-title {
+    color: var(--text-muted);
+}
+
+/* Textarea for longer Q/A content */
+.deck-textarea {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-input);
+    border: none;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    color: var(--text-primary);
+    box-sizing: border-box;
+    outline: none;
+    resize: vertical;
+    min-height: 90px;
+    transition: background 0.18s;
+    line-height: 1.5;
+}
+.deck-textarea::placeholder { color: #aaa; }
+.deck-textarea:focus { background: var(--bg-input-focus); }
+
+
+/* ════════════════════════════════════════════
+   EMPTY DECK STATE (no cards yet)
+   ════════════════════════════════════════════ */
+
+.flashcard-empty {
+    width: 100%;
+    text-align: center;
+    padding: 60px 24px 40px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+}
+
+
+/* ════════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════════ */
+
+@media (max-width: 540px) {
+    .flashcard-screen-heading { font-size: 1.25rem; }
+    .deck-card { width: 160px; min-height: 90px; }
+    .flashcard-scene { height: 240px; }
+    .flashcard-front,
+    .flashcard-back { padding: 24px 24px; }
+    .flashcard-nav-btn { width: 44px; height: 44px; font-size: 17px; }
+    .deck-create-form,
+    .flashcard-edit-form { padding: 28px 24px 24px; }
+}
