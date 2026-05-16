@@ -15,11 +15,6 @@
         <div class="center-column">
 
             {{-- Calendar card --}}
-            {{--
-                FR-3.1: Day / Week / Month view toggle already present — kept as-is.
-                FR-3.2: "Add Event" button in top-bar injection below — kept as-is.
-                FR-3.4: Deadlines widget in right sidebar surfaces exam/deadline events.
-            --}}
             <div class="calendar-card">
                 <div class="cal-header">
                     <div class="cal-nav-group">
@@ -37,14 +32,13 @@
                         <button class="cal-today-btn" id="btnToday">Today</button>
                     </div>
                     <div class="cal-view-toggle">
-                        {{-- FR-3.1: Day / Week / Month views --}}
                         <button class="view-btn" data-view="day">Day</button>
                         <button class="view-btn" data-view="week">Week</button>
                         <button class="view-btn active" data-view="month">Month</button>
                     </div>
                 </div>
 
-                {{-- Month view (FR-3.1) --}}
+                {{-- Month view --}}
                 <div id="monthView">
                     <div class="cal-weekdays">
                         <div class="cal-weekday">Sun</div>
@@ -62,13 +56,13 @@
                     </div>
                 </div>
 
-                {{-- Week view (FR-3.1) --}}
+                {{-- Week view --}}
                 <div id="weekView" style="display:none;">
                     <div id="weekSummaryBar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
                     <div id="weekGrid"></div>
                 </div>
 
-                {{-- Day view (FR-3.1) --}}
+                {{-- Day view --}}
                 <div id="dayView" style="display:none;">
                     <div id="dayGrid"></div>
                 </div>
@@ -89,26 +83,27 @@
         {{-- ── RIGHT SIDEBAR ─────────────────────────────────────────────────── --}}
         <aside class="right-sidebar">
 
-            {{-- My Subjects (FR-3.3) --}}
-            {{--
-                CHANGE: Renamed from "Filter My Events" to "My Subjects".
-                "Filter My Events" didn't communicate color-coding to the user.
-                "My Subjects" matches FR-3.3: "color-code their subjects."
-
-                calendar.js must render each subject with:
-                  - a colored circle (the subject's assigned color)
-                  - the subject name
-                  - a checkbox to show/hide events of that subject on the calendar
-                  - a color picker (small swatch button) to change the subject color
-
-                Subject colors should be saved to the user's profile in Supabase
-                (table: user_subject_colors, columns: user_id, subject_name, color_hex)
-                so the same colors appear on the dashboard's "My Subjects" card.
-            --}}
+            {{-- ══════════════════════════════════════════════
+                 CARD 1 — Calendar Filters
+                 Checkboxes that show / hide event categories
+                 on the calendar and in "All My Events".
+                 calendar.js: renderFilters() writes here.
+            ══════════════════════════════════════════════ --}}
             <div class="card">
+                <div class="widget-title" style="margin-bottom:12px;">Show on Calendar</div>
+                {{-- renderFilters() in calendar.js populates this --}}
+                <div id="calFilters"></div>
+            </div>
+
+            {{-- ══════════════════════════════════════════════
+                 CARD 2 — My Subjects
+                 Color-coded subject list (FR-3.3).
+                 calendar.js: renderSubjects() writes here.
+            ══════════════════════════════════════════════ --}}
+            <div class="card" style="margin-top:16px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <div class="widget-title" style="margin:0;">My Subjects</div>
-                    {{-- FR-3.3: Add subject button — calendar.js opens a small inline form --}}
+                    {{-- FR-3.3: Opens inline add-subject form --}}
                     <button id="btnAddSubject"
                         style="font-size:11px;font-weight:700;color:var(--primary,#1a5f7a);
                                background:none;border:none;cursor:pointer;padding:0;opacity:.85;"
@@ -116,7 +111,10 @@
                         + Add
                     </button>
                 </div>
-                <div id="myCalendars"></div>
+                {{-- renderSubjects() in calendar.js populates this --}}
+                <div id="mySubjectsList"></div>
+                {{-- Inline add-subject form mounts here --}}
+                <div id="addSubjectFormContainer"></div>
             </div>
 
             {{-- All My Events --}}
@@ -126,14 +124,7 @@
                 <div id="allEventsList"></div>
             </div>
 
-            {{-- Deadlines (FR-3.4) --}}
-            {{--
-                FR-3.4: Exam and deadline tracker.
-                calendar.js should filter events where category = 'exam' or 'deadline'
-                and render them here sorted by date, showing days-remaining.
-                CHANGE: Retitled from "⏰ Deadlines" to "Exams & Deadlines" to
-                        clearly communicate the FR-3.4 scope.
-            --}}
+            {{-- Exams & Deadlines (FR-3.4) --}}
             <div class="card" style="margin-top:16px;">
                 <div class="widget-title" style="margin-bottom:8px;">Exams &amp; Deadlines</div>
                 <div id="deadlinesList">
@@ -144,19 +135,6 @@
             </div>
 
             {{-- Sync / Export (FR-3.5) --}}
-            {{--
-                NEW CARD: FR-3.5 — "Sync to own study planner."
-                Previously had no UI at all.
-
-                Minimum implementation:
-                  - "Export as .ics" button → calls calendar.js exportToICS()
-                    which builds an iCal file from the user's events and triggers download.
-                  - Optionally: "Copy iCal link" for subscribing in Google/Apple Calendar.
-
-                calendar.js needs:
-                  function exportToICS() — fetches all user events from Supabase,
-                  formats as RFC 5545 iCal string, triggers file download.
-            --}}
             <div class="card" style="margin-top:16px;">
                 <div class="widget-title" style="margin-bottom:10px;">Sync &amp; Export</div>
                 <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">
@@ -214,11 +192,7 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════════════
-     EVENT MODAL (Add / Edit)
-     FR-3.2: Add study sessions
-     FR-3.3: Subject color applied to event via subject picker
-     FR-3.4: "Exam" and "Deadline" added as event categories
-     FR-3.6: Reminder toggle added inside modal
+     EVENT MODAL
 ═══════════════════════════════════════════════════════════ --}}
     <div class="modal-overlay" id="eventModal">
         <div class="modal ev-modal">
@@ -227,19 +201,10 @@
                 <button class="modal-close" id="btnModalClose">✕</button>
             </div>
             <div class="modal-body">
-
-                {{-- Title --}}
                 <div class="form-group">
                     <label class="form-label">Title <span style="color:#dc2626">*</span></label>
                     <input type="text" class="form-input" id="evTitle" placeholder="Event title…">
                 </div>
-
-                {{-- Category (FR-3.4: added Exam + Deadline options) --}}
-                {{--
-                    CHANGE: Added "Exam" and "Deadline" categories so FR-3.4 events
-                    appear in the Exams & Deadlines sidebar widget.
-                    calendar.js updateModalFields() must handle the new values.
-                --}}
                 <div class="form-group">
                     <label class="form-label">Category</label>
                     <select class="form-input" id="evCat" onchange="updateModalFields()">
@@ -250,29 +215,16 @@
                         <option value="event">📅 Other Event</option>
                     </select>
                 </div>
-
-                {{-- Subject (FR-3.3: color-coded subjects) --}}
-                {{--
-                    NEW FIELD: Links event to a subject so the correct color is applied
-                    on the calendar. calendar.js must populate this <select> with the
-                    user's subjects from Supabase (user_subject_colors table).
-                    Selecting a subject auto-applies that subject's color to the event dot.
-                --}}
                 <div class="form-group">
                     <label class="form-label">Subject</label>
                     <select class="form-input" id="evSubject">
                         <option value="">— None —</option>
-                        {{-- Populated dynamically by calendar.js --}}
                     </select>
                 </div>
-
-                {{-- Date --}}
                 <div class="form-group">
                     <label class="form-label">Date <span style="color:#dc2626">*</span></label>
                     <input type="date" class="form-input" id="evDate">
                 </div>
-
-                {{-- Time fields (shown/hidden by category via updateModalFields()) --}}
                 <div id="timeFieldClass" class="form-group" style="display:none;">
                     <label class="form-label">Start Time <span style="color:#dc2626">*</span></label>
                     <input type="time" class="form-input" id="evTimeStart">
@@ -291,32 +243,15 @@
                     <label class="form-label" style="margin-top:8px;">End Time (optional)</label>
                     <input type="time" class="form-input" id="evTimeEndEvent">
                 </div>
-
-                {{-- Description --}}
                 <div class="form-group">
                     <label class="form-label">Description (optional)</label>
                     <textarea class="form-input" id="evDesc" rows="2" placeholder="Notes…" style="resize:vertical;"></textarea>
                 </div>
-
-                {{-- Reminder toggle (FR-3.6) --}}
-                {{--
-                    NEW FIELD: FR-3.6 — "receive reminder notifications."
-                    When enabled, notifications.js (or a server-side job) should
-                    send a push/email reminder before the event.
-
-                    Minimum implementation in notifications.js / calendar.js:
-                      - Save reminder_minutes to the event row in Supabase
-                        (events table: add column reminder_minutes INT NULL).
-                      - A background job or Supabase Edge Function checks
-                        upcoming events and fires notifications.
-                --}}
                 <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <input type="checkbox" id="evReminder" style="width:16px;height:16px;cursor:pointer;"
-                            onchange="document.getElementById('reminderOpts').style.display=this.checked?'block':'none'">
-                        <label for="evReminder" class="form-label" style="margin:0;cursor:pointer;">
-                            🔔 Set reminder (FR-3.6)
-                        </label>
+                        <input type="checkbox" id="evReminder" style="width:16px;height:16px;cursor:pointer;">
+                        <label for="evReminder" class="form-label" style="margin:0;cursor:pointer;">🔔 Set
+                            reminder</label>
                     </div>
                     <div id="reminderOpts" style="display:none;margin-top:10px;">
                         <label class="form-label">Remind me</label>
@@ -328,8 +263,6 @@
                         </select>
                     </div>
                 </div>
-
-                {{-- Recurring --}}
                 <div class="form-group" style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="evRecur" style="width:16px;height:16px;cursor:pointer;">
                     <label for="evRecur" class="form-label" style="margin:0;cursor:pointer;">Repeat / Recurring</label>
@@ -346,7 +279,6 @@
                     <label class="form-label" style="margin-top:10px;">Repeat until (optional)</label>
                     <input type="date" class="form-input" id="evRecurEnd" style="margin-top:4px;">
                 </div>
-
             </div>
             <div class="modal-actions">
                 <button class="btn-del-ev" id="btnDelEv" style="display:none;">🗑 Delete</button>
@@ -359,8 +291,7 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════════════
-     TASK MODAL (Add / Edit Task)
-     Tasks shown on the calendar still use the 3-status system (FR-4.4).
+     TASK MODAL
 ═══════════════════════════════════════════════════════════ --}}
     <div class="modal-overlay" id="taskModal">
         <div class="modal ev-modal">
@@ -373,8 +304,6 @@
                     <label class="form-label">Task Title <span style="color:#dc2626">*</span></label>
                     <input type="text" class="form-input" id="taskTitle" placeholder="What needs to be done?">
                 </div>
-
-                {{-- Priority (FR-4.2) --}}
                 <div class="form-group">
                     <label class="form-label">Priority</label>
                     <div style="display:flex;gap:8px;margin-top:4px;">
@@ -392,13 +321,6 @@
                         </label>
                     </div>
                 </div>
-
-                {{-- Status (FR-4.4) --}}
-                {{--
-                    CHANGE: Added status field with To-do / In Progress / Done
-                    so tasks opened from the calendar can have their status updated.
-                    calendar.js must save task.status to Supabase when saving.
-                --}}
                 <div class="form-group">
                     <label class="form-label">Status</label>
                     <select class="form-input" id="taskStatus">
@@ -407,7 +329,6 @@
                         <option value="done">Done</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label class="form-label">Due Date (optional)</label>
                     <input type="date" class="form-input" id="taskDueDate">
@@ -416,18 +337,10 @@
                     <label class="form-label">Due Time (optional)</label>
                     <input type="time" class="form-input" id="taskDueTime">
                 </div>
-
-                {{-- Subject tag (FR-4.5) --}}
-                {{--
-                    CHANGE: Renamed from "Label / Tag" to "Subject" to align with FR-4.5
-                    and the calendar's subject color system (FR-3.3).
-                    The input keeps the same id="taskLabel" so calendar.js doesn't break.
-                --}}
                 <div class="form-group">
                     <label class="form-label">Subject tag (optional)</label>
                     <input type="text" class="form-input" id="taskLabel" placeholder="e.g. Math, Biology, History…">
                 </div>
-
                 <div class="form-group">
                     <label class="form-label">Notes (optional)</label>
                     <textarea class="form-input" id="taskNotes" rows="2" placeholder="Additional details…"
@@ -479,7 +392,6 @@
         (function() {
             const topBar = document.querySelector('.top-bar');
             if (!topBar) return;
-
             const actionsEl = document.createElement('div');
             actionsEl.className = 'top-bar-left';
             actionsEl.id = 'calTopBarLeft';
@@ -508,7 +420,6 @@
                     <button class="btn-bulk-delete" id="btnBulkDelete">🗑 Delete Selected</button>
                 </div>
             `;
-
             const topBarRight = topBar.querySelector('.top-bar-right');
             if (topBarRight) {
                 topBar.insertBefore(actionsEl, topBarRight);
@@ -518,7 +429,6 @@
         })();
     </script>
 
-    {{-- ── Recurring checkbox toggle (kept from original) ─────────────────── --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const recurCheck = document.getElementById('evRecur');

@@ -317,22 +317,6 @@
                 </div>
             </div>
 
-            {{-- My Subjects (formerly "My Calendars") --}}
-            {{--
-                CHANGE: Renamed to "My Subjects" to match calendar FR-3.3 language.
-                This sidebar card mirrors the calendar's subject color filter.
-                Each subject shows its color dot so users recognise the same
-                color system across dashboard and calendar pages.
-            --}}
-            <div class="card">
-                <h3 class="card-title" style="margin-bottom:14px;">My Subjects</h3>
-                <div id="myCalendars">
-                    <div style="text-align:center;padding:20px 0;color:var(--text-light);font-size:13px;">
-                        Loading…
-                    </div>
-                </div>
-            </div>
-
         </aside>{{-- /right-sidebar --}}
 
     </main>

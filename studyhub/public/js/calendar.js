@@ -1,6 +1,25 @@
 // calendar.js
 // Depends on studyhub-core.js being loaded first (provides all state,
 // constants, DB helpers, utils, and expandAll).
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+
+// Subject cache — populated once on boot, refreshed on add/delete
+let userSubjects = [];
+
+const PRESET_COLORS = [
+    "#1a5f7a",
+    "#0f766e",
+    "#7c3aed",
+    "#dc2626",
+    "#d97706",
+    "#16a34a",
+    "#0284c7",
+    "#db2777",
+    "#9333ea",
+    "#ea580c",
+];
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
@@ -9,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     wireStaticUI();
     setTimeout(wireInjectedButtons, 0);
     try {
-        await Promise.all([dbLoad(), taskLoad()]);
+        await Promise.all([dbLoad(), taskLoad(), loadSubjects()]);
         expandAll();
     } catch (err) {
         const el = document.getElementById("calDays");
@@ -21,6 +40,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     initNotifications?.();
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// WIRE UI
+// ═══════════════════════════════════════════════════════════════════
 function wireStaticUI() {
     document.getElementById("btnPrev").onclick = () => navigate(-1);
     document.getElementById("btnNext").onclick = () => navigate(+1);
@@ -51,6 +73,7 @@ function wireStaticUI() {
         openEvModal(null, d);
     };
 
+    // Event modal
     document.getElementById("btnModalClose").onclick = closeEvModal;
     document.getElementById("btnModalCancel").onclick = closeEvModal;
     document.getElementById("btnSaveEv").onclick = saveEv;
@@ -63,8 +86,9 @@ function wireStaticUI() {
     document
         .querySelectorAll(".rday")
         .forEach((b) => (b.onclick = () => b.classList.toggle("sel")));
+    document.getElementById("evCat").onchange = () => updateModalFields();
 
-    // ── Task modal (calendar page has its own task modal for task dots) ──
+    // Task modal
     document.getElementById("btnTaskModalClose").onclick = closeTaskModal;
     document.getElementById("btnTaskModalCancel").onclick = closeTaskModal;
     document.getElementById("btnSaveTask").onclick = saveTask;
@@ -80,14 +104,19 @@ function wireStaticUI() {
         });
     });
 
-    // ── NOTE: taskSort / taskFilterPriority / taskFilterStatus do NOT exist
-    //    on the calendar page — those belong to tasks.blade.php only.
-    //    Do NOT wire them here. ──
-
     // Confirm modal
     document.getElementById("btnConfirmClose").onclick = closeConfirm;
     document.getElementById("btnConfirmCancel").onclick = closeConfirm;
     document.getElementById("btnConfirmDel").onclick = execDelete;
+
+    // Reminder toggle
+    const reminderChk = document.getElementById("evReminder");
+    if (reminderChk) {
+        reminderChk.onchange = () => {
+            document.getElementById("reminderOpts").style.display =
+                reminderChk.checked ? "block" : "none";
+        };
+    }
 
     // Close popover on outside click
     document.addEventListener("click", (e) => {
@@ -112,7 +141,9 @@ function wireInjectedButtons() {
     if (b("btnBulkDelete")) b("btnBulkDelete").onclick = promptBulkDelete;
 }
 
-// ─── Navigate & Redraw ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATE & REDRAW
+// ═══════════════════════════════════════════════════════════════════
 function navigate(dir) {
     if (curView === "month") curDate.setMonth(curDate.getMonth() + dir);
     else if (curView === "week") curDate.setDate(curDate.getDate() + dir * 7);
@@ -133,7 +164,8 @@ function redraw() {
     else if (curView === "week") renderWeek();
     else renderDay();
     renderDeadlines();
-    renderMyCalendars();
+    renderFilters(); // category checkboxes → #calFilters
+    renderSubjects(); // subject color list → #mySubjectsList
     renderUpcoming();
     renderAllEvents();
 }
@@ -160,7 +192,9 @@ function updateTitle() {
     }
 }
 
-// ─── Month ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// MONTH VIEW
+// ═══════════════════════════════════════════════════════════════════
 function renderCal() {
     const y = curDate.getFullYear(),
         m = curDate.getMonth(),
@@ -238,6 +272,7 @@ function renderCal() {
         grid.appendChild(div);
     }
 }
+
 function isDaySel(ds) {
     return (
         evForDate(ds).some((e) => selIds.has(e.id)) ||
@@ -245,7 +280,9 @@ function isDaySel(ds) {
     );
 }
 
-// ─── Week ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// WEEK VIEW
+// ═══════════════════════════════════════════════════════════════════
 function weekRange(ref) {
     const d = new Date(ref),
         day = d.getDay();
@@ -271,11 +308,13 @@ function renderWeek() {
         days.push(d);
     }
 
-    const counts = { class: 0, group: 0, event: 0 };
+    const counts = { class: 0, group: 0, event: 0, exam: 0, deadline: 0 };
     days.forEach((d) =>
         evForDate(fd(d))
             .filter((e) => filters[e.category])
-            .forEach((e) => counts[e.category]++),
+            .forEach((e) => {
+                if (counts[e.category] !== undefined) counts[e.category]++;
+            }),
     );
     document.getElementById("weekSummaryBar").innerHTML = Object.entries(counts)
         .filter(([, n]) => n > 0)
@@ -356,7 +395,6 @@ function renderWeek() {
             const pct = (now.getHours() * 60 + now.getMinutes()) / 60;
             html += `<div style="position:absolute;top:${pct * HOUR_H}px;left:0;right:0;border-top:2px solid var(--accent);z-index:4;pointer-events:none;"><div style="position:absolute;left:-1px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);"></div></div>`;
         }
-
         const sorted = [...allEvs].sort((a, b) =>
             a.event_time.localeCompare(b.event_time),
         );
@@ -414,7 +452,9 @@ function renderWeek() {
     if (sb) sb.scrollTop = scrollToHour * HOUR_H;
 }
 
-// ─── Day ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// DAY VIEW
+// ═══════════════════════════════════════════════════════════════════
 function renderDay() {
     const today = new Date(),
         now = new Date(),
@@ -571,7 +611,9 @@ function renderDay() {
     }
 }
 
-// ─── Popover ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// POPOVER
+// ═══════════════════════════════════════════════════════════════════
 function openPopover(dayEl, ds, cell) {
     closePopover();
     const pop = document.getElementById("dayPopover");
@@ -609,12 +651,15 @@ function openPopover(dayEl, ds, cell) {
     pop.style.top = t2 + "px";
     pop.classList.add("open");
 }
+
 function closePopover() {
     document.getElementById("dayPopover").classList.remove("open");
     closeSelectPopover();
 }
 
-// ─── Select Popover ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// SELECT POPOVER
+// ═══════════════════════════════════════════════════════════════════
 function openSelectPopover(dayEl, ds, cell) {
     closeSelectPopover();
     const evs = evForDate(ds).filter((e) => filters[e.category]),
@@ -679,9 +724,11 @@ function openSelectPopover(dayEl, ds, cell) {
         0,
     );
 }
+
 function closeSelPopoverOutside(e) {
     if (selPopoverEl && !selPopoverEl.contains(e.target)) closeSelectPopover();
 }
+
 function closeSelectPopover() {
     if (selPopoverEl) {
         selPopoverEl.remove();
@@ -691,7 +738,9 @@ function closeSelectPopover() {
     }
 }
 
-// ─── Select Mode ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// SELECT MODE
+// ═══════════════════════════════════════════════════════════════════
 function toggleSelectMode() {
     selectMode = !selectMode;
     const btn = document.getElementById("btnSelectMode");
@@ -703,6 +752,7 @@ function toggleSelectMode() {
         renderAllEvents();
     } else exitSelectMode();
 }
+
 function exitSelectMode() {
     selectMode = false;
     selIds.clear();
@@ -719,6 +769,7 @@ function exitSelectMode() {
     renderAllEvents();
     closeSelectPopover();
 }
+
 function toggleDaySel(ds, div) {
     const ids = evForDate(ds).map((e) => e.id),
         taskIds = tasksForDate(ds).map((t) => t.id);
@@ -733,17 +784,20 @@ function toggleDaySel(ds, div) {
     updateBulkBar();
     renderAllEvents();
 }
+
 function toggleEventSel(id) {
     selIds.has(id) ? selIds.delete(id) : selIds.add(id);
     updateBulkBar();
     renderCal();
     renderAllEvents();
 }
+
 function toggleTaskSel(id) {
     selTaskIds.has(id) ? selTaskIds.delete(id) : selTaskIds.add(id);
     updateBulkBar();
     renderCal();
 }
+
 function updateBulkBar() {
     const n = selIds.size + selTaskIds.size;
     const c = document.getElementById("bulkCount");
@@ -760,35 +814,52 @@ function updateBulkBar() {
     if (bar) bar.classList.toggle("visible", n > 0 && selectMode);
 }
 
-// ─── Sidebar Widgets ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR: DEADLINES
+// ═══════════════════════════════════════════════════════════════════
 function renderDeadlines() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const items = [
-        ...allTasks
-            .filter((t) => t.due_date && !t.completed_at)
-            .sort((a, b) => (a.due_date > b.due_date ? 1 : -1))
-            .slice(0, 4)
-            .map((t) => ({
-                title: t.title,
-                date: t.due_date,
-                time: t.due_time,
-                isTask: true,
-                priority: t.priority,
-            })),
-    ]
+    const todayStr = today.toISOString().slice(0, 10);
+
+    const taskItems = allTasks
+        .filter((t) => t.due_date && !t.completed_at)
+        .map((t) => ({
+            title: t.title,
+            date: t.due_date,
+            time: t.due_time,
+            icon: PRI_ICON[t.priority || "low"],
+        }));
+
+    const eventItems = allEvents
+        .filter(
+            (e) =>
+                (e.category === "exam" || e.category === "deadline") &&
+                e.event_date >= todayStr,
+        )
+        .map((e) => ({
+            title: e.title,
+            date: e.event_date,
+            time: e.event_time,
+            icon: e.category === "exam" ? "📝" : "📌",
+        }));
+
+    const items = [...taskItems, ...eventItems]
         .sort((a, b) => (a.date > b.date ? 1 : -1))
         .slice(0, 7);
+
     const el = document.getElementById("deadlinesList");
     if (!el) return;
+
     if (!items.length) {
         el.innerHTML = '<div class="state-box">No deadlines 🎉</div>';
         return;
     }
+
     el.innerHTML = items
         .map((e) => {
-            const due = new Date(e.date + "T00:00:00"),
-                diff = Math.ceil((due - today) / 86400000);
+            const due = new Date(e.date + "T00:00:00");
+            const diff = Math.ceil((due - today) / 86400000);
             let cls = "due-normal",
                 lbl = `${diff}d left`;
             if (diff <= 0) {
@@ -798,11 +869,26 @@ function renderDeadlines() {
                 cls = "due-urgent";
                 lbl = "Tomorrow";
             } else if (diff <= 3) cls = "due-soon";
-            return `<div class="deadline-item"><div class="deadline-icon">${PRI_ICON[e.priority || "low"] || "✅"}</div><div class="deadline-info"><div class="deadline-title">${esc(e.title)}</div><div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.time ? " · " + fmt12(e.time) : ""}</div></div><div class="deadline-due ${cls}">${lbl}</div></div>`;
+            return `<div class="deadline-item">
+            <div class="deadline-icon">${e.icon}</div>
+            <div class="deadline-info">
+                <div class="deadline-title">${esc(e.title)}</div>
+                <div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.time ? " · " + fmt12(e.time) : ""}</div>
+            </div>
+            <div class="deadline-due ${cls}">${lbl}</div>
+        </div>`;
         })
         .join("");
 }
-function renderMyCalendars() {
+
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR: SHOW ON CALENDAR — category filter toggles only
+// Renders into #calFilters
+// ═══════════════════════════════════════════════════════════════════
+function renderFilters() {
+    const el = document.getElementById("calFilters");
+    if (!el) return;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const wEnd = new Date(today);
@@ -814,9 +900,8 @@ function renderMyCalendars() {
                 new Date(e.idate + "T00:00:00") >= today &&
                 new Date(e.idate + "T00:00:00") <= wEnd,
         ).length;
-    const el = document.getElementById("myCalendars");
-    if (!el) return;
-    el.innerHTML = [
+
+    const categories = [
         {
             key: "class",
             label: "Class Schedule",
@@ -827,7 +912,7 @@ function renderMyCalendars() {
             key: "group",
             label: "Study Groups",
             color: "#7c3aed",
-            meta: `${cntW("group")} events this week`,
+            meta: `${cntW("group")} this week`,
         },
         {
             key: "event",
@@ -835,13 +920,66 @@ function renderMyCalendars() {
             color: "#1a5f7a",
             meta: "School & personal events",
         },
-    ]
+        {
+            key: "exam",
+            label: "Exams",
+            color: "#dc2626",
+            meta: "Scheduled exams",
+        },
+        {
+            key: "deadline",
+            label: "Deadlines",
+            color: "#d97706",
+            meta: "Assignment deadlines",
+        },
+    ];
+
+    el.innerHTML = categories
         .map(
             (c) =>
-                `<div class="cal-category ${filters[c.key] ? "active" : ""}" style="color:${c.color}" onclick="toggleFilter('${c.key}')"><div class="cal-category-dot" style="background:${c.color}"></div><div class="cal-category-info"><div class="cal-category-name">${c.label}</div><div class="cal-category-meta">${c.meta}</div></div><div class="cal-category-toggle"></div></div>`,
+                `<div class="cal-category ${filters[c.key] ? "active" : ""}" style="color:${c.color}" onclick="toggleFilter('${c.key}')">
+                    <div class="cal-category-dot" style="background:${c.color}"></div>
+                    <div class="cal-category-info">
+                        <div class="cal-category-name">${c.label}</div>
+                        <div class="cal-category-meta">${c.meta}</div>
+                    </div>
+                    <div class="cal-category-toggle"></div>
+                </div>`,
         )
         .join("");
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR: MY SUBJECTS — color-coded subject list only
+// Renders into #mySubjectsList
+// ═══════════════════════════════════════════════════════════════════
+function renderSubjects() {
+    const el = document.getElementById("mySubjectsList");
+    if (!el) return;
+
+    if (!userSubjects.length) {
+        el.innerHTML = `<div style="font-size:12px;color:var(--text-light);padding:4px 0;">
+            No subjects yet — click + Add above.
+        </div>`;
+        return;
+    }
+
+    el.innerHTML = userSubjects
+        .map(
+            (s) =>
+                `<div style="display:flex;align-items:center;gap:10px;padding:6px 2px;border-radius:6px;font-size:13px;color:var(--text-primary);">
+                    <div style="width:10px;height:10px;border-radius:50%;background:${esc(s.color_hex)};flex-shrink:0;"></div>
+                    <span style="flex:1;">${esc(s.subject_name)}</span>
+                    <button onclick="removeSubject('${s.id}')" title="Remove"
+                            style="background:none;border:none;cursor:pointer;color:var(--text-light);font-size:14px;line-height:1;padding:0 2px;">&times;</button>
+                </div>`,
+        )
+        .join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR: UPCOMING THIS WEEK
+// ═══════════════════════════════════════════════════════════════════
 function renderUpcoming() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -893,6 +1031,10 @@ function renderUpcoming() {
     });
     el.innerHTML = html;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR: ALL EVENTS
+// ═══════════════════════════════════════════════════════════════════
 function renderAllEvents() {
     const el = document.getElementById("allEventsList");
     if (!el) return;
@@ -946,14 +1088,394 @@ function renderAllEvents() {
     });
     el.innerHTML = html;
 }
+
+// toggleFilter — updates filters and redraws sidebar consistently
 function toggleFilter(key) {
     filters[key] = !filters[key];
     renderCal();
-    renderMyCalendars();
+    renderFilters(); // re-render filter toggles only
     renderUpcoming();
+    renderAllEvents();
 }
 
-// ─── Task Modal ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT DB HELPERS
+// ═══════════════════════════════════════════════════════════════════
+async function loadSubjects() {
+    try {
+        const rows = await sbReq(
+            `user_subject_colors?user_id=eq.${UID}&order=subject_name.asc`,
+            { headers: hdrs(true) },
+        );
+        userSubjects = Array.isArray(rows) ? rows : [];
+    } catch {
+        userSubjects = [];
+    }
+}
+
+async function insertSubject(name, colorHex) {
+    const [row] = await sbReq("user_subject_colors", {
+        method: "POST",
+        headers: { ...hdrs(true), Prefer: "return=representation" },
+        body: JSON.stringify({
+            user_id: UID,
+            subject_name: name,
+            color_hex: colorHex,
+        }),
+    });
+    return row;
+}
+
+async function deleteSubject(id) {
+    await sbReq(`user_subject_colors?id=eq.${id}`, {
+        method: "DELETE",
+        headers: hdrs(true),
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT SELECT IN EVENT MODAL
+// ═══════════════════════════════════════════════════════════════════
+function populateSubjectSelect(currentValue = "") {
+    const sel = document.getElementById("evSubject");
+    if (!sel) return;
+    sel.innerHTML =
+        `<option value="">— No subject —</option>` +
+        userSubjects
+            .map(
+                (s) =>
+                    `<option value="${esc(s.subject_name)}" data-color="${esc(s.color_hex)}"
+                ${s.subject_name === currentValue ? "selected" : ""}>
+                ${esc(s.subject_name)}
+            </option>`,
+            )
+            .join("");
+    sel.onchange = () => applySubjectColor(sel);
+    applySubjectColor(sel);
+}
+
+function applySubjectColor(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    const color = opt?.dataset?.color || "";
+    sel.style.borderLeftColor = color || "var(--border)";
+    sel.style.borderLeftWidth = color ? "4px" : "1px";
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD SUBJECT INLINE FORM
+// ═══════════════════════════════════════════════════════════════════
+function openAddSubjectForm() {
+    if (document.getElementById("addSubjectInlineForm")) {
+        closeAddSubjectForm();
+        return;
+    }
+    const container = document.getElementById("addSubjectFormContainer");
+    if (!container) return;
+
+    const randomColor =
+        PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
+
+    container.innerHTML = `
+        <div id="addSubjectInlineForm" style="background:var(--bg-main);border:1px solid var(--border);
+             border-radius:10px;padding:14px;margin-top:10px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-light);
+                        text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">New Subject</div>
+            <input id="newSubjectName" type="text" placeholder="Subject name…" maxlength="60"
+                   style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:13px;
+                          border:1px solid var(--border);border-radius:7px;
+                          background:var(--bg-card,#fff);color:var(--text-primary);margin-bottom:10px;"
+                   onkeydown="if(event.key==='Enter')saveNewSubject()"/>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                ${PRESET_COLORS.map(
+                    (c) =>
+                        `<div onclick="selectSubjectColor('${c}')" data-color="${c}" class="subj-color-swatch"
+                          style="width:20px;height:20px;border-radius:50%;background:${c};cursor:pointer;
+                                 border:2px solid ${c === randomColor ? "#fff" : "transparent"};
+                                 box-shadow:${c === randomColor ? "0 0 0 2px " + c : "none"};
+                                 transition:transform .1s;"></div>`,
+                ).join("")}
+            </div>
+            <input id="newSubjectColor" type="hidden" value="${randomColor}"/>
+            <div style="display:flex;gap:8px;">
+                <button onclick="saveNewSubject()"
+                        style="flex:1;padding:7px;font-size:13px;font-weight:600;
+                               background:var(--primary,#1a5f7a);color:#fff;border:none;border-radius:7px;cursor:pointer;">
+                    Add
+                </button>
+                <button onclick="closeAddSubjectForm()"
+                        style="padding:7px 12px;font-size:13px;background:transparent;
+                               color:var(--text-secondary);border:1px solid var(--border);border-radius:7px;cursor:pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>`;
+
+    document.getElementById("newSubjectName").focus();
+}
+
+function selectSubjectColor(hex) {
+    document.getElementById("newSubjectColor").value = hex;
+    document.querySelectorAll(".subj-color-swatch").forEach((sw) => {
+        const active = sw.dataset.color === hex;
+        sw.style.border = active ? "2px solid #fff" : "2px solid transparent";
+        sw.style.boxShadow = active ? `0 0 0 2px ${hex}` : "none";
+        sw.style.transform = active ? "scale(1.2)" : "scale(1)";
+    });
+}
+
+function closeAddSubjectForm() {
+    const c = document.getElementById("addSubjectFormContainer");
+    if (c) c.innerHTML = "";
+}
+
+async function saveNewSubject() {
+    const name = document.getElementById("newSubjectName")?.value.trim();
+    const color =
+        document.getElementById("newSubjectColor")?.value || "#1a5f7a";
+    if (!name) {
+        document.getElementById("newSubjectName").focus();
+        return;
+    }
+    if (
+        userSubjects.some(
+            (s) => s.subject_name.toLowerCase() === name.toLowerCase(),
+        )
+    ) {
+        alert(`Subject "${name}" already exists.`);
+        return;
+    }
+    const btn = document.querySelector("#addSubjectInlineForm button");
+    if (btn) {
+        btn.textContent = "Saving…";
+        btn.disabled = true;
+    }
+    try {
+        const row = await insertSubject(name, color);
+        userSubjects.push(row);
+        userSubjects.sort((a, b) =>
+            a.subject_name.localeCompare(b.subject_name),
+        );
+        closeAddSubjectForm();
+        renderSubjects(); // refresh subject list only
+        populateSubjectSelect();
+    } catch (err) {
+        alert("Could not save subject: " + err.message);
+        if (btn) {
+            btn.textContent = "Add";
+            btn.disabled = false;
+        }
+    }
+}
+
+async function removeSubject(id) {
+    if (!confirm("Remove this subject?")) return;
+    try {
+        await deleteSubject(id);
+        userSubjects = userSubjects.filter((s) => s.id !== id);
+        renderSubjects(); // refresh subject list only
+        populateSubjectSelect();
+    } catch (err) {
+        alert("Could not remove subject: " + err.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENT MODAL
+// ═══════════════════════════════════════════════════════════════════
+async function openEvModal(id = null, prefill = null) {
+    closePopover();
+    editId = id;
+    resetForm();
+    if (prefill) document.getElementById("evDate").value = prefill;
+
+    if (id) {
+        const ev = allEvents.find((e) => e.id === id);
+        if (!ev) return;
+        document.getElementById("modalTitle").textContent = "Edit Event";
+        document.getElementById("evTitle").value = ev.title;
+        document.getElementById("evDate").value = ev.event_date;
+        document.getElementById("evCat").value = ev.category;
+        document.getElementById("evDesc").value = ev.description || "";
+        updateModalFields();
+
+        const st = ev.event_time ? ev.event_time.slice(0, 5) : "";
+        const timeInputId = {
+            class: "evTimeStart",
+            group: "evTimeStartGroup",
+            event: "evTimeStartEvent",
+            exam: "evTimeStartEvent",
+            deadline: "evTimeStartEvent",
+        }[ev.category];
+        if (timeInputId) {
+            const el = document.getElementById(timeInputId);
+            if (el) el.value = st;
+        }
+        const endInputId = {
+            class: "evTimeEnd",
+            group: "evTimeEndGroup",
+            event: "evTimeEndEvent",
+            exam: "evTimeEndEvent",
+            deadline: "evTimeEndEvent",
+        }[ev.category];
+        if (endInputId && ev.end_time) {
+            const el = document.getElementById(endInputId);
+            if (el) el.value = ev.end_time.slice(0, 5);
+        }
+
+        document.getElementById("evRecur").checked = !!ev.is_recurring;
+        if (ev.is_recurring) {
+            document.getElementById("recurOpts").style.display = "block";
+            ev.recur_days?.forEach((d) => {
+                const b = document.querySelector(`.rday[data-d="${d}"]`);
+                if (b) b.classList.add("sel");
+            });
+            document.getElementById("evRecurEnd").value = ev.recur_end || "";
+        }
+
+        const chk = document.getElementById("evReminder");
+        const minSel = document.getElementById("evReminderMinutes");
+        if (chk && ev.reminder_minutes) {
+            chk.checked = true;
+            document.getElementById("reminderOpts").style.display = "block";
+            if (minSel) minSel.value = String(ev.reminder_minutes);
+        }
+
+        populateSubjectSelect(ev.subject_name || "");
+        document.getElementById("btnDelEv").style.display = "block";
+    } else {
+        document.getElementById("modalTitle").textContent = "Add Event";
+        if (!prefill) document.getElementById("evDate").value = fd(new Date());
+        populateSubjectSelect("");
+        updateModalFields();
+    }
+
+    document.getElementById("eventModal").classList.add("open");
+}
+
+function closeEvModal() {
+    document.getElementById("eventModal").classList.remove("open");
+    editId = null;
+}
+
+function updateModalFields() {
+    const cat = document.getElementById("evCat").value;
+    document.getElementById("timeFieldClass").style.display =
+        cat === "class" ? "" : "none";
+    document.getElementById("timeFieldGroup").style.display =
+        cat === "group" ? "" : "none";
+    document.getElementById("timeFieldEvent").style.display =
+        cat === "event" || cat === "exam" || cat === "deadline" ? "" : "none";
+}
+
+function resetForm() {
+    [
+        "evTitle",
+        "evDesc",
+        "evTimeStart",
+        "evTimeEnd",
+        "evTimeStartGroup",
+        "evTimeEndGroup",
+        "evTimeStartEvent",
+        "evTimeEndEvent",
+        "evRecurEnd",
+        "evDate",
+    ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    document.getElementById("evCat").value = "class";
+    document.getElementById("evRecur").checked = false;
+    document.getElementById("recurOpts").style.display = "none";
+    document.getElementById("evReminder").checked = false;
+    document.getElementById("reminderOpts").style.display = "none";
+    document
+        .querySelectorAll(".rday")
+        .forEach((b) => b.classList.remove("sel"));
+    document.getElementById("btnDelEv").style.display = "none";
+    updateModalFields();
+}
+
+async function saveEv() {
+    const cat = document.getElementById("evCat").value;
+    const title = document.getElementById("evTitle").value.trim();
+    const date = document.getElementById("evDate").value;
+    if (!title) return alert("Please enter a title.");
+    if (!date) return alert("Please select a date.");
+
+    const timeMap = {
+        class: { start: "evTimeStart", end: "evTimeEnd" },
+        group: { start: "evTimeStartGroup", end: "evTimeEndGroup" },
+        event: { start: "evTimeStartEvent", end: "evTimeEndEvent" },
+        exam: { start: "evTimeStartEvent", end: "evTimeEndEvent" },
+        deadline: { start: "evTimeStartEvent", end: "evTimeEndEvent" },
+    };
+    const timeIds = timeMap[cat] || timeMap.event;
+    const startTime = document.getElementById(timeIds.start)?.value || null;
+    const endTime = document.getElementById(timeIds.end)?.value || null;
+
+    if (cat === "class" && !startTime)
+        return alert("Class requires a start time.");
+    if (cat === "group" && !startTime)
+        return alert("Study group requires a start time.");
+
+    const recur = document.getElementById("evRecur").checked;
+    const rDays = recur
+        ? [...document.querySelectorAll(".rday.sel")].map((b) => b.dataset.d)
+        : null;
+    if (recur && rDays && !rDays.length)
+        return alert("Select at least one repeat day.");
+
+    const subjectName = document.getElementById("evSubject")?.value || null;
+    const reminderChk = document.getElementById("evReminder");
+    const reminderMin = document.getElementById("evReminderMinutes");
+    const reminderMins =
+        reminderChk?.checked && reminderMin?.value
+            ? parseInt(reminderMin.value, 10)
+            : null;
+
+    const data = {
+        title,
+        event_date: date,
+        category: cat,
+        description: document.getElementById("evDesc").value.trim() || null,
+        event_time: startTime,
+        end_time: endTime,
+        is_recurring: recur,
+        recur_days: rDays,
+        recur_end: recur
+            ? document.getElementById("evRecurEnd").value || null
+            : null,
+        subject_name: subjectName,
+        reminder_minutes: reminderMins,
+    };
+
+    const btn = document.getElementById("btnSaveEv");
+    btn.textContent = "Saving…";
+    btn.disabled = true;
+    try {
+        if (editId) {
+            const updated = await dbUpdate(editId, data);
+            const i = allEvents.findIndex((e) => e.id === editId);
+            if (i !== -1)
+                allEvents[i] = { ...allEvents[i], ...data, ...(updated || {}) };
+        } else {
+            const row = await dbInsert(data);
+            allEvents.push(row);
+        }
+        expandAll();
+        closeEvModal();
+        redraw();
+    } catch (err) {
+        alert("Save failed: " + err.message);
+    } finally {
+        btn.textContent = "Save";
+        btn.disabled = false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TASK MODAL
+// ═══════════════════════════════════════════════════════════════════
 function openTaskModal(id = null) {
     editTaskId = id;
     resetTaskForm();
@@ -980,10 +1502,12 @@ function openTaskModal(id = null) {
     }
     document.getElementById("taskModal").classList.add("open");
 }
+
 function closeTaskModal() {
     document.getElementById("taskModal").classList.remove("open");
     editTaskId = null;
 }
+
 function resetTaskForm() {
     [
         "taskTitle",
@@ -1001,6 +1525,7 @@ function resetTaskForm() {
     });
     document.getElementById("btnDelTask").style.display = "none";
 }
+
 async function saveTask() {
     const title = document.getElementById("taskTitle").value.trim();
     if (!title) return alert("Please enter a task title.");
@@ -1040,6 +1565,7 @@ async function saveTask() {
         btn.disabled = false;
     }
 }
+
 function promptDeleteTask(id) {
     const t = allTasks.find((x) => x.id === id);
     pendDel = { mode: "task", ids: [id] };
@@ -1050,164 +1576,26 @@ function promptDeleteTask(id) {
     document.getElementById("confirmModal").classList.add("open");
 }
 
-// ─── Event Modal ──────────────────────────────────────────────────
-function openEvModal(id = null, prefill = null) {
-    closePopover();
-    editId = id;
-    resetForm();
-    if (prefill) document.getElementById("evDate").value = prefill;
-    if (id) {
-        const ev = allEvents.find((e) => e.id === id);
-        if (!ev) return;
-        document.getElementById("modalTitle").textContent = "Edit Event";
-        document.getElementById("evTitle").value = ev.title;
-        document.getElementById("evDate").value = ev.event_date;
-        document.getElementById("evCat").value = ev.category;
-        document.getElementById("evDesc").value = ev.description || "";
-        updateModalFields();
-        const st = ev.event_time ? ev.event_time.slice(0, 5) : "";
-        // Map category to the correct time input ID
-        const timeInputId = {
-            class: "evTimeStart",
-            group: "evTimeStartGroup",
-            event: "evTimeStartEvent",
-        }[ev.category];
-        if (timeInputId) {
-            const el = document.getElementById(timeInputId);
-            if (el) el.value = st;
-        }
-        // End time
-        const endInputId = {
-            class: "evTimeEnd",
-            group: "evTimeEndGroup",
-            event: "evTimeEndEvent",
-        }[ev.category];
-        if (endInputId && ev.end_time) {
-            const el = document.getElementById(endInputId);
-            if (el) el.value = ev.end_time.slice(0, 5);
-        }
-        document.getElementById("evRecur").checked = !!ev.is_recurring;
-        if (ev.is_recurring) {
-            document.getElementById("recurOpts").style.display = "block";
-            ev.recur_days?.forEach((d) => {
-                const b = document.querySelector(`.rday[data-d="${d}"]`);
-                if (b) b.classList.add("sel");
-            });
-            document.getElementById("evRecurEnd").value = ev.recur_end || "";
-        }
-        document.getElementById("btnDelEv").style.display = "block";
-    } else {
-        document.getElementById("modalTitle").textContent = "Add Event";
-        if (!prefill) document.getElementById("evDate").value = fd(new Date());
-        updateModalFields();
-    }
-    document.getElementById("eventModal").classList.add("open");
-}
-function closeEvModal() {
-    document.getElementById("eventModal").classList.remove("open");
-    editId = null;
-}
-function updateModalFields() {
-    const cat = document.getElementById("evCat").value;
-    ["Class", "Group", "Event"].forEach((c) => {
-        const el = document.getElementById(`timeField${c}`);
-        if (el) el.style.display = cat === c.toLowerCase() ? "" : "none";
-    });
-}
-function resetForm() {
-    [
-        "evTitle",
-        "evDesc",
-        "evTimeStart",
-        "evTimeEnd",
-        "evTimeStartGroup",
-        "evTimeEndGroup",
-        "evTimeStartEvent",
-        "evTimeEndEvent",
-        "evRecurEnd",
-        "evDate",
-    ].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-    });
-    document.getElementById("evCat").value = "class";
-    document.getElementById("evRecur").checked = false;
-    document.getElementById("recurOpts").style.display = "none";
-    document
-        .querySelectorAll(".rday")
-        .forEach((b) => b.classList.remove("sel"));
-    document.getElementById("btnDelEv").style.display = "none";
-    updateModalFields();
-}
-async function saveEv() {
-    const cat = document.getElementById("evCat").value;
-    const title = document.getElementById("evTitle").value.trim();
-    const date = document.getElementById("evDate").value;
-    if (!title) return alert("Please enter a title.");
-    if (!date) return alert("Please select a date.");
-
-    // Pick the right time inputs based on category
-    const timeMap = {
-        class: { start: "evTimeStart", end: "evTimeEnd" },
-        group: { start: "evTimeStartGroup", end: "evTimeEndGroup" },
-        event: { start: "evTimeStartEvent", end: "evTimeEndEvent" },
-    };
-    const timeIds = timeMap[cat] || timeMap.event;
-    const startEl = document.getElementById(timeIds.start);
-    const endEl = document.getElementById(timeIds.end);
-    const startTime = startEl?.value || null;
-    const endTime = endEl?.value || null;
-
-    if (cat === "class" && !startTime)
-        return alert("Class requires a start time.");
-    if (cat === "group" && !startTime)
-        return alert("Study group requires a start time.");
-
-    const recur = document.getElementById("evRecur").checked;
-    const rDays = recur
-        ? [...document.querySelectorAll(".rday.sel")].map((b) => b.dataset.d)
-        : null;
-    if (recur && rDays && !rDays.length)
-        return alert("Select at least one repeat day.");
-
-    const data = {
-        title,
-        event_date: date,
-        category: cat,
-        description: document.getElementById("evDesc").value.trim() || null,
-        event_time: startTime,
-        end_time: endTime,
-        is_recurring: recur,
-        recur_days: rDays,
-        recur_end: recur
-            ? document.getElementById("evRecurEnd").value || null
-            : null,
-    };
-    const btn = document.getElementById("btnSaveEv");
-    btn.textContent = "Saving…";
-    btn.disabled = true;
+async function toggleTaskDone(id) {
+    const t = allTasks.find((x) => x.id === id);
+    if (!t) return;
+    const newVal = t.completed_at ? null : new Date().toISOString();
     try {
-        if (editId) {
-            const updated = await dbUpdate(editId, data);
-            const i = allEvents.findIndex((e) => e.id === editId);
-            if (i !== -1)
-                allEvents[i] = { ...allEvents[i], ...data, ...(updated || {}) };
-        } else {
-            const row = await dbInsert(data);
-            allEvents.push(row);
-        }
-        expandAll();
-        closeEvModal();
-        redraw();
+        await taskUpdate(id, { completed_at: newVal });
+        t.completed_at = newVal;
+        if (curView === "month") renderCal();
+        else if (curView === "week") renderWeek();
+        else renderDay();
+        renderDeadlines();
+        renderUpcoming();
     } catch (err) {
-        alert("Save failed: " + err.message);
-    } finally {
-        btn.textContent = "Save";
-        btn.disabled = false;
+        alert("Could not update task: " + err.message);
     }
 }
 
-// ─── Delete ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// DELETE
+// ═══════════════════════════════════════════════════════════════════
 function promptSingleDelete(id) {
     closeEvModal();
     closePopover();
@@ -1218,6 +1606,7 @@ function promptSingleDelete(id) {
         `Are you sure you want to delete <strong>"${esc(ev?.title || "this event")}"</strong>? This cannot be undone.`;
     document.getElementById("confirmModal").classList.add("open");
 }
+
 function promptBulkDelete() {
     if (!selIds.size && !selTaskIds.size) return;
     pendDel = {
@@ -1254,6 +1643,7 @@ function promptBulkDelete() {
     updateConfirmCount();
     document.getElementById("confirmModal").classList.add("open");
 }
+
 function toggleConfirmEv(id) {
     const chk = document.getElementById(`cichk-ev-${id}`),
         ev = allEvents.find((e) => e.id === id);
@@ -1271,6 +1661,7 @@ function toggleConfirmEv(id) {
     }
     updateConfirmCount();
 }
+
 function toggleConfirmTask(id) {
     const chk = document.getElementById(`cichk-task-${id}`),
         t = allTasks.find((x) => x.id === id);
@@ -1289,6 +1680,7 @@ function toggleConfirmTask(id) {
     }
     updateConfirmCount();
 }
+
 function updateConfirmCount() {
     const n = (pendDel?.ids?.size || 0) + (pendDel?.taskIds?.size || 0);
     const btn = document.getElementById("btnConfirmDel");
@@ -1299,10 +1691,12 @@ function updateConfirmCount() {
     const title = document.getElementById("confirmTitle");
     if (title) title.textContent = `Delete ${n} item${n !== 1 ? "s" : ""}`;
 }
+
 function closeConfirm() {
     document.getElementById("confirmModal").classList.remove("open");
     pendDel = null;
 }
+
 async function execDelete() {
     if (!pendDel) return;
     const btn = document.getElementById("btnConfirmDel");
@@ -1341,554 +1735,24 @@ async function execDelete() {
     }
 }
 
-// calendar_additions.js
 // ═══════════════════════════════════════════════════════════════════
-// DROP THIS BLOCK at the BOTTOM of calendar.js (after the last line).
-//
-// What this file adds:
-//   • Subject management  (openAddSubjectForm, loadSubjects,
-//                          populateSubjectSelect, renderMySubjects)
-//   • Extended saveEv()   (subject_name + reminder_minutes)
-//   • Extended updateModalFields()  (exam / deadline categories)
-//   • Extended renderDeadlines()    (exam + deadline events)
-//   • exportToICS()
-//   • copyICalLink()
-//   • toggleTaskDone()    (used by day-view task circles)
-//
-// Depends on:  studyhub-core.js  already loaded (SB_URL, SB_ANON,
-//              SB_SVC, UID, sbReq, hdrs, allEvents, allTasks, etc.)
+// EXPORT TO ICS
 // ═══════════════════════════════════════════════════════════════════
-
-// ─── Subject state ────────────────────────────────────────────────
-// Cached array of { id, subject_name, color_hex } rows
-let userSubjects = [];
-
-// ═══════════════════════════════════════════════════════════════════
-// SUBJECT DB HELPERS
-// ═══════════════════════════════════════════════════════════════════
-
-async function loadSubjects() {
-    try {
-        const rows = await sbReq(
-            `user_subject_colors?user_id=eq.${UID}&order=subject_name.asc`,
-            { headers: hdrs() },
-        );
-        userSubjects = Array.isArray(rows) ? rows : [];
-    } catch {
-        userSubjects = [];
-    }
-}
-
-async function insertSubject(name, colorHex) {
-    const [row] = await sbReq("user_subject_colors", {
-        method: "POST",
-        headers: { ...hdrs(true), Prefer: "return=representation" },
-        body: JSON.stringify({
-            user_id: UID,
-            subject_name: name,
-            color_hex: colorHex,
-        }),
-    });
-    return row;
-}
-
-async function deleteSubject(id) {
-    await sbReq(`user_subject_colors?id=eq.${id}`, {
-        method: "DELETE",
-        headers: hdrs(true),
-    });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// POPULATE #evSubject SELECT
-// Call this every time the event modal opens.
-// ═══════════════════════════════════════════════════════════════════
-
-async function populateSubjectSelect(currentValue = "") {
-    const sel = document.getElementById("evSubject");
-    if (!sel) return;
-
-    // Reload subjects in case the user just added one
-    await loadSubjects();
-
-    sel.innerHTML =
-        `<option value="">— No subject —</option>` +
-        userSubjects
-            .map(
-                (s) =>
-                    `<option value="${esc(s.subject_name)}"
-                         data-color="${esc(s.color_hex)}"
-                         ${s.subject_name === currentValue ? "selected" : ""}>
-                    ${esc(s.subject_name)}
-                 </option>`,
-            )
-            .join("");
-
-    // Apply color preview when user changes selection
-    sel.onchange = () => applySubjectColor(sel);
-    applySubjectColor(sel);
-}
-
-function applySubjectColor(sel) {
-    const opt = sel.options[sel.selectedIndex];
-    const color = opt?.dataset?.color || "";
-    sel.style.borderLeftColor = color || "var(--border)";
-    sel.style.borderLeftWidth = color ? "4px" : "1px";
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// ADD SUBJECT FORM  (inline, appears in the My Subjects sidebar card)
-// ═══════════════════════════════════════════════════════════════════
-
-const PRESET_COLORS = [
-    "#1a5f7a",
-    "#0f766e",
-    "#7c3aed",
-    "#dc2626",
-    "#d97706",
-    "#16a34a",
-    "#0284c7",
-    "#db2777",
-    "#9333ea",
-    "#ea580c",
-];
-
-function openAddSubjectForm() {
-    // If form is already open, close it instead (toggle)
-    if (document.getElementById("addSubjectInlineForm")) {
-        closeAddSubjectForm();
-        return;
-    }
-
-    const container = document.getElementById("addSubjectFormContainer");
-    if (!container) return;
-
-    const randomColor =
-        PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
-
-    container.innerHTML = `
-        <div id="addSubjectInlineForm" style="
-            background: var(--bg-main);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            margin-top: 10px;
-            animation: fadeInDown .15s ease;
-        ">
-            <div style="font-size:11px;font-weight:600;color:var(--text-light);
-                        text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">
-                New Subject
-            </div>
-
-            <input id="newSubjectName" type="text" placeholder="Subject name…"
-                   maxlength="60"
-                   style="width:100%;box-sizing:border-box;padding:7px 10px;
-                          font-size:13px;border:1px solid var(--border);
-                          border-radius:7px;background:var(--bg-card,#fff);
-                          color:var(--text-primary);margin-bottom:10px;"
-                   onkeydown="if(event.key==='Enter')saveNewSubject()"/>
-
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-                ${PRESET_COLORS.map(
-                    (c) =>
-                        `<div onclick="selectSubjectColor('${c}')"
-                          data-color="${c}"
-                          class="subj-color-swatch"
-                          style="width:20px;height:20px;border-radius:50%;
-                                 background:${c};cursor:pointer;
-                                 border:2px solid ${c === randomColor ? "#fff" : "transparent"};
-                                 box-shadow:${c === randomColor ? "0 0 0 2px " + c : "none"};
-                                 transition:transform .1s;">
-                     </div>`,
-                ).join("")}
-            </div>
-
-            <input id="newSubjectColor" type="hidden" value="${randomColor}"/>
-
-            <div style="display:flex;gap:8px;">
-                <button onclick="saveNewSubject()"
-                        style="flex:1;padding:7px;font-size:13px;font-weight:600;
-                               background:var(--primary,#1a5f7a);color:#fff;
-                               border:none;border-radius:7px;cursor:pointer;">
-                    Add
-                </button>
-                <button onclick="closeAddSubjectForm()"
-                        style="padding:7px 12px;font-size:13px;
-                               background:transparent;color:var(--text-secondary);
-                               border:1px solid var(--border);border-radius:7px;cursor:pointer;">
-                    Cancel
-                </button>
-            </div>
-        </div>`;
-
-    document.getElementById("newSubjectName").focus();
-}
-
-function selectSubjectColor(hex) {
-    document.getElementById("newSubjectColor").value = hex;
-    document.querySelectorAll(".subj-color-swatch").forEach((sw) => {
-        const isSelected = sw.dataset.color === hex;
-        sw.style.border = isSelected
-            ? "2px solid #fff"
-            : "2px solid transparent";
-        sw.style.boxShadow = isSelected ? `0 0 0 2px ${hex}` : "none";
-        sw.style.transform = isSelected ? "scale(1.2)" : "scale(1)";
-    });
-}
-
-function closeAddSubjectForm() {
-    const container = document.getElementById("addSubjectFormContainer");
-    if (container) container.innerHTML = "";
-}
-
-async function saveNewSubject() {
-    const name = document.getElementById("newSubjectName")?.value.trim();
-    const color =
-        document.getElementById("newSubjectColor")?.value || "#1a5f7a";
-
-    if (!name) {
-        document.getElementById("newSubjectName").focus();
-        return;
-    }
-
-    // Duplicate check (client-side fast path)
-    if (
-        userSubjects.some(
-            (s) => s.subject_name.toLowerCase() === name.toLowerCase(),
-        )
-    ) {
-        alert(`Subject "${name}" already exists.`);
-        return;
-    }
-
-    const btn = document.querySelector("#addSubjectInlineForm button");
-    if (btn) {
-        btn.textContent = "Saving…";
-        btn.disabled = true;
-    }
-
-    try {
-        const row = await insertSubject(name, color);
-        userSubjects.push(row);
-        closeAddSubjectForm();
-        renderMySubjects(); // refresh sidebar list
-        populateSubjectSelect(); // refresh modal dropdown if open
-    } catch (err) {
-        alert("Could not save subject: " + err.message);
-        if (btn) {
-            btn.textContent = "Add";
-            btn.disabled = false;
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// RENDER MY SUBJECTS  (replaces renderMyCalendars for the sidebar)
-// ═══════════════════════════════════════════════════════════════════
-
-function renderMySubjects() {
-    const el = document.getElementById("myCalendars"); // blade kept id="myCalendars"
-    if (!el) return;
-
-    // Still show the category filter toggles first, then subjects below
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const wEnd = new Date(today);
-    wEnd.setDate(today.getDate() + 7);
-    const cntW = (cat) =>
-        expanded.filter(
-            (e) =>
-                e.category === cat &&
-                new Date(e.idate + "T00:00:00") >= today &&
-                new Date(e.idate + "T00:00:00") <= wEnd,
-        ).length;
-
-    const categoryRows = [
-        {
-            key: "class",
-            label: "Class Schedule",
-            color: "#0f766e",
-            meta: "Your enrolled classes",
-        },
-        {
-            key: "group",
-            label: "Study Groups",
-            color: "#7c3aed",
-            meta: `${cntW("group")} events this week`,
-        },
-        {
-            key: "event",
-            label: "Events",
-            color: "#1a5f7a",
-            meta: "School & personal events",
-        },
-        {
-            key: "exam",
-            label: "Exams",
-            color: "#dc2626",
-            meta: "Scheduled exams",
-        },
-        {
-            key: "deadline",
-            label: "Deadlines",
-            color: "#d97706",
-            meta: "Assignment deadlines",
-        },
-    ]
-        .map(
-            (c) =>
-                `<div class="cal-category ${filters[c.key] ? "active" : ""}"
-              style="color:${c.color}"
-              onclick="toggleFilter('${c.key}')">
-            <div class="cal-category-dot" style="background:${c.color}"></div>
-            <div class="cal-category-info">
-                <div class="cal-category-name">${c.label}</div>
-                <div class="cal-category-meta">${c.meta}</div>
-            </div>
-            <div class="cal-category-toggle"></div>
-         </div>`,
-        )
-        .join("");
-
-    // Subject colour dots section
-    let subjectRows = "";
-    if (userSubjects.length) {
-        subjectRows =
-            `
-            <div style="font-size:11px;font-weight:600;color:var(--text-light);
-                        text-transform:uppercase;letter-spacing:.05em;
-                        padding:12px 0 6px;border-top:1px solid var(--border);
-                        margin-top:10px;">
-                Subject Colours
-            </div>` +
-            userSubjects
-                .map(
-                    (s) =>
-                        `<div style="display:flex;align-items:center;gap:10px;
-                             padding:6px 2px;border-radius:6px;cursor:default;
-                             font-size:13px;color:var(--text-primary);">
-                    <div style="width:10px;height:10px;border-radius:50%;
-                                background:${esc(s.color_hex)};flex-shrink:0;"></div>
-                    <span style="flex:1;">${esc(s.subject_name)}</span>
-                    <button onclick="removeSubject('${s.id}')"
-                            title="Remove subject"
-                            style="background:none;border:none;cursor:pointer;
-                                   color:var(--text-light);font-size:14px;
-                                   line-height:1;padding:0 2px;">&times;</button>
-                 </div>`,
-                )
-                .join("");
-    } else {
-        subjectRows = `
-            <div style="font-size:12px;color:var(--text-light);
-                        padding:8px 0;border-top:1px solid var(--border);
-                        margin-top:10px;">
-                No subjects yet — add one above.
-            </div>`;
-    }
-
-    el.innerHTML = categoryRows + subjectRows;
-}
-
-async function removeSubject(id) {
-    if (!confirm("Remove this subject colour?")) return;
-    try {
-        await deleteSubject(id);
-        userSubjects = userSubjects.filter((s) => s.id !== id);
-        renderMySubjects();
-        populateSubjectSelect();
-    } catch (err) {
-        alert("Could not remove subject: " + err.message);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// PATCH: updateModalFields — add exam / deadline support
-// Overwrites the version defined earlier in calendar.js.
-// ═══════════════════════════════════════════════════════════════════
-
-function updateModalFields() {
-    const cat = document.getElementById("evCat").value;
-
-    // Show / hide the per-category time field groups that already exist
-    ["Class", "Group", "Event"].forEach((c) => {
-        const el = document.getElementById(`timeField${c}`);
-        if (el) el.style.display = cat === c.toLowerCase() ? "" : "none";
-    });
-
-    // For exam + deadline: reuse the "event" time row (date + optional time)
-    // The blade already has timeFieldEvent; we can share it.
-    if (cat === "exam" || cat === "deadline") {
-        const evField = document.getElementById("timeFieldEvent");
-        if (evField) evField.style.display = "";
-        // Hide the others explicitly
-        ["Class", "Group"].forEach((c) => {
-            const el = document.getElementById(`timeField${c}`);
-            if (el) el.style.display = "none";
-        });
-    }
-
-    // Populate the subject select whenever the modal is visible
-    const currentSubject = document.getElementById("evSubject")?.value || "";
-    populateSubjectSelect(currentSubject);
-
-    // Show/hide reminder fields
-    const reminderRow = document.getElementById("reminderRow");
-    if (reminderRow) reminderRow.style.display = "";
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// PATCH: saveEv — also saves subject_name + reminder_minutes
-// Wraps the original saveEv with a decorator so we don't duplicate
-// the entire function. Instead, we override it here.
-// ═══════════════════════════════════════════════════════════════════
-
-// Store reference to the original (defined earlier in calendar.js)
-const _originalSaveEv = saveEv;
-
-// Override
-async function saveEv() {
-    // eslint-disable-line no-func-assign
-    // Grab the new fields before the original runs
-    const subjectEl = document.getElementById("evSubject");
-    const reminderChk = document.getElementById("evReminder");
-    const reminderMin = document.getElementById("evReminderMinutes");
-
-    const subjectName = subjectEl?.value || null;
-    const reminderActive = reminderChk?.checked ?? false;
-    const reminderMins =
-        reminderActive && reminderMin?.value
-            ? parseInt(reminderMin.value, 10)
-            : null;
-
-    // Temporarily monkey-patch dbInsert / dbUpdate to inject extra fields
-    const _ins = window.dbInsert || dbInsert;
-    const _upd = window.dbUpdate || dbUpdate;
-
-    const patchData = {
-        subject_name: subjectName,
-        reminder_minutes: reminderMins,
-    };
-
-    const patchedInsert = async (data) => _ins({ ...data, ...patchData });
-    const patchedUpdate = async (id, data) =>
-        _upd(id, { ...data, ...patchData });
-
-    // Swap in patched helpers
-    window.dbInsert = patchedInsert;
-    window.dbUpdate = patchedUpdate;
-
-    try {
-        await _originalSaveEv();
-    } finally {
-        // Restore originals
-        window.dbInsert = _ins;
-        window.dbUpdate = _upd;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// PATCH: renderDeadlines — include exam + deadline events from calendar
-// Overwrites the version defined earlier in calendar.js.
-// ═══════════════════════════════════════════════════════════════════
-
-function renderDeadlines() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Task deadlines (existing logic)
-    const taskItems = allTasks
-        .filter((t) => t.due_date && !t.completed_at)
-        .map((t) => ({
-            title: t.title,
-            date: t.due_date,
-            time: t.due_time,
-            icon: PRI_ICON[t.priority || "low"],
-            colorCls: "due-task",
-        }));
-
-    // Exam + deadline events from calendar
-    const eventItems = allEvents
-        .filter((e) => e.category === "exam" || e.category === "deadline")
-        .filter((e) => e.event_date >= today.toISOString().slice(0, 10))
-        .map((e) => ({
-            title: e.title,
-            date: e.event_date,
-            time: e.event_time,
-            icon: e.category === "exam" ? "📝" : "📌",
-            colorCls: e.category === "exam" ? "due-urgent" : "due-soon",
-        }));
-
-    const items = [...taskItems, ...eventItems]
-        .sort((a, b) => (a.date > b.date ? 1 : -1))
-        .slice(0, 7);
-
-    const el = document.getElementById("deadlinesList");
-    if (!el) return;
-
-    if (!items.length) {
-        el.innerHTML = '<div class="state-box">No deadlines 🎉</div>';
-        return;
-    }
-
-    el.innerHTML = items
-        .map((e) => {
-            const due = new Date(e.date + "T00:00:00");
-            const diff = Math.ceil((due - today) / 86400000);
-            let cls = "due-normal",
-                lbl = `${diff}d left`;
-            if (diff <= 0) {
-                cls = "due-urgent";
-                lbl = "Overdue!";
-            } else if (diff === 1) {
-                cls = "due-urgent";
-                lbl = "Tomorrow";
-            } else if (diff <= 3) {
-                cls = "due-soon";
-            }
-            return `<div class="deadline-item">
-            <div class="deadline-icon">${e.icon}</div>
-            <div class="deadline-info">
-                <div class="deadline-title">${esc(e.title)}</div>
-                <div class="deadline-subject">
-                    ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    ${e.time ? " · " + fmt12(e.time) : ""}
-                </div>
-            </div>
-            <div class="deadline-due ${cls}">${lbl}</div>
-        </div>`;
-        })
-        .join("");
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EXPORT TO ICS  (FR-3.5)
-// ═══════════════════════════════════════════════════════════════════
-
 function exportToICS() {
     if (!allEvents.length) {
         alert("No events to export.");
         return;
     }
-
     const pad = (n) => String(n).padStart(2, "0");
     const stamp = () => {
         const d = new Date();
-        return (
-            `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
-            `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
-        );
+        return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
     };
-
-    // Format a YYYY-MM-DD + optional HH:MM into iCal datetime string
     const icalDT = (date, time) => {
         const ds = date.replace(/-/g, "");
-        if (!time) return `${ds}`; // DATE-only (all-day)
-        const ts = time.slice(0, 5).replace(":", "");
-        return `${ds}T${ts}00`; // local floating time
+        if (!time) return ds;
+        return `${ds}T${time.slice(0, 5).replace(":", "00")}`;
     };
-
-    // Fold long lines per RFC 5545 (max 75 octets)
     const fold = (line) => {
         const out = [];
         while (line.length > 75) {
@@ -1898,7 +1762,6 @@ function exportToICS() {
         out.push(line);
         return out.join("\r\n");
     };
-
     const escIcal = (s) =>
         (s || "")
             .replace(/\\/g, "\\\\")
@@ -1918,63 +1781,54 @@ function exportToICS() {
         const dtstart = ev.event_time
             ? `DTSTART:${icalDT(ev.event_date, ev.event_time)}`
             : `DTSTART;VALUE=DATE:${icalDT(ev.event_date)}`;
-
         let dtend = "";
         if (ev.end_time) {
             dtend = `DTEND:${icalDT(ev.event_date, ev.end_time)}`;
         } else if (ev.event_time) {
-            // Default 1-hour duration if no end time given
             const [h, m] = ev.event_time.split(":").map(Number);
-            const endH = String((h + 1) % 24).padStart(2, "0");
-            dtend = `DTEND:${icalDT(ev.event_date, `${endH}:${String(m).padStart(2, "0")}`)}`;
+            dtend = `DTEND:${icalDT(ev.event_date, `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`)}`;
         } else {
-            // All-day: end = next day
             const d = new Date(ev.event_date + "T00:00:00");
             d.setDate(d.getDate() + 1);
             dtend = `DTEND;VALUE=DATE:${fd(d).replace(/-/g, "")}`;
         }
-
-        lines
-            .push(
-                "BEGIN:VEVENT",
-                fold(`UID:${ev.id}@studyhub`),
-                fold(`DTSTAMP:${stamp()}`),
-                fold(dtstart),
-                fold(dtend),
-                fold(`SUMMARY:${escIcal(ev.title)}`),
-                ev.description
-                    ? fold(`DESCRIPTION:${escIcal(ev.description)}`)
-                    : null,
-                ev.subject_name
-                    ? fold(`CATEGORIES:${escIcal(ev.subject_name)}`)
-                    : null,
-                "END:VEVENT",
-            )
-            .filter(Boolean); // remove nulls for optional fields
+        [
+            "BEGIN:VEVENT",
+            fold(`UID:${ev.id}@studyhub`),
+            fold(`DTSTAMP:${stamp()}`),
+            fold(dtstart),
+            fold(dtend),
+            fold(`SUMMARY:${escIcal(ev.title)}`),
+            ev.description
+                ? fold(`DESCRIPTION:${escIcal(ev.description)}`)
+                : null,
+            ev.subject_name
+                ? fold(`CATEGORIES:${escIcal(ev.subject_name)}`)
+                : null,
+            "END:VEVENT",
+        ]
+            .filter(Boolean)
+            .forEach((l) => lines.push(l));
     });
 
-    // Also export tasks with due dates as VTODO entries
     allTasks
         .filter((t) => t.due_date)
         .forEach((t) => {
-            lines
-                .push(
-                    "BEGIN:VTODO",
-                    fold(`UID:task-${t.id}@studyhub`),
-                    fold(`DTSTAMP:${stamp()}`),
-                    fold(`SUMMARY:${escIcal(t.title)}`),
-                    fold(`DUE;VALUE=DATE:${t.due_date.replace(/-/g, "")}`),
-                    fold(
-                        `STATUS:${t.completed_at ? "COMPLETED" : "NEEDS-ACTION"}`,
-                    ),
-                    t.notes ? fold(`DESCRIPTION:${escIcal(t.notes)}`) : null,
-                    "END:VTODO",
-                )
-                .filter(Boolean);
+            [
+                "BEGIN:VTODO",
+                fold(`UID:task-${t.id}@studyhub`),
+                fold(`DTSTAMP:${stamp()}`),
+                fold(`SUMMARY:${escIcal(t.title)}`),
+                fold(`DUE;VALUE=DATE:${t.due_date.replace(/-/g, "")}`),
+                fold(`STATUS:${t.completed_at ? "COMPLETED" : "NEEDS-ACTION"}`),
+                t.notes ? fold(`DESCRIPTION:${escIcal(t.notes)}`) : null,
+                "END:VTODO",
+            ]
+                .filter(Boolean)
+                .forEach((l) => lines.push(l));
         });
 
     lines.push("END:VCALENDAR");
-
     const blob = new Blob([lines.join("\r\n")], {
         type: "text/calendar;charset=utf-8",
     });
@@ -1989,14 +1843,9 @@ function exportToICS() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// COPY ICAL LINK  (FR-3.5)
-// Generates a deterministic per-user token stored in localStorage,
-// then copies a "webcal://" URL to the clipboard.
-// For production, replace with a real signed URL from your backend.
+// COPY ICAL LINK
 // ═══════════════════════════════════════════════════════════════════
-
 async function copyICalLink() {
-    // Generate or reuse a stable token per user
     const storeKey = `sh_ical_token_${UID}`;
     let token = localStorage.getItem(storeKey);
     if (!token) {
@@ -2005,51 +1854,30 @@ async function copyICalLink() {
             Math.random().toString(36).slice(2) + Date.now().toString(36);
         localStorage.setItem(storeKey, token);
     }
-
-    // Build the subscription URL — point this at your real endpoint in production
-    const base = window.location.origin;
-    const link = `webcal://${window.location.host}/api/ical/${UID}/${token}`;
-    const httpsLink = `${base}/api/ical/${UID}/${token}`;
-
+    const httpsLink = `${window.location.origin}/api/ical/${UID}/${token}`;
     try {
         await navigator.clipboard.writeText(httpsLink);
         showToast("iCal link copied!");
     } catch {
-        // Fallback for browsers that block clipboard without user gesture
         prompt("Copy this iCal link:", httpsLink);
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TOAST HELPER  (used by copyICalLink)
+// TOAST
 // ═══════════════════════════════════════════════════════════════════
-
 function showToast(msg, duration = 2500) {
     let toast = document.getElementById("shToast");
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "shToast";
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 28px;
-            left: 50%;
-            transform: translateX(-50%) translateY(60px);
-            background: #1a5f7a;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            box-shadow: 0 4px 16px rgba(0,0,0,.25);
-            z-index: 99999;
-            transition: transform .25s ease, opacity .25s ease;
-            opacity: 0;
-            pointer-events: none;
-        `;
+        toast.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);
+            background:#1a5f7a;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;
+            box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:99999;transition:transform .25s ease,opacity .25s ease;
+            opacity:0;pointer-events:none;`;
         document.body.appendChild(toast);
     }
     toast.textContent = msg;
-    // Animate in
     requestAnimationFrame(() => {
         toast.style.transform = "translateX(-50%) translateY(0)";
         toast.style.opacity = "1";
@@ -2060,66 +1888,3 @@ function showToast(msg, duration = 2500) {
         toast.style.opacity = "0";
     }, duration);
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// toggleTaskDone  (used by day-view task circle buttons)
-// ═══════════════════════════════════════════════════════════════════
-
-async function toggleTaskDone(id) {
-    const t = allTasks.find((x) => x.id === id);
-    if (!t) return;
-    const newVal = t.completed_at ? null : new Date().toISOString();
-    try {
-        await taskUpdate(id, { completed_at: newVal });
-        t.completed_at = newVal;
-        // Re-render whichever view is active
-        if (curView === "month") renderCal();
-        else if (curView === "week") renderWeek();
-        else renderDay();
-        renderDeadlines();
-        renderUpcoming();
-    } catch (err) {
-        alert("Could not update task: " + err.message);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// BOOT PATCH
-// After the DOMContentLoaded in calendar.js fires and calls redraw(),
-// we also need to: load subjects, render my-subjects sidebar, and
-// populate the event-modal subject select on open.
-//
-// We hook into the existing openEvModal by wrapping it.
-// ═══════════════════════════════════════════════════════════════════
-
-// Wrap openEvModal to always populate the subject dropdown
-const _origOpenEvModal = openEvModal;
-window.openEvModal = async function (id = null, prefill = null) {
-    _origOpenEvModal(id, prefill);
-    const currentSubject = id
-        ? allEvents.find((e) => e.id === id)?.subject_name || ""
-        : "";
-    await populateSubjectSelect(currentSubject);
-
-    // Pre-fill reminder fields if editing
-    if (id) {
-        const ev = allEvents.find((e) => e.id === id);
-        if (ev) {
-            const chk = document.getElementById("evReminder");
-            const minSel = document.getElementById("evReminderMinutes");
-            if (chk && ev.reminder_minutes) {
-                chk.checked = true;
-                if (minSel) minSel.value = String(ev.reminder_minutes);
-            }
-        }
-    }
-};
-
-// Load subjects on page boot (after core data loads)
-document.addEventListener("DOMContentLoaded", async () => {
-    // Wait a tick so studyhub-core / the main DOMContentLoaded in calendar.js runs first
-    setTimeout(async () => {
-        await loadSubjects();
-        renderMySubjects(); // re-render sidebar with subject dots
-    }, 100);
-});
