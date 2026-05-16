@@ -1,31 +1,46 @@
 // tasks.js
 // ═══════════════════════════════════════════════════════════════════
 // Tasks page — requires studyhub-core.js loaded first
-// (studyhub-core provides: allTasks, taskLoad, taskInsert, taskUpdate,
+// (provides: sbReq, hdrs, allTasks, taskLoad, taskInsert, taskUpdate,
 //  taskDelete, selectMode, selTaskIds, pendDel, editTaskId,
 //  taskFilterPri, taskFilterStatus, taskSort, taskLabelFilter,
 //  PRI_COLOR, PRI_BG, PRI_ICON, esc, fmt12)
-//
-// Fixes applied vs. previous version:
-//  FIX-1: setStatusTab() now toggles .active class on .status-tab buttons
-//          so tasks.css .status-tab.active rule works correctly.
-//          Previously only inline styles were set, making the CSS rule dead.
-//  FIX-2: setTaskStatus() defined here (was only in blade) so tasks.js
-//          calls to it from resetTaskForm / openTaskModal are always safe.
-//  FIX-3: resetTaskForm() calls setTaskStatus('todo') which is now local.
 // ═══════════════════════════════════════════════════════════════════
 
-// ── Module-level subtask state ───────────────────────────────────
+// ── Module-level state ──────────────────────────────────────────
 let _subtasks = [];
+let _allSubjects = []; // { id, subject_name, color_hex }
+let _editSubjectId = null;
+let _subjectColorCache = {};
+
+const SUBJECT_PALETTE = [
+    "#ef4444",
+    "#f97316",
+    "#f59e0b",
+    "#84cc16",
+    "#22c55e",
+    "#14b8a6",
+    "#06b6d4",
+    "#3b82f6",
+    "#6366f1",
+    "#8b5cf6",
+    "#d946ef",
+    "#ec4899",
+    "#64748b",
+    "#78716c",
+    "#0ea5e9",
+    "#10b981",
+];
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
     wireTaskUI();
+    wireSubjectUI();
 
     try {
-        await taskLoad();
+        await Promise.all([taskLoad(), loadSubjects()]);
     } catch (err) {
         const tl = document.getElementById("taskList");
         if (tl)
@@ -38,17 +53,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// WIRE UI
+// WIRE TASK UI
 // ═══════════════════════════════════════════════════════════════════
 function wireTaskUI() {
-    // Task modal buttons
     document.getElementById("btnTaskModalClose").onclick = closeTaskModal;
     document.getElementById("btnTaskModalCancel").onclick = closeTaskModal;
     document.getElementById("btnSaveTask").onclick = saveTask;
     document.getElementById("btnDelTask").onclick = () =>
         promptDeleteTask(editTaskId);
 
-    // Priority selector
     document.querySelectorAll(".priority-option").forEach((lbl) => {
         lbl.addEventListener("click", () => {
             document
@@ -59,7 +72,6 @@ function wireTaskUI() {
         });
     });
 
-    // Status option selector (FR-4.4)
     document.querySelectorAll(".status-option").forEach((lbl) => {
         lbl.addEventListener("click", () => {
             document
@@ -70,7 +82,6 @@ function wireTaskUI() {
         });
     });
 
-    // Filter / sort controls
     document.getElementById("taskSort").onchange = (e) => {
         taskSort = e.target.value;
         renderTaskManager();
@@ -81,16 +92,17 @@ function wireTaskUI() {
     };
     document.getElementById("taskFilterStatus").onchange = (e) => {
         taskFilterStatus = e.target.value;
-        // Sync the tab strip to match the dropdown change
         setStatusTab(e.target.value);
     };
 
-    // Confirm modal
     document.getElementById("btnConfirmClose").onclick = closeConfirm;
     document.getElementById("btnConfirmCancel").onclick = closeConfirm;
     document.getElementById("btnConfirmDel").onclick = execDelete;
 
-    // Injected topbar buttons (injected by blade script, so use setTimeout)
+    // Colour dot on subject select
+    const sel = document.getElementById("taskLabelSelect");
+    if (sel) sel.addEventListener("change", updateTaskLabelDot);
+
     setTimeout(() => {
         const btnAddTask = document.getElementById("btnAddTask");
         const btnSelectMode = document.getElementById("btnSelectMode");
@@ -105,30 +117,342 @@ function wireTaskUI() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STATUS TAB STRIP — setStatusTab()
-//
-// FIX-1: This function is defined here (was only in blade script).
-// We toggle the .active class AND set inline styles so both CSS class
-// and the blade's existing inline-style approach work together.
-// The blade script also defines setStatusTab() — since scripts run
-// in order, this tasks.js definition runs AFTER studyhub-core but
-// BEFORE the inline blade <script> block. The blade block redefines
-// the function again, so we need to make sure the blade version also
-// handles .active. Solution: define a robust version here and ensure
-// the blade version calls filterTasks() correctly (it does).
-// Whichever definition wins last is fine — both are now correct.
+// WIRE SUBJECT UI
+// ═══════════════════════════════════════════════════════════════════
+function wireSubjectUI() {
+    document
+        .getElementById("btnAddSubjectTag")
+        ?.addEventListener("click", () => openSubjectModal());
+    document
+        .getElementById("btnSubjectModalClose")
+        ?.addEventListener("click", closeSubjectModal);
+    document
+        .getElementById("btnSubjectModalCancel")
+        ?.addEventListener("click", closeSubjectModal);
+    document
+        .getElementById("btnSaveSubject")
+        ?.addEventListener("click", saveSubject);
+    document
+        .getElementById("btnDelSubject")
+        ?.addEventListener("click", () => promptDeleteSubject(_editSubjectId));
+
+    document.getElementById("subjectName")?.addEventListener("input", (e) => {
+        const el = document.getElementById("subjectPreviewName");
+        if (el) el.textContent = e.target.value || "Subject";
+    });
+
+    buildColorPicker();
+
+    document.getElementById("subjectModal")?.addEventListener("click", (e) => {
+        if (e.target === document.getElementById("subjectModal"))
+            closeSubjectModal();
+    });
+    document.getElementById("taskModal")?.addEventListener("click", (e) => {
+        if (e.target === document.getElementById("taskModal")) closeTaskModal();
+    });
+}
+
+// ── Colour palette ──────────────────────────────────────────────
+function buildColorPicker() {
+    const picker = document.getElementById("subjectColorPicker");
+    if (!picker) return;
+    picker.innerHTML = SUBJECT_PALETTE.map(
+        (hex) =>
+            `<button type="button" data-color="${hex}" onclick="selectSubjectColor('${hex}')"
+            title="${hex}"
+            style="width:28px;height:28px;border-radius:50%;border:3px solid transparent;
+                   background:${hex};cursor:pointer;transition:.15s;outline:none;">
+        </button>`,
+    ).join("");
+    selectSubjectColor(SUBJECT_PALETTE[5]); // default teal
+}
+
+function selectSubjectColor(hex) {
+    document.getElementById("subjectColorValue").value = hex;
+
+    document.querySelectorAll("#subjectColorPicker button").forEach((btn) => {
+        const active = btn.dataset.color === hex;
+        btn.style.border = active
+            ? "3px solid var(--text-primary,#1e293b)"
+            : "3px solid transparent";
+        btn.style.transform = active ? "scale(1.18)" : "scale(1)";
+    });
+
+    const dot = document.getElementById("subjectPreviewDot");
+    const chip = document.getElementById("subjectPreviewChip");
+    if (dot) dot.style.background = hex;
+    if (chip) {
+        chip.style.background = hex + "22";
+        chip.style.color = hex;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT CRUD — uses sbReq() + hdrs() from studyhub-core.js
+// hdrs()      → anon key  (reads, SELECT — fine for RLS)
+// hdrs(true)  → service key (writes — bypasses RLS, same as taskInsert)
+// ═══════════════════════════════════════════════════════════════════
+async function loadSubjects() {
+    try {
+        _allSubjects = await sbReq(
+            `user_subject_colors?user_id=eq.${UID}&order=subject_name.asc&select=*`,
+            { headers: hdrs(true) }, // read — anon key is fine
+        );
+        console.log("subjects loaded:", _allSubjects);
+        if (!Array.isArray(_allSubjects)) _allSubjects = [];
+    } catch (err) {
+        console.error("loadSubjects:", err);
+        _allSubjects = [];
+    }
+    rebuildColorCache();
+    renderSubjectTagsCard();
+    loadSubjectsIntoSelect();
+}
+
+async function insertSubject(name, colorHex) {
+    // hdrs(true) = service key — bypasses RLS exactly like taskInsert does
+    const [row] = await sbReq("user_subject_colors", {
+        method: "POST",
+        headers: { ...hdrs(true), Prefer: "return=representation" },
+        body: JSON.stringify({
+            user_id: UID,
+            subject_name: name,
+            color_hex: colorHex,
+        }),
+    });
+    return row;
+}
+
+async function updateSubject(id, name, colorHex) {
+    await sbReq(`user_subject_colors?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { ...hdrs(true), Prefer: "return=minimal" },
+        body: JSON.stringify({ subject_name: name, color_hex: colorHex }),
+    });
+}
+
+async function deleteSubject(id) {
+    await sbReq(`user_subject_colors?id=eq.${id}`, {
+        method: "DELETE",
+        headers: hdrs(true),
+    });
+}
+
+function rebuildColorCache() {
+    _subjectColorCache = {};
+    _allSubjects.forEach((s) => {
+        _subjectColorCache[s.subject_name] = s.color_hex;
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT TAGS CARD
+// ═══════════════════════════════════════════════════════════════════
+function renderSubjectTagsCard() {
+    const el = document.getElementById("subjectTagsList");
+    if (!el) return;
+
+    if (!_allSubjects.length) {
+        el.innerHTML = `
+            <div style="text-align:center;padding:18px 0;">
+                <div style="font-size:28px;margin-bottom:6px;">🏷️</div>
+                <div style="font-size:12px;color:var(--text-light);">No subjects yet.<br>Add one to get started.</div>
+            </div>`;
+        return;
+    }
+
+    el.innerHTML = _allSubjects
+        .map(
+            (s) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                    border-radius:10px;border:1px solid var(--border);
+                    background:var(--bg-main);transition:.15s;"
+             onmouseover="this.style.borderColor='${s.color_hex}66'"
+             onmouseout="this.style.borderColor='var(--border)'">
+            <span style="width:11px;height:11px;border-radius:50%;flex-shrink:0;
+                          background:${s.color_hex};box-shadow:0 0 0 2px ${s.color_hex}33;"></span>
+            <span style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary);
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                ${esc(s.subject_name)}
+            </span>
+            <span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;
+                          background:${s.color_hex}22;color:${s.color_hex};flex-shrink:0;">
+                tag
+            </span>
+            <button onclick="openSubjectModal('${s.id}')" title="Edit subject"
+                style="padding:3px;background:none;border:none;cursor:pointer;
+                       color:var(--text-light);border-radius:5px;flex-shrink:0;
+                       display:flex;align-items:center;transition:.15s;"
+                onmouseover="this.style.color='var(--primary,#1a5f7a)'"
+                onmouseout="this.style.color='var(--text-light)'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+            </button>
+        </div>
+    `,
+        )
+        .join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT SELECT IN TASK MODAL
+// ═══════════════════════════════════════════════════════════════════
+function loadSubjectsIntoSelect(selectedValue = "") {
+    const sel = document.getElementById("taskLabelSelect");
+    if (!sel) return;
+
+    sel.innerHTML =
+        `<option value="">— None —</option>` +
+        _allSubjects
+            .map(
+                (s) =>
+                    `<option value="${esc(s.subject_name)}" data-color="${s.color_hex}"
+                ${s.subject_name === selectedValue ? "selected" : ""}>
+                ${esc(s.subject_name)}
+            </option>`,
+            )
+            .join("");
+
+    updateTaskLabelDot();
+}
+
+function updateTaskLabelDot() {
+    const sel = document.getElementById("taskLabelSelect");
+    const dot = document.getElementById("taskLabelDot");
+    if (!sel || !dot) return;
+
+    const color = sel.options[sel.selectedIndex]?.dataset?.color;
+    if (color && sel.value) {
+        dot.style.background = color;
+        dot.style.display = "inline-block";
+        sel.style.paddingLeft = "28px";
+    } else {
+        dot.style.display = "none";
+        sel.style.paddingLeft = "12px";
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUBJECT MODAL
+// ═══════════════════════════════════════════════════════════════════
+function openSubjectModal(id = null) {
+    _editSubjectId = id;
+
+    const nameEl = document.getElementById("subjectName");
+    const btnDel = document.getElementById("btnDelSubject");
+    const titleEl = document.getElementById("subjectModalTitle");
+
+    nameEl.value = "";
+    buildColorPicker();
+
+    if (id) {
+        const s = _allSubjects.find((x) => x.id === id);
+        if (!s) return;
+        if (titleEl) titleEl.textContent = "Edit Subject";
+        nameEl.value = s.subject_name;
+        selectSubjectColor(s.color_hex);
+        const pname = document.getElementById("subjectPreviewName");
+        if (pname) pname.textContent = s.subject_name;
+        if (btnDel) btnDel.style.display = "block";
+    } else {
+        if (titleEl) titleEl.textContent = "Add Subject";
+        if (btnDel) btnDel.style.display = "none";
+        const pname = document.getElementById("subjectPreviewName");
+        if (pname) pname.textContent = "Subject";
+    }
+
+    document.getElementById("subjectModal").classList.add("open");
+    setTimeout(() => nameEl.focus(), 80);
+}
+
+function closeSubjectModal() {
+    document.getElementById("subjectModal").classList.remove("open");
+    _editSubjectId = null;
+}
+
+async function saveSubject() {
+    const name = document.getElementById("subjectName").value.trim();
+    const color =
+        document.getElementById("subjectColorValue").value || "#9ca3af";
+
+    if (!name) {
+        document.getElementById("subjectName").focus();
+        return;
+    }
+
+    const btn = document.getElementById("btnSaveSubject");
+    btn.textContent = "Saving…";
+    btn.disabled = true;
+
+    try {
+        if (_editSubjectId) {
+            await updateSubject(_editSubjectId, name, color);
+            const i = _allSubjects.findIndex((s) => s.id === _editSubjectId);
+            if (i !== -1)
+                _allSubjects[i] = {
+                    ..._allSubjects[i],
+                    subject_name: name,
+                    color_hex: color,
+                };
+        } else {
+            const row = await insertSubject(name, color);
+            _allSubjects.push(row);
+            _allSubjects.sort((a, b) =>
+                a.subject_name.localeCompare(b.subject_name),
+            );
+        }
+
+        rebuildColorCache();
+        closeSubjectModal();
+        renderSubjectTagsCard();
+        loadSubjectsIntoSelect();
+        renderTaskManager();
+    } catch (err) {
+        alert("Save failed: " + err.message);
+    } finally {
+        btn.textContent = "Save Subject";
+        btn.disabled = false;
+    }
+}
+
+function promptDeleteSubject(id) {
+    const s = _allSubjects.find((x) => x.id === id);
+    if (!s) return;
+    if (
+        !confirm(
+            `Delete subject "${s.subject_name}"?\n\nExisting tasks won't be deleted but will lose this subject tag.`,
+        )
+    )
+        return;
+    execDeleteSubject(id);
+}
+
+async function execDeleteSubject(id) {
+    try {
+        await deleteSubject(id);
+        _allSubjects = _allSubjects.filter((s) => s.id !== id);
+        rebuildColorCache();
+        closeSubjectModal();
+        renderSubjectTagsCard();
+        loadSubjectsIntoSelect();
+        renderTaskManager();
+    } catch (err) {
+        alert("Delete failed: " + err.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATUS TAB STRIP
 // ═══════════════════════════════════════════════════════════════════
 function setStatusTab(status) {
-    // Sync the dropdown
     const dropdown = document.getElementById("taskFilterStatus");
     if (dropdown) dropdown.value = status;
 
-    // FIX-1: toggle .active class AND inline styles (belt-and-suspenders)
     document.querySelectorAll(".status-tab").forEach((btn) => {
         const active = btn.dataset.status === status;
         btn.classList.toggle("active", active);
-        // Keep inline styles for browsers that loaded the page with
-        // hardcoded inline styles on the initial "All" tab
         btn.style.color = active
             ? "var(--primary,#1a5f7a)"
             : "var(--text-secondary)";
@@ -137,12 +461,10 @@ function setStatusTab(status) {
             : "2px solid transparent";
     });
 
-    // Update JS filter state and re-render
     taskFilterStatus = status;
     renderTaskManager();
 }
 
-// ── filterTasks() — called by blade's dropdown change listener ──
 function filterTasks() {
     const dropdown = document.getElementById("taskFilterStatus");
     if (dropdown) taskFilterStatus = dropdown.value;
@@ -150,20 +472,12 @@ function filterTasks() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STATUS OPTION — setTaskStatus()
-//
-// FIX-2: Defined here so tasks.js can call it safely from
-// resetTaskForm() and openTaskModal() without relying on the blade
-// script having run first. The blade defines the same function after
-// tasks.js loads — the last definition wins, which is fine since both
-// do the same thing (inline styles + .sel class).
+// TASK STATUS OPTION (modal)
 // ═══════════════════════════════════════════════════════════════════
 function setTaskStatus(status) {
     document.querySelectorAll(".status-option").forEach((opt) => {
         const active = opt.dataset.s === status;
-        // Toggle .sel for CSS to pick up
         opt.classList.toggle("sel", active);
-        // Also set inline styles (matches blade's version exactly)
         opt.style.borderColor = active ? "var(--primary,#1a5f7a)" : "";
         opt.style.background = active ? "rgba(26,95,122,.08)" : "";
         opt.style.color = active ? "var(--primary,#1a5f7a)" : "";
@@ -176,39 +490,37 @@ function setTaskStatus(status) {
 // STATUS DISPLAY HELPERS
 // ═══════════════════════════════════════════════════════════════════
 const STATUS_LABEL = {
-    todo: "To-do",
-    in_progress: "In Progress",
+    "to-do": "To-do",
+    "in-progress": "In Progress",
     done: "Done",
 };
 const STATUS_BG = {
-    todo: "rgba(107,114,128,0.12)",
-    in_progress: "rgba(139,92,246,0.12)",
+    "to-do": "rgba(107,114,128,0.12)",
+    "in-progress": "rgba(139,92,246,0.12)",
     done: "rgba(42,157,143,0.12)",
 };
 const STATUS_COLOR = {
-    todo: "#6b7280",
-    in_progress: "#8b5cf6",
+    "to-do": "#6b7280",
+    "in-progress": "#8b5cf6",
     done: "#2a9d8f",
 };
-const STATUS_ICON = { todo: "📋", in_progress: "🔄", done: "✅" };
+const STATUS_ICON = { "to-do": "📋", "in-progress": "🔄", done: "✅" };
 
 function isDone(t) {
-    return (t.status || "todo") === "done";
+    return (t.status || "to-do") === "done";
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// RENDER
+// RENDER TASK MANAGER
 // ═══════════════════════════════════════════════════════════════════
 function renderTaskManager() {
     const total = allTasks.length;
     const doneCount = allTasks.filter(isDone).length;
 
-    // Badge = non-done count
     document.getElementById("taskCountBadge").textContent = allTasks.filter(
-        (t) => (t.status || "todo") !== "done",
+        (t) => (t.status || "to-do") !== "done",
     ).length;
 
-    // Progress bar (FR-4.4)
     const progEl = document.getElementById("taskProgress");
     if (total > 0) {
         progEl.style.display = "block";
@@ -220,10 +532,8 @@ function renderTaskManager() {
         progEl.style.display = "none";
     }
 
-    // Sidebar stats
     updateSidebarStats();
 
-    // Subject chips (FR-4.5)
     const labels = [
         ...new Set(allTasks.filter((t) => t.label).map((t) => t.label)),
     ];
@@ -244,25 +554,21 @@ function renderTaskManager() {
             ? `<button onclick="setLabelFilter(null)"
                 style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);
                        font-size:12px;cursor:pointer;font-family:inherit;
-                       background:transparent;color:var(--text-secondary);">
-                ✕ Clear
-               </button>`
+                       background:transparent;color:var(--text-secondary);">✕ Clear</button>`
             : "");
 
-    // Apply filters
     let tasks = [...allTasks];
-    if (taskFilterStatus === "todo")
-        tasks = tasks.filter((t) => (t.status || "todo") === "todo");
-    if (taskFilterStatus === "in_progress")
-        tasks = tasks.filter((t) => (t.status || "todo") === "in_progress");
+    if (taskFilterStatus === "to-do")
+        tasks = tasks.filter((t) => (t.status || "to-do") === "to-do");
+    if (taskFilterStatus === "in-progress")
+        tasks = tasks.filter((t) => (t.status || "to-do") === "in-progress");
     if (taskFilterStatus === "done")
-        tasks = tasks.filter((t) => (t.status || "todo") === "done");
+        tasks = tasks.filter((t) => (t.status || "to-do") === "done");
     if (taskFilterPri !== "all")
         tasks = tasks.filter((t) => t.priority === taskFilterPri);
     if (taskLabelFilter)
         tasks = tasks.filter((t) => t.label === taskLabelFilter);
 
-    // Sort
     if (taskSort === "due")
         tasks.sort((a, b) =>
             (a.due_date || "9999") > (b.due_date || "9999") ? 1 : -1,
@@ -289,7 +595,6 @@ function renderTaskManager() {
         return;
     }
 
-    // Group by due date when sorting by due
     if (taskSort === "due") {
         const groups = {};
         tasks.forEach((t) => {
@@ -310,9 +615,9 @@ function renderTaskManager() {
             .map(
                 ([date, items]) =>
                     `<div style="font-size:11px;font-weight:600;color:var(--text-light);
-                             text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;">
-                    ${date}
-                 </div>` + items.map(taskItemHTML).join(""),
+                         text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;">
+                ${date}
+             </div>` + items.map(taskItemHTML).join(""),
             )
             .join("");
     } else {
@@ -320,18 +625,21 @@ function renderTaskManager() {
     }
 }
 
-// ── Sidebar stats ───────────────────────────────────────────────
 function updateSidebarStats() {
-    const todo = allTasks.filter((t) => (t.status || "todo") === "todo").length;
-    const inProgress = allTasks.filter(
-        (t) => (t.status || "todo") === "in_progress",
+    const todo = allTasks.filter(
+        (t) => (t.status || "to-do") === "to-do",
     ).length;
-    const done = allTasks.filter((t) => (t.status || "todo") === "done").length;
+    const inProgress = allTasks.filter(
+        (t) => (t.status || "to-do") === "in-progress",
+    ).length;
+    const done = allTasks.filter(
+        (t) => (t.status || "to-do") === "done",
+    ).length;
 
-    const elTodo = document.getElementById("statTodo");
+    const eltodo = document.getElementById("stattodo");
     const elIP = document.getElementById("statInProgress");
     const elDone = document.getElementById("statDone");
-    if (elTodo) elTodo.textContent = todo;
+    if (eltodo) eltodo.textContent = todo;
     if (elIP) elIP.textContent = inProgress;
     if (elDone) elDone.textContent = done;
 }
@@ -340,7 +648,7 @@ function updateSidebarStats() {
 // TASK ROW HTML
 // ═══════════════════════════════════════════════════════════════════
 function taskItemHTML(t) {
-    const status = t.status || "todo";
+    const status = t.status || "to-do";
     const isDoneT = status === "done";
 
     const today = new Date();
@@ -351,7 +659,6 @@ function taskItemHTML(t) {
     const isDueToday = diff === 0 && !isDoneT;
     const isSel = selectMode && selTaskIds.has(t.id);
 
-    // Check / select button
     const checkBtn = selectMode
         ? `<button class="task-check-btn" onclick="event.stopPropagation();toggleTaskSel('${t.id}')"
                 style="width:20px;height:20px;border-radius:4px;flex-shrink:0;cursor:pointer;
@@ -363,12 +670,12 @@ function taskItemHTML(t) {
         : `<button class="task-check-btn" title="Cycle status" onclick="cycleTaskStatus('${t.id}')"
                 style="width:20px;height:20px;border-radius:50%;flex-shrink:0;cursor:pointer;
                        border:2px solid ${PRI_COLOR[t.priority || "low"]};
-                       background:${isDoneT ? PRI_COLOR[t.priority || "low"] : status === "in_progress" ? "rgba(139,92,246,0.18)" : "transparent"};
+                       background:${isDoneT ? PRI_COLOR[t.priority || "low"] : status === "in-progress" ? "rgba(139,92,246,0.18)" : "transparent"};
                        display:flex;align-items:center;justify-content:center;">
                 ${
                     isDoneT
                         ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="10" height="10"><polyline points="2 6 5 9 10 3"/></svg>'
-                        : status === "in_progress"
+                        : status === "in-progress"
                           ? '<svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5" width="8" height="8"><polyline points="1 5 5 9 11 1"/></svg>'
                           : ""
                 }
@@ -378,30 +685,27 @@ function taskItemHTML(t) {
         ? `onclick="event.stopPropagation();toggleTaskSel('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`
         : `onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`;
 
-    // Status pill
     const statusPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                                       background:${STATUS_BG[status]};color:${STATUS_COLOR[status]};">
                             ${STATUS_ICON[status]} ${STATUS_LABEL[status]}
                         </span>`;
 
-    // Priority pill
     const priPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                                    background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]};">
                          ${PRI_ICON[t.priority || "low"]} ${t.priority || "low"}
                      </span>`;
 
-    // Subject tag chip (FR-4.5)
+    const subjectColor = getSubjectColor(t.label);
     const labelChip = t.label
-        ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;
-                         background:var(--border);color:var(--text-secondary);
+        ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
+                         background:${subjectColor}22;color:${subjectColor};
                          display:inline-flex;align-items:center;gap:4px;">
                 <span style="width:7px;height:7px;border-radius:50%;
-                              background:${getSubjectColor(t.label)};display:inline-block;"></span>
+                              background:${subjectColor};display:inline-block;"></span>
                 ${esc(t.label)}
            </span>`
         : "";
 
-    // Due date display
     const dueDisplay = due
         ? `<span style="font-size:11px;color:${overdue ? "#dc2626" : isDueToday ? "#d97706" : "var(--text-secondary)"};">
                ${overdue ? "⚠️ Overdue" : isDueToday ? "⏰ Due today" : `📅 ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
@@ -416,13 +720,10 @@ function taskItemHTML(t) {
            </span>`
         : "";
 
-    // Subtask count badge (FR-4.1)
     const subCount = t.subtask_count || 0;
     const subBadge =
         subCount > 0
-            ? `<span style="font-size:11px;color:var(--text-secondary);margin-left:4px;">
-               ↳ ${subCount} subtask${subCount !== 1 ? "s" : ""}
-           </span>`
+            ? `<span style="font-size:11px;color:var(--text-secondary);">↳ ${subCount} subtask${subCount !== 1 ? "s" : ""}</span>`
             : "";
 
     return `<div class="task-item ${isDoneT && !selectMode ? "task-done" : ""} ${isSel ? "item-sel" : ""}"
@@ -459,35 +760,9 @@ function taskItemHTML(t) {
     </div>`;
 }
 
-// ── Subject color lookup (FR-4.5) ───────────────────────────────
-let _subjectColorCache = {};
-
-async function loadSubjectColors() {
-    try {
-        const res = await fetch(
-            `${SB_URL}/rest/v1/user_subject_colors?user_id=eq.${UID}&select=subject_name,color_hex`,
-            {
-                headers: {
-                    apikey: SB_ANON,
-                    Authorization: `Bearer ${SB_ANON}`,
-                },
-            },
-        );
-        if (!res.ok) return;
-        const rows = await res.json();
-        rows.forEach((r) => {
-            _subjectColorCache[r.subject_name] = r.color_hex;
-        });
-    } catch (_) {
-        /* non-fatal */
-    }
-}
-
 function getSubjectColor(subjectName) {
     return _subjectColorCache[subjectName] || "#9ca3af";
 }
-
-document.addEventListener("DOMContentLoaded", () => loadSubjectColors());
 
 function setLabelFilter(label) {
     taskLabelFilter = label;
@@ -495,15 +770,18 @@ function setLabelFilter(label) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STATUS CYCLE  (FR-4.4) — circle button on task row
-// todo → in_progress → done → todo
+// STATUS CYCLE  (FR-4.4)  to-do → in-progress → done → to-do
 // ═══════════════════════════════════════════════════════════════════
-const STATUS_CYCLE = { todo: "in_progress", in_progress: "done", done: "todo" };
+const STATUS_CYCLE = {
+    "to-do": "in-progress",
+    "in-progress": "done",
+    done: "to-do",
+};
 
 async function cycleTaskStatus(id) {
     const t = allTasks.find((x) => x.id === id);
     if (!t) return;
-    const next = STATUS_CYCLE[t.status || "todo"];
+    const next = STATUS_CYCLE[t.status || "to-do"];
     try {
         await taskUpdate(id, { status: next });
         const i = allTasks.findIndex((x) => x.id === id);
@@ -566,11 +844,11 @@ function updateBulkBar() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SUBTASKS  (FR-4.1)
+// SUBTASKS  (FR-4.1) — uses sbReq() + hdrs() from studyhub-core.js
 // ═══════════════════════════════════════════════════════════════════
 function addSubtask() {
     const tempId = "new-" + Date.now();
-    _subtasks.push({ id: tempId, title: "", status: "todo", isNew: true });
+    _subtasks.push({ id: tempId, title: "", status: "to-do", isNew: true });
     renderSubtaskList();
     const inputs = document.querySelectorAll(".subtask-title");
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -582,11 +860,9 @@ function removeSubtask(btn) {
     if (!rowId) return;
     const sub = _subtasks.find((s) => s.id === rowId);
     if (!sub) return;
-    if (sub.isNew) {
-        _subtasks = _subtasks.filter((s) => s.id !== rowId);
-    } else {
-        sub.isDeleted = true;
-    }
+    sub.isNew
+        ? (_subtasks = _subtasks.filter((s) => s.id !== rowId))
+        : (sub.isDeleted = true);
     renderSubtaskList();
 }
 
@@ -597,8 +873,7 @@ function renderSubtaskList() {
     const visible = _subtasks.filter((s) => !s.isDeleted);
     if (!visible.length) {
         el.innerHTML = `<div style="font-size:12px;color:var(--text-light);padding:4px 0;">
-            No subtasks yet. Click "+ Add subtask" to add one.
-        </div>`;
+            No subtasks yet. Click "+ Add subtask" to add one.</div>`;
         return;
     }
 
@@ -623,8 +898,7 @@ function renderSubtaskList() {
 
 function toggleSubtaskDone(id, checked) {
     const sub = _subtasks.find((s) => s.id === id);
-    if (sub) sub.status = checked ? "done" : "todo";
-    // Update input style without full re-render (preserves focus)
+    if (sub) sub.status = checked ? "done" : "to-do";
     const row = document.querySelector(`.subtask-row[data-id="${id}"]`);
     const input = row?.querySelector(".subtask-title");
     if (input) {
@@ -641,17 +915,12 @@ function updateSubtaskTitle(id, value) {
 async function loadSubtasks(taskId) {
     _subtasks = [];
     try {
-        const res = await fetch(
-            `${SB_URL}/rest/v1/subtasks?task_id=eq.${taskId}&order=created_at.asc&select=*`,
-            {
-                headers: {
-                    apikey: SB_ANON,
-                    Authorization: `Bearer ${SB_ANON}`,
-                },
-            },
+        // READ — anon key
+        const result = await sbReq(
+            `subtasks?task_id=eq.${taskId}&order=created_at.asc&select=*`,
+            { headers: hdrs(true) },
         );
-        if (!res.ok) return;
-        _subtasks = await res.json();
+        _subtasks = Array.isArray(result) ? result : [];
     } catch (_) {
         /* non-fatal */
     }
@@ -664,31 +933,25 @@ async function saveSubtasks(taskId) {
     );
     const toUpdate = _subtasks.filter((s) => !s.isNew && !s.isDeleted);
 
-    const headers = {
-        "Content-Type": "application/json",
-        apikey: SB_ANON,
-        Authorization: `Bearer ${SB_ANON}`,
-        Prefer: "return=minimal",
-    };
-
+    // All writes use hdrs(true) — service key, same as taskInsert/taskUpdate
     await Promise.all(
         toDelete.map((s) =>
-            fetch(`${SB_URL}/rest/v1/subtasks?id=eq.${s.id}`, {
+            sbReq(`subtasks?id=eq.${s.id}`, {
                 method: "DELETE",
-                headers,
+                headers: hdrs(true),
             }),
         ),
     );
 
     if (toInsert.length) {
-        await fetch(`${SB_URL}/rest/v1/subtasks`, {
+        await sbReq("subtasks", {
             method: "POST",
-            headers: { ...headers, Prefer: "return=minimal" },
+            headers: { ...hdrs(true), Prefer: "return=minimal" },
             body: JSON.stringify(
                 toInsert.map((s) => ({
                     task_id: taskId,
                     title: s.title.trim(),
-                    status: s.status || "todo",
+                    status: s.status || "to-do",
                 })),
             ),
         });
@@ -696,9 +959,9 @@ async function saveSubtasks(taskId) {
 
     await Promise.all(
         toUpdate.map((s) =>
-            fetch(`${SB_URL}/rest/v1/subtasks?id=eq.${s.id}`, {
+            sbReq(`subtasks?id=eq.${s.id}`, {
                 method: "PATCH",
-                headers,
+                headers: { ...hdrs(true), Prefer: "return=minimal" },
                 body: JSON.stringify({ title: s.title, status: s.status }),
             }),
         ),
@@ -706,7 +969,7 @@ async function saveSubtasks(taskId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SAVE TASK  (FR-4.1 + FR-4.2 + FR-4.3 + FR-4.4 + FR-4.5)
+// SAVE TASK
 // ═══════════════════════════════════════════════════════════════════
 async function saveTask() {
     const title = document.getElementById("taskTitle").value.trim();
@@ -717,7 +980,8 @@ async function saveTask() {
         "low";
     const status =
         document.querySelector('input[name="taskStatus"]:checked')?.value ||
-        "todo";
+        "to-do";
+    const label = document.getElementById("taskLabelSelect")?.value || null;
 
     const data = {
         title,
@@ -725,7 +989,7 @@ async function saveTask() {
         status,
         due_date: document.getElementById("taskDueDate").value || null,
         due_time: document.getElementById("taskDueTime").value || null,
-        label: document.getElementById("taskLabel").value.trim() || null,
+        label: label || null,
         notes: document.getElementById("taskNotes").value.trim() || null,
     };
 
@@ -748,10 +1012,11 @@ async function saveTask() {
 
         await saveSubtasks(savedId);
 
-        // Update in-memory subtask count
-        const doneSubtasks = _subtasks.filter((s) => !s.isDeleted);
         const ti = allTasks.findIndex((x) => x.id === savedId);
-        if (ti !== -1) allTasks[ti].subtask_count = doneSubtasks.length;
+        if (ti !== -1)
+            allTasks[ti].subtask_count = _subtasks.filter(
+                (s) => !s.isDeleted,
+            ).length;
 
         closeTaskModal();
         renderTaskManager();
@@ -780,10 +1045,10 @@ async function openTaskModal(id = null) {
         document.getElementById("taskDueTime").value = t.due_time
             ? t.due_time.slice(0, 5)
             : "";
-        document.getElementById("taskLabel").value = t.label || "";
         document.getElementById("taskNotes").value = t.notes || "";
 
-        // Priority
+        loadSubjectsIntoSelect(t.label || "");
+
         const pri = t.priority || "low";
         document.querySelectorAll(".priority-option").forEach((l) => {
             const active = l.dataset.p === pri;
@@ -791,9 +1056,7 @@ async function openTaskModal(id = null) {
             l.querySelector("input").checked = active;
         });
 
-        // Status — use local setTaskStatus() (FIX-2)
-        setTaskStatus(t.status || "todo");
-
+        setTaskStatus(t.status || "to-do");
         document.getElementById("btnDelTask").style.display = "block";
 
         await loadSubtasks(id);
@@ -801,6 +1064,7 @@ async function openTaskModal(id = null) {
     } else {
         document.getElementById("taskModalTitle").textContent = "Add Task";
         document.getElementById("btnDelTask").style.display = "none";
+        loadSubjectsIntoSelect("");
         _subtasks = [];
         renderSubtaskList();
     }
@@ -815,25 +1079,23 @@ function closeTaskModal() {
 }
 
 function resetTaskForm() {
-    [
-        "taskTitle",
-        "taskDueDate",
-        "taskDueTime",
-        "taskLabel",
-        "taskNotes",
-    ].forEach((id) => {
+    ["taskTitle", "taskDueDate", "taskDueTime", "taskNotes"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
 
-    // Reset priority to 'low'
+    const sel = document.getElementById("taskLabelSelect");
+    if (sel) {
+        sel.value = "";
+        updateTaskLabelDot();
+    }
+
     document.querySelectorAll(".priority-option").forEach((l) => {
         l.classList.toggle("sel", l.dataset.p === "low");
         l.querySelector("input").checked = l.dataset.p === "low";
     });
 
-    // FIX-3: Reset status to 'todo' via local setTaskStatus()
-    setTaskStatus("todo");
+    setTaskStatus("to-do");
 
     _subtasks = [];
     const subList = document.getElementById("subtaskList");
@@ -843,7 +1105,7 @@ function resetTaskForm() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DELETE
+// DELETE TASK
 // ═══════════════════════════════════════════════════════════════════
 function promptDeleteTask(id) {
     const t = allTasks.find((x) => x.id === id);
@@ -893,7 +1155,7 @@ function promptBulkDelete() {
                     ${PRI_ICON[t.priority || "low"]} ${esc(t.title)}
                 </div>
                 <div style="font-size:11px;color:var(--text-light);">
-                    Task · ${t.priority || "low"} · ${STATUS_LABEL[t.status || "todo"]} · ${dl}
+                    Task · ${t.priority || "low"} · ${STATUS_LABEL[t.status || "to-do"]} · ${dl}
                 </div>
             </div>
         </div>`;

@@ -219,6 +219,38 @@
                 </div>
             </div>
 
+            <div class="card" id="subjectTagsCard" style="margin-bottom:20px;">
+
+                {{-- Header --}}
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <h3 class="card-title" style="margin:0;">Subject Tags</h3>
+                    <button id="btnAddSubjectTag"
+                        style="display:flex;align-items:center;gap:5px;padding:5px 10px;
+                   border-radius:8px;border:none;font-size:12px;font-weight:700;
+                   background:var(--primary,#1a5f7a);color:#fff;cursor:pointer;
+                   transition:.15s;"
+                        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12"
+                            height="12">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add Subject
+                    </button>
+                </div>
+
+                {{-- Scrollable subject list --}}
+                <div id="subjectTagsList"
+                    style="display:flex;flex-direction:column;gap:6px;
+               max-height:220px;overflow-y:auto;
+               padding-right:2px;">
+                    <div style="font-size:12px;color:var(--text-light);text-align:center;padding:18px 0;">
+                        Loading subjects…
+                    </div>
+                </div>
+
+            </div>{{-- /subjectTagsCard --}}
+
         </aside>{{-- /right-sidebar --}}
 
     </main>
@@ -345,9 +377,25 @@
                     subject color exists in Supabase (user_subject_colors table).
                 --}}
                 <div class="form-group">
-                    <label class="form-label" for="taskLabel">Subject tag</label>
-                    <input id="taskLabel" type="text" class="form-input" placeholder="e.g. Math, Biology, History"
-                        autocomplete="off">
+                    <label class="form-label" for="taskLabelSelect">Subject tag</label>
+                    <div style="position:relative;">
+                        <select id="taskLabelSelect" class="form-input"
+                            style="appearance:none;padding-right:32px;cursor:pointer;">
+                            <option value="">— None —</option>
+                            <!-- Populated by tasks.js loadSubjectsIntoSelect() -->
+                        </select>
+                        <!-- Colour dot shown next to selected subject -->
+                        <span id="taskLabelDot"
+                            style="position:absolute;left:12px;top:50%;transform:translateY(-50%);
+                   width:9px;height:9px;border-radius:50%;background:transparent;
+                   pointer-events:none;display:none;"></span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"
+                            height="14"
+                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                    pointer-events:none;color:var(--text-secondary);">
+                            <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                    </div>
                 </div>
 
                 {{-- Notes --}}
@@ -456,6 +504,78 @@
 
         </div>
     </div>{{-- /confirmModal --}}
+
+    {{-- ══════════════════════════════════════════════════════════════════
+     SUBJECT TAG MODAL (Add / Edit)
+    ═════════════════════════════════════════════════════════════════ --}}
+    <div id="subjectModal" class="modal-overlay">
+        <div class="modal-card" style="max-width:400px;width:100%;">
+
+            <div class="modal-header">
+                <h3 id="subjectModalTitle" class="modal-title">Add Subject</h3>
+                <button id="btnSubjectModalClose" class="modal-close" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"
+                        height="18">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+
+                {{-- Subject Name --}}
+                <div class="form-group">
+                    <label class="form-label" for="subjectName">
+                        Subject Name <span style="color:var(--accent)">*</span>
+                    </label>
+                    <input id="subjectName" type="text" class="form-input" placeholder="e.g. Math, Biology, History"
+                        autocomplete="off">
+                </div>
+
+                {{-- Color Picker --}}
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <div id="subjectColorPicker"
+                        style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:4px;">
+                        {{-- Populated by tasks.js --}}
+                    </div>
+                    <input type="hidden" id="subjectColorValue" value="#9ca3af">
+                </div>
+
+                {{-- Live preview --}}
+                <div
+                    style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);
+                        background:var(--bg-main);display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:12px;color:var(--text-secondary);">Preview:</span>
+                    <span id="subjectPreviewChip"
+                        style="padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;
+                             background:rgba(156,163,175,.15);color:#9ca3af;
+                             display:inline-flex;align-items:center;gap:5px;transition:.2s;">
+                        <span id="subjectPreviewDot"
+                            style="width:8px;height:8px;border-radius:50%;
+                                 background:#9ca3af;display:inline-block;transition:.2s;"></span>
+                        <span id="subjectPreviewName">Subject</span>
+                    </span>
+                </div>
+
+            </div>{{-- /modal-body --}}
+
+            <div class="modal-footer" style="display:flex;align-items:center;gap:8px;margin-top:20px;">
+                <button id="btnDelSubject"
+                    style="display:none;padding:9px 16px;border-radius:10px;
+                       border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;
+                       font-size:13px;font-weight:600;cursor:pointer;transition:.15s;"
+                    onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff5f5'">
+                    Delete
+                </button>
+                <div style="flex:1;"></div>
+                <button id="btnSubjectModalCancel" class="btn-secondary">Cancel</button>
+                <button id="btnSaveSubject" class="btn-primary">Save Subject</button>
+            </div>
+
+        </div>
+    </div>{{-- /subjectModal --}}
 
 
     {{-- ── Supabase config ───────────────────────────────────────────── --}}
