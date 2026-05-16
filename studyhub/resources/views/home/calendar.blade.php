@@ -3,7 +3,7 @@
 @section('title', 'Calendar – StudyHub')
 @php $activeNav = 'calendar'; @endphp
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/calendar.css') }}">
 @endpush
 
 @section('content')

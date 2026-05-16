@@ -2,7 +2,7 @@
 @section('title', 'Tasks – StudyHub')
 @php $activeNav = 'tasks'; @endphp
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/tasks.css') }}">
 @endpush
 
 @section('content')

@@ -2,7 +2,7 @@
 @section('title', 'Dashboard – StudyHub')
 @php $activeNav = 'dashboard'; @endphp
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
 @endpush
 
 @section('content')
@@ -264,7 +264,6 @@
             {{-- Weekly Summary / Progress (FR-2.5) --}}
             {{--
                 CHANGE: Added toggle for Weekly / Monthly view (FR-2.5 requires both).
-                CHANGE: Added "Full report" link to /progress page.
                 dashboard.js should listen to the toggle and switch the data shown.
             --}}
             <div class="card" style="margin-bottom:20px;">
@@ -285,12 +284,6 @@
                                 Month
                             </button>
                         </div>
-                        <a href="{{ url('/progress') }}"
-                            style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
-                                   text-decoration:none;opacity:.85;transition:.15s;"
-                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
-                            Full report
-                        </a>
                     </div>
                 </div>
                 <div id="weeklySummary">

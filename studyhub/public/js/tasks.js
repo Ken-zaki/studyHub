@@ -6,18 +6,16 @@
 //  taskFilterPri, taskFilterStatus, taskSort, taskLabelFilter,
 //  PRI_COLOR, PRI_BG, PRI_ICON, esc, fmt12)
 //
-// Changes from previous version (FR-4.1, FR-4.4, FR-4.5):
-//  - Status system: 'todo' | 'in_progress' | 'done'  (replaces completed_at toggle)
-//  - Subtasks: addSubtask(), removeSubtask(), saveSubtasks(), loadSubtasks()
-//  - Sidebar stats: updateSidebarStats() → #statTodo, #statInProgress, #statDone
-//  - Subject tag color dot in task rows (FR-4.5)
-//  - Status pill in task rows (FR-4.4)
-//  - Status radio buttons in modal sync with setTaskStatus() from blade
+// Fixes applied vs. previous version:
+//  FIX-1: setStatusTab() now toggles .active class on .status-tab buttons
+//          so tasks.css .status-tab.active rule works correctly.
+//          Previously only inline styles were set, making the CSS rule dead.
+//  FIX-2: setTaskStatus() defined here (was only in blade) so tasks.js
+//          calls to it from resetTaskForm / openTaskModal are always safe.
+//  FIX-3: resetTaskForm() calls setTaskStatus('todo') which is now local.
 // ═══════════════════════════════════════════════════════════════════
 
 // ── Module-level subtask state ───────────────────────────────────
-// Tracks subtasks for the task currently open in the modal.
-// Each entry: { id, task_id, title, status, isNew, isDeleted }
 let _subtasks = [];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -50,7 +48,7 @@ function wireTaskUI() {
     document.getElementById("btnDelTask").onclick = () =>
         promptDeleteTask(editTaskId);
 
-    // Priority selector (unchanged)
+    // Priority selector
     document.querySelectorAll(".priority-option").forEach((lbl) => {
         lbl.addEventListener("click", () => {
             document
@@ -61,9 +59,7 @@ function wireTaskUI() {
         });
     });
 
-    // Status option selector (FR-4.4) — visual highlight on click
-    // The blade also wires onclick="setTaskStatus(...)" on each label,
-    // but we add the class toggle here for the 'sel' highlight.
+    // Status option selector (FR-4.4)
     document.querySelectorAll(".status-option").forEach((lbl) => {
         lbl.addEventListener("click", () => {
             document
@@ -83,10 +79,10 @@ function wireTaskUI() {
         taskFilterPri = e.target.value;
         renderTaskManager();
     };
-    // FR-4.4: status filter now handles 'todo' | 'in_progress' | 'done' | 'all'
     document.getElementById("taskFilterStatus").onchange = (e) => {
         taskFilterStatus = e.target.value;
-        renderTaskManager();
+        // Sync the tab strip to match the dropdown change
+        setStatusTab(e.target.value);
     };
 
     // Confirm modal
@@ -94,7 +90,7 @@ function wireTaskUI() {
     document.getElementById("btnConfirmCancel").onclick = closeConfirm;
     document.getElementById("btnConfirmDel").onclick = execDelete;
 
-    // Add / select-mode buttons (injected by blade)
+    // Injected topbar buttons (injected by blade script, so use setTimeout)
     setTimeout(() => {
         const btnAddTask = document.getElementById("btnAddTask");
         const btnSelectMode = document.getElementById("btnSelectMode");
@@ -109,38 +105,93 @@ function wireTaskUI() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// HELPERS — status display
+// STATUS TAB STRIP — setStatusTab()
+//
+// FIX-1: This function is defined here (was only in blade script).
+// We toggle the .active class AND set inline styles so both CSS class
+// and the blade's existing inline-style approach work together.
+// The blade script also defines setStatusTab() — since scripts run
+// in order, this tasks.js definition runs AFTER studyhub-core but
+// BEFORE the inline blade <script> block. The blade block redefines
+// the function again, so we need to make sure the blade version also
+// handles .active. Solution: define a robust version here and ensure
+// the blade version calls filterTasks() correctly (it does).
+// Whichever definition wins last is fine — both are now correct.
 // ═══════════════════════════════════════════════════════════════════
+function setStatusTab(status) {
+    // Sync the dropdown
+    const dropdown = document.getElementById("taskFilterStatus");
+    if (dropdown) dropdown.value = status;
 
-// Maps status value → human label
+    // FIX-1: toggle .active class AND inline styles (belt-and-suspenders)
+    document.querySelectorAll(".status-tab").forEach((btn) => {
+        const active = btn.dataset.status === status;
+        btn.classList.toggle("active", active);
+        // Keep inline styles for browsers that loaded the page with
+        // hardcoded inline styles on the initial "All" tab
+        btn.style.color = active
+            ? "var(--primary,#1a5f7a)"
+            : "var(--text-secondary)";
+        btn.style.borderBottom = active
+            ? "2px solid var(--primary,#1a5f7a)"
+            : "2px solid transparent";
+    });
+
+    // Update JS filter state and re-render
+    taskFilterStatus = status;
+    renderTaskManager();
+}
+
+// ── filterTasks() — called by blade's dropdown change listener ──
+function filterTasks() {
+    const dropdown = document.getElementById("taskFilterStatus");
+    if (dropdown) taskFilterStatus = dropdown.value;
+    renderTaskManager();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATUS OPTION — setTaskStatus()
+//
+// FIX-2: Defined here so tasks.js can call it safely from
+// resetTaskForm() and openTaskModal() without relying on the blade
+// script having run first. The blade defines the same function after
+// tasks.js loads — the last definition wins, which is fine since both
+// do the same thing (inline styles + .sel class).
+// ═══════════════════════════════════════════════════════════════════
+function setTaskStatus(status) {
+    document.querySelectorAll(".status-option").forEach((opt) => {
+        const active = opt.dataset.s === status;
+        // Toggle .sel for CSS to pick up
+        opt.classList.toggle("sel", active);
+        // Also set inline styles (matches blade's version exactly)
+        opt.style.borderColor = active ? "var(--primary,#1a5f7a)" : "";
+        opt.style.background = active ? "rgba(26,95,122,.08)" : "";
+        opt.style.color = active ? "var(--primary,#1a5f7a)" : "";
+        const radio = opt.querySelector("input[type=radio]");
+        if (radio) radio.checked = active;
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATUS DISPLAY HELPERS
+// ═══════════════════════════════════════════════════════════════════
 const STATUS_LABEL = {
     todo: "To-do",
     in_progress: "In Progress",
     done: "Done",
 };
-
-// Maps status value → pill background color
 const STATUS_BG = {
-    todo: "rgba(107,114,128,0.12)", // gray
-    in_progress: "rgba(139,92,246,0.12)", // purple
-    done: "rgba(42,157,143,0.12)", // teal
+    todo: "rgba(107,114,128,0.12)",
+    in_progress: "rgba(139,92,246,0.12)",
+    done: "rgba(42,157,143,0.12)",
 };
-
-// Maps status value → pill text color
 const STATUS_COLOR = {
     todo: "#6b7280",
     in_progress: "#8b5cf6",
     done: "#2a9d8f",
 };
+const STATUS_ICON = { todo: "📋", in_progress: "🔄", done: "✅" };
 
-// Maps status value → icon
-const STATUS_ICON = {
-    todo: "📋",
-    in_progress: "🔄",
-    done: "✅",
-};
-
-// Returns true if a task counts as "completed" for progress bar purposes
 function isDone(t) {
     return (t.status || "todo") === "done";
 }
@@ -152,6 +203,7 @@ function renderTaskManager() {
     const total = allTasks.length;
     const doneCount = allTasks.filter(isDone).length;
 
+    // Badge = non-done count
     document.getElementById("taskCountBadge").textContent = allTasks.filter(
         (t) => (t.status || "todo") !== "done",
     ).length;
@@ -168,10 +220,10 @@ function renderTaskManager() {
         progEl.style.display = "none";
     }
 
-    // Sidebar stats (FR-4.4)
+    // Sidebar stats
     updateSidebarStats();
 
-    // Subject chips (FR-4.5) — renamed from "label chips" but same logic
+    // Subject chips (FR-4.5)
     const labels = [
         ...new Set(allTasks.filter((t) => t.label).map((t) => t.label)),
     ];
@@ -180,33 +232,31 @@ function renderTaskManager() {
             .map(
                 (l) =>
                     `<button onclick="setLabelFilter('${esc(l)}')"
-                        style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);
-                               font-size:12px;cursor:pointer;
-                               background:${taskLabelFilter === l ? "var(--primary,#1a5f7a)" : "var(--bg-main)"};
-                               color:${taskLabelFilter === l ? "white" : "var(--text-secondary)"};">
-                        ${esc(l)}
-                    </button>`,
+                style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);
+                       font-size:12px;cursor:pointer;font-family:inherit;
+                       background:${taskLabelFilter === l ? "var(--primary,#1a5f7a)" : "var(--bg-main)"};
+                       color:${taskLabelFilter === l ? "white" : "var(--text-secondary)"};">
+                ${esc(l)}
+            </button>`,
             )
             .join("") +
         (taskLabelFilter
             ? `<button onclick="setLabelFilter(null)"
                 style="padding:4px 10px;border-radius:99px;border:1px solid var(--border);
-                       font-size:12px;cursor:pointer;background:transparent;color:var(--text-secondary);">
+                       font-size:12px;cursor:pointer;font-family:inherit;
+                       background:transparent;color:var(--text-secondary);">
                 ✕ Clear
                </button>`
             : "");
 
     // Apply filters
     let tasks = [...allTasks];
-
-    // FR-4.4: filter by the three status values
     if (taskFilterStatus === "todo")
         tasks = tasks.filter((t) => (t.status || "todo") === "todo");
     if (taskFilterStatus === "in_progress")
         tasks = tasks.filter((t) => (t.status || "todo") === "in_progress");
     if (taskFilterStatus === "done")
         tasks = tasks.filter((t) => (t.status || "todo") === "done");
-
     if (taskFilterPri !== "all")
         tasks = tasks.filter((t) => t.priority === taskFilterPri);
     if (taskLabelFilter)
@@ -260,9 +310,9 @@ function renderTaskManager() {
             .map(
                 ([date, items]) =>
                     `<div style="font-size:11px;font-weight:600;color:var(--text-light);
-                                 text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;">
-                        ${date}
-                     </div>` + items.map(taskItemHTML).join(""),
+                             text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;">
+                    ${date}
+                 </div>` + items.map(taskItemHTML).join(""),
             )
             .join("");
     } else {
@@ -270,7 +320,7 @@ function renderTaskManager() {
     }
 }
 
-// ── Sidebar stats (FR-4.4) ──────────────────────────────────────
+// ── Sidebar stats ───────────────────────────────────────────────
 function updateSidebarStats() {
     const todo = allTasks.filter((t) => (t.status || "todo") === "todo").length;
     const inProgress = allTasks.filter(
@@ -281,18 +331,9 @@ function updateSidebarStats() {
     const elTodo = document.getElementById("statTodo");
     const elIP = document.getElementById("statInProgress");
     const elDone = document.getElementById("statDone");
-
     if (elTodo) elTodo.textContent = todo;
     if (elIP) elIP.textContent = inProgress;
     if (elDone) elDone.textContent = done;
-}
-
-// ── filterTasks() — called by blade's setStatusTab() ───────────
-// Syncs the dropdown to the tab strip value then re-renders.
-function filterTasks() {
-    const dropdown = document.getElementById("taskFilterStatus");
-    if (dropdown) taskFilterStatus = dropdown.value;
-    renderTaskManager();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -310,9 +351,7 @@ function taskItemHTML(t) {
     const isDueToday = diff === 0 && !isDoneT;
     const isSel = selectMode && selTaskIds.has(t.id);
 
-    // ── Check button ───────────────────────────────────────────
-    // In select mode: checkbox to pick the task for bulk ops.
-    // In normal mode: clicking cycles status todo → in_progress → done → todo.
+    // Check / select button
     const checkBtn = selectMode
         ? `<button class="task-check-btn" onclick="event.stopPropagation();toggleTaskSel('${t.id}')"
                 style="width:20px;height:20px;border-radius:4px;flex-shrink:0;cursor:pointer;
@@ -339,21 +378,19 @@ function taskItemHTML(t) {
         ? `onclick="event.stopPropagation();toggleTaskSel('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`
         : `onclick="openTaskModal('${t.id}')" style="flex:1;min-width:0;cursor:pointer;"`;
 
-    // ── Status pill (FR-4.4) ────────────────────────────────────
+    // Status pill
     const statusPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                                       background:${STATUS_BG[status]};color:${STATUS_COLOR[status]};">
                             ${STATUS_ICON[status]} ${STATUS_LABEL[status]}
                         </span>`;
 
-    // ── Priority pill (unchanged) ───────────────────────────────
+    // Priority pill
     const priPill = `<span style="padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;
                                    background:${PRI_BG[t.priority || "low"]};color:${PRI_COLOR[t.priority || "low"]};">
                          ${PRI_ICON[t.priority || "low"]} ${t.priority || "low"}
                      </span>`;
 
-    // ── Subject tag chip (FR-4.5) ────────────────────────────────
-    // If the user has a color set for this subject in user_subject_colors,
-    // subjectColor() returns it; otherwise falls back to a neutral chip.
+    // Subject tag chip (FR-4.5)
     const labelChip = t.label
         ? `<span style="padding:2px 7px;border-radius:99px;font-size:11px;
                          background:var(--border);color:var(--text-secondary);
@@ -364,7 +401,7 @@ function taskItemHTML(t) {
            </span>`
         : "";
 
-    // ── Due date display ────────────────────────────────────────
+    // Due date display
     const dueDisplay = due
         ? `<span style="font-size:11px;color:${overdue ? "#dc2626" : isDueToday ? "#d97706" : "var(--text-secondary)"};">
                ${overdue ? "⚠️ Overdue" : isDueToday ? "⏰ Due today" : `📅 ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
@@ -379,9 +416,7 @@ function taskItemHTML(t) {
            </span>`
         : "";
 
-    // ── Subtask count badge (FR-4.1) ────────────────────────────
-    // t.subtask_count is set by taskLoad() if the Supabase query joins subtasks.
-    // Falls back to 0 so the row doesn't break if the join isn't ready yet.
+    // Subtask count badge (FR-4.1)
     const subCount = t.subtask_count || 0;
     const subBadge =
         subCount > 0
@@ -412,7 +447,8 @@ function taskItemHTML(t) {
         </div>
         <button onclick="promptDeleteTask('${t.id}')"
             style="background:none;border:none;cursor:pointer;color:var(--text-light);
-                   padding:4px;border-radius:4px;flex-shrink:0;" title="Delete task">
+                   padding:4px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;"
+            title="Delete task">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6l-1 14H6L5 6"/>
@@ -423,10 +459,7 @@ function taskItemHTML(t) {
     </div>`;
 }
 
-// ── Subject color lookup (FR-4.5 + FR-3.3) ─────────────────────
-// Returns the hex color for a subject name if it was saved to
-// user_subject_colors in Supabase. Falls back to a neutral gray.
-// _subjectColorCache is populated by loadSubjectColors() on boot.
+// ── Subject color lookup (FR-4.5) ───────────────────────────────
 let _subjectColorCache = {};
 
 async function loadSubjectColors() {
@@ -446,7 +479,7 @@ async function loadSubjectColors() {
             _subjectColorCache[r.subject_name] = r.color_hex;
         });
     } catch (_) {
-        // Non-fatal — color dots just show gray if table doesn't exist yet
+        /* non-fatal */
     }
 }
 
@@ -454,7 +487,6 @@ function getSubjectColor(subjectName) {
     return _subjectColorCache[subjectName] || "#9ca3af";
 }
 
-// Load colors on boot (after DOMContentLoaded fires taskLoad)
 document.addEventListener("DOMContentLoaded", () => loadSubjectColors());
 
 function setLabelFilter(label) {
@@ -463,9 +495,8 @@ function setLabelFilter(label) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STATUS CYCLE  (FR-4.4)
-// Clicking the circle button on a task row cycles:
-//   todo → in_progress → done → todo
+// STATUS CYCLE  (FR-4.4) — circle button on task row
+// todo → in_progress → done → todo
 // ═══════════════════════════════════════════════════════════════════
 const STATUS_CYCLE = { todo: "in_progress", in_progress: "done", done: "todo" };
 
@@ -484,7 +515,7 @@ async function cycleTaskStatus(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SELECT MODE  (unchanged from original)
+// SELECT MODE
 // ═══════════════════════════════════════════════════════════════════
 function toggleSelectMode() {
     selectMode = !selectMode;
@@ -493,7 +524,7 @@ function toggleSelectMode() {
         document.body.classList.add("select-mode");
         btn.classList.add("active");
         btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Selecting…`;
+            style="width:15px;height:15px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> Selecting…`;
         renderTaskManager();
     } else {
         exitSelectMode();
@@ -508,7 +539,7 @@ function exitSelectMode() {
     if (btn) {
         btn.classList.remove("active");
         btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            style="width:15px;height:15px">
+            style="width:15px;height:15px;flex-shrink:0">
             <rect x="3" y="3" width="7" height="7" rx="1"/>
             <rect x="14" y="3" width="7" height="7" rx="1"/>
             <rect x="3" y="14" width="7" height="7" rx="1"/>
@@ -537,18 +568,14 @@ function updateBulkBar() {
 // ═══════════════════════════════════════════════════════════════════
 // SUBTASKS  (FR-4.1)
 // ═══════════════════════════════════════════════════════════════════
-
-// Called by the "+ Add subtask" button in the modal (blade wires onclick)
 function addSubtask() {
     const tempId = "new-" + Date.now();
     _subtasks.push({ id: tempId, title: "", status: "todo", isNew: true });
     renderSubtaskList();
-    // Focus the new input
     const inputs = document.querySelectorAll(".subtask-title");
     if (inputs.length) inputs[inputs.length - 1].focus();
 }
 
-// Called by the ✕ button on each subtask row
 function removeSubtask(btn) {
     const row = btn.closest(".subtask-row");
     const rowId = row?.dataset.id;
@@ -556,16 +583,13 @@ function removeSubtask(btn) {
     const sub = _subtasks.find((s) => s.id === rowId);
     if (!sub) return;
     if (sub.isNew) {
-        // Brand-new (not saved yet) — just remove from array
         _subtasks = _subtasks.filter((s) => s.id !== rowId);
     } else {
-        // Already in DB — mark for deletion on save
         sub.isDeleted = true;
     }
     renderSubtaskList();
 }
 
-// Renders the subtask list inside the modal (#subtaskList)
 function renderSubtaskList() {
     const el = document.getElementById("subtaskList");
     if (!el) return;
@@ -581,25 +605,16 @@ function renderSubtaskList() {
     el.innerHTML = visible
         .map(
             (s) => `
-        <div class="subtask-row" data-id="${s.id}"
-            style="display:flex;align-items:center;gap:8px;">
+        <div class="subtask-row" data-id="${s.id}">
             <input type="checkbox" class="subtask-check"
                 ${s.status === "done" ? "checked" : ""}
-                onchange="toggleSubtaskDone('${s.id}', this.checked)"
-                style="width:15px;height:15px;flex-shrink:0;cursor:pointer;
-                       accent-color:var(--primary,#1a5f7a);">
+                onchange="toggleSubtaskDone('${s.id}', this.checked)">
             <input type="text" class="subtask-title form-input"
                 value="${esc(s.title)}"
                 placeholder="Subtask…"
                 oninput="updateSubtaskTitle('${s.id}', this.value)"
-                style="flex:1;padding:6px 10px;font-size:13px;
-                       ${s.status === "done" ? "text-decoration:line-through;opacity:.5;" : ""}">
-            <button onclick="removeSubtask(this)"
-                style="background:none;border:none;cursor:pointer;
-                       color:var(--text-light);padding:4px;border-radius:4px;
-                       flex-shrink:0;font-size:14px;line-height:1;" title="Remove subtask">
-                ✕
-            </button>
+                style="${s.status === "done" ? "text-decoration:line-through;opacity:.5;" : ""}">
+            <button onclick="removeSubtask(this)" title="Remove subtask">✕</button>
         </div>
     `,
         )
@@ -609,7 +624,7 @@ function renderSubtaskList() {
 function toggleSubtaskDone(id, checked) {
     const sub = _subtasks.find((s) => s.id === id);
     if (sub) sub.status = checked ? "done" : "todo";
-    // Re-render just the input style without a full re-render (avoids losing focus)
+    // Update input style without full re-render (preserves focus)
     const row = document.querySelector(`.subtask-row[data-id="${id}"]`);
     const input = row?.querySelector(".subtask-title");
     if (input) {
@@ -623,7 +638,6 @@ function updateSubtaskTitle(id, value) {
     if (sub) sub.title = value;
 }
 
-// Loads subtasks from Supabase for a given task ID
 async function loadSubtasks(taskId) {
     _subtasks = [];
     try {
@@ -639,11 +653,10 @@ async function loadSubtasks(taskId) {
         if (!res.ok) return;
         _subtasks = await res.json();
     } catch (_) {
-        // Non-fatal — subtasks table may not exist yet
+        /* non-fatal */
     }
 }
 
-// Saves all subtasks after the parent task is saved
 async function saveSubtasks(taskId) {
     const toDelete = _subtasks.filter((s) => s.isDeleted && !s.isNew);
     const toInsert = _subtasks.filter(
@@ -658,7 +671,6 @@ async function saveSubtasks(taskId) {
         Prefer: "return=minimal",
     };
 
-    // Delete removed subtasks
     await Promise.all(
         toDelete.map((s) =>
             fetch(`${SB_URL}/rest/v1/subtasks?id=eq.${s.id}`, {
@@ -668,7 +680,6 @@ async function saveSubtasks(taskId) {
         ),
     );
 
-    // Insert new subtasks
     if (toInsert.length) {
         await fetch(`${SB_URL}/rest/v1/subtasks`, {
             method: "POST",
@@ -683,7 +694,6 @@ async function saveSubtasks(taskId) {
         });
     }
 
-    // Update existing subtasks (title + status may have changed)
     await Promise.all(
         toUpdate.map((s) =>
             fetch(`${SB_URL}/rest/v1/subtasks?id=eq.${s.id}`, {
@@ -696,10 +706,8 @@ async function saveSubtasks(taskId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CRUD ACTIONS
+// SAVE TASK  (FR-4.1 + FR-4.2 + FR-4.3 + FR-4.4 + FR-4.5)
 // ═══════════════════════════════════════════════════════════════════
-
-// FR-4.4: saveTask now reads status from the status radio group
 async function saveTask() {
     const title = document.getElementById("taskTitle").value.trim();
     if (!title) return alert("Please enter a task title.");
@@ -707,8 +715,6 @@ async function saveTask() {
     const pri =
         document.querySelector('input[name="taskPriority"]:checked')?.value ||
         "low";
-
-    // FR-4.4: read the selected status
     const status =
         document.querySelector('input[name="taskStatus"]:checked')?.value ||
         "todo";
@@ -740,10 +746,9 @@ async function saveTask() {
             savedId = row.id;
         }
 
-        // FR-4.1: save subtasks after parent task is saved
         await saveSubtasks(savedId);
 
-        // Update subtask_count on the in-memory task so the row badge updates
+        // Update in-memory subtask count
         const doneSubtasks = _subtasks.filter((s) => !s.isDeleted);
         const ti = allTasks.findIndex((x) => x.id === savedId);
         if (ti !== -1) allTasks[ti].subtask_count = doneSubtasks.length;
@@ -786,21 +791,11 @@ async function openTaskModal(id = null) {
             l.querySelector("input").checked = active;
         });
 
-        // FR-4.4: Status — call blade's setTaskStatus() if available, else do it ourselves
-        const status = t.status || "todo";
-        if (typeof setTaskStatus === "function") {
-            setTaskStatus(status);
-        } else {
-            document.querySelectorAll(".status-option").forEach((l) => {
-                const active = l.dataset.s === status;
-                l.classList.toggle("sel", active);
-                l.querySelector("input").checked = active;
-            });
-        }
+        // Status — use local setTaskStatus() (FIX-2)
+        setTaskStatus(t.status || "todo");
 
         document.getElementById("btnDelTask").style.display = "block";
 
-        // FR-4.1: Load subtasks from Supabase
         await loadSubtasks(id);
         renderSubtaskList();
     } else {
@@ -837,14 +832,9 @@ function resetTaskForm() {
         l.querySelector("input").checked = l.dataset.p === "low";
     });
 
-    // FR-4.4: Reset status to 'todo'
-    document.querySelectorAll(".status-option").forEach((l) => {
-        l.classList.toggle("sel", l.dataset.s === "todo");
-        l.querySelector("input").checked = l.dataset.s === "todo";
-    });
-    if (typeof setTaskStatus === "function") setTaskStatus("todo");
+    // FIX-3: Reset status to 'todo' via local setTaskStatus()
+    setTaskStatus("todo");
 
-    // FR-4.1: Clear subtask list
     _subtasks = [];
     const subList = document.getElementById("subtaskList");
     if (subList) subList.innerHTML = "";
@@ -853,7 +843,7 @@ function resetTaskForm() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DELETE  (unchanged from original except uses status not completed_at)
+// DELETE
 // ═══════════════════════════════════════════════════════════════════
 function promptDeleteTask(id) {
     const t = allTasks.find((x) => x.id === id);

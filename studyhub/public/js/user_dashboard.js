@@ -80,13 +80,31 @@ async function loadSubjects() {
 // ═══════════════════════════════════════════════════════════════════
 // FR-2.5  PROGRESS SUMMARY (Week / Month toggle + bars)
 // ═══════════════════════════════════════════════════════════════════
+
+/**
+ * FIX: The original code used document.querySelectorAll(".period-toggle")
+ * but the blade renders buttons inside #progressToggle with data-period
+ * attributes — none have the class "period-toggle".
+ * Updated selector targets the actual DOM structure.
+ */
 function switchProgressPeriod(period) {
     progressPeriod = period;
 
-    // Update toggle button styles
-    document.querySelectorAll(".period-toggle").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.period === period);
-    });
+    // Update toggle button styles — target by #progressToggle > button[data-period]
+    const toggleContainer = document.getElementById("progressToggle");
+    if (toggleContainer) {
+        toggleContainer
+            .querySelectorAll("button[data-period]")
+            .forEach((btn) => {
+                const active = btn.dataset.period === period;
+                btn.style.background = active
+                    ? "var(--primary,#1a5f7a)"
+                    : "transparent";
+                btn.style.color = active
+                    ? "#fff"
+                    : "var(--text-secondary,#6b7280)";
+            });
+    }
 
     loadProgressSummary(period);
 }
@@ -127,7 +145,7 @@ async function loadProgressSummary(period) {
     if (taskBarEl) taskBarEl.style.width = `${taskPct}%`;
 
     // ── Study hours ──────────────────────────────────────────────
-    const GOAL_HRS = period === "weekly" ? 20 : 80; // adjust as needed
+    const GOAL_HRS = period === "weekly" ? 20 : 80;
     const periodMins = allFocusSessions
         .filter((s) => s.session_date >= startStr && s.session_date <= endStr)
         .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
@@ -249,7 +267,7 @@ function renderMetricRow() {
             t.priority === "high",
     ).length;
 
-    // Weekly progress: tasks completed this week vs total with due this week
+    // Weekly progress
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - today.getDay());
     const weekEnd = new Date(weekStart);
@@ -266,22 +284,21 @@ function renderMetricRow() {
         : 0;
 
     // Study time today
-    let studyTimeStr = "–";
-    let studyGoalStr = "";
     const todayStr = today.toISOString().split("T")[0];
     const minsToday = allFocusSessions
         .filter((s) => s.session_date === todayStr)
         .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+    let studyTimeStr;
     if (minsToday > 0) {
         const h = Math.floor(minsToday / 60);
         const m = minsToday % 60;
-        studyTimeStr = h > 0 ? `${h}h ${m > 0 ? m + "m" : ""}`.trim() : `${m}m`;
+        studyTimeStr = h > 0 ? `${h}h${m > 0 ? " " + m + "m" : ""}` : `${m}m`;
     } else {
         studyTimeStr = "0h";
     }
-    studyGoalStr = "Goal: 4h"; // adjust or pull from user prefs
+    const studyGoalStr = "Goal: 4h";
 
-    // Active study groups — events of category "group" coming up
+    // Active study groups
     const activeGroups = [
         ...new Set(
             expanded
@@ -354,7 +371,6 @@ function renderTodaySchedule() {
 
     const todayStr = todayMidnight().toISOString().split("T")[0];
 
-    // Gather today's calendar events (excluding deadline category)
     const sessions = expanded
         .filter((e) => e.idate === todayStr && e.category !== "deadline")
         .sort((a, b) =>
@@ -406,12 +422,10 @@ function renderUpcomingTasks() {
     const cutoff = new Date(today);
     cutoff.setDate(today.getDate() + 7);
 
-    // Show: overdue + due within 7 days, status != 'done'
     const tasks = allTasks
         .filter((t) => t.status !== "done" && t.due_date)
         .filter((t) => new Date(t.due_date + "T00:00:00") <= cutoff)
         .sort((a, b) => {
-            // overdue first, then by date, then by priority
             const da = new Date(a.due_date + "T00:00:00");
             const db = new Date(b.due_date + "T00:00:00");
             if (da - db !== 0) return da - db;
@@ -445,7 +459,6 @@ function renderUpcomingTasks() {
                   ? "color:var(--accent,#ff6b6b);font-weight:600;"
                   : "";
 
-            // Subject tag with color
             const subjectTag = t.subject_tag || "";
             const subjectColor =
                 allSubjects.find((s) => s.subject_name === subjectTag)
@@ -534,7 +547,6 @@ function renderDeadlines() {
 
     const today = todayMidnight();
 
-    // Include both exam and deadline categories
     const items = [
         ...allEvents
             .filter((e) => e.category === "exam" || e.category === "deadline")
@@ -702,7 +714,7 @@ function renderTaskSummary() {
     }).length;
 
     const badge = document.getElementById("taskCountBadge");
-    if (badge) badge.textContent = todo + inProgress; // active count
+    if (badge) badge.textContent = todo + inProgress;
 
     const progEl = document.getElementById("taskProgress");
     if (progEl) {
@@ -768,7 +780,6 @@ function renderMySubjects() {
                 new Date(e.idate + "T00:00:00") <= wEnd,
         ).length;
 
-    // Use subject colors if available
     const subjects =
         allSubjects.length > 0
             ? allSubjects.map((s) => ({
@@ -829,11 +840,10 @@ function renderMiniCal() {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth(); // 0-based
-
-    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
     const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+
     const eventDates = new Set(
         expanded
             .filter((e) => e.idate && e.idate.startsWith(monthStr))
