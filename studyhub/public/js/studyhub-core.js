@@ -95,7 +95,11 @@ async function sbReq(path, opts = {}) {
         const e = await r.json().catch(() => ({}));
         throw new Error(e.message || e.error || `HTTP ${r.status}`);
     }
-    return r.status === 204 ? null : r.json();
+    // Handle empty bodies (204 No Content OR empty 200)
+    if (r.status === 204) return null;
+    const text = await r.text();
+    if (!text || !text.trim()) return null;
+    return JSON.parse(text);
 }
 
 // ── Calendar DB ──────────────────────────────────────────────────
@@ -135,10 +139,16 @@ async function dbDelete(ids) {
 async function taskLoad() {
     try {
         const result = await sbReq(
-            `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
-            { headers: hdrs(true) }, // ← service key, was hdrs() before
+            `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc&select=*,subtask_count:subtasks(count)`,
+            { headers: hdrs(true) },
         );
-        allTasks = Array.isArray(result) ? result : [];
+        allTasks = (Array.isArray(result) ? result : []).map((t) => ({
+            ...t,
+            // Supabase returns count as [{ count: N }], normalize to a plain number
+            subtask_count: Array.isArray(t.subtask_count)
+                ? (t.subtask_count[0]?.count ?? 0)
+                : (t.subtask_count ?? 0),
+        }));
         console.log(`taskLoad: ${allTasks.length} tasks loaded`);
     } catch (err) {
         console.error("taskLoad failed:", err);

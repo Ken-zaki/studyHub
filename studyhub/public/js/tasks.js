@@ -801,10 +801,16 @@ function renderSubtaskPanel(taskId, subtasks) {
             <button onclick="cycleSubtaskStatus('${taskId}', '${s.id}', this)"
                 title="Cycle status"
                 style="width:16px;height:16px;border-radius:50%;flex-shrink:0;cursor:pointer;
-                       border:2px solid ${done ? "#2a9d8f" : "#9ca3af"};
-                       background:${done ? "#2a9d8f" : "transparent"};
+                       border:2px solid ${done ? "#2a9d8f" : s.status === "in-progress" ? "#8b5cf6" : "#9ca3af"};
+                       background:${done ? "#2a9d8f" : s.status === "in-progress" ? "rgba(139,92,246,0.18)" : "transparent"};
                        display:flex;align-items:center;justify-content:center;padding:0;">
-                ${done ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="8" height="8"><polyline points="2 6 5 9 10 3"/></svg>' : ""}
+                ${
+                    done
+                        ? '<svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" width="8" height="8"><polyline points="2 6 5 9 10 3"/></svg>'
+                        : s.status === "in-progress"
+                          ? '<svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5" width="6" height="6"><polyline points="1 5 5 9 11 1"/></svg>'
+                          : ""
+                }
             </button>
             <!-- title -->
             <span style="flex:1;font-size:12px;font-weight:500;color:var(--text-primary);
@@ -1122,11 +1128,24 @@ async function saveTask() {
         // save subtasks only after we have a confirmed savedId
         if (savedId) {
             await saveSubtasks(savedId);
-            const ti = allTasks.findIndex((x) => x.id === savedId);
-            if (ti !== -1) {
-                allTasks[ti].subtask_count = _subtasks.filter(
-                    (s) => !s.isDeleted,
-                ).length;
+
+            // Re-fetch real subtask count from DB so it persists across refreshes
+            try {
+                const subs = await sbReq(
+                    `subtasks?task_id=eq.${savedId}&select=id`,
+                    { headers: hdrs(true) },
+                );
+                const realCount = Array.isArray(subs) ? subs.length : 0;
+                const ti = allTasks.findIndex((x) => x.id === savedId);
+                if (ti !== -1) allTasks[ti].subtask_count = realCount;
+            } catch (_) {
+                // fallback to local count
+                const ti = allTasks.findIndex((x) => x.id === savedId);
+                if (ti !== -1) {
+                    allTasks[ti].subtask_count = _subtasks.filter(
+                        (s) => !s.isDeleted,
+                    ).length;
+                }
             }
         }
 
