@@ -67,11 +67,82 @@ try {
 // ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadResources();
+    loadCuratedResources();
     renderRecentlyViewed();
     loadMyUploads();
     loadTopRatedWidget();
     if (CURRENT_USER.id) syncBookmarksFromDB();
 });
+
+// ─────────────────────────────────────────────────────────────
+// ADMIN CURATED SECTION
+// Fetches resources where is_curated = true and renders a
+// horizontal card grid above the main feed.
+// The section is hidden when no curated resources exist.
+// ─────────────────────────────────────────────────────────────
+async function loadCuratedResources() {
+    const section = document.getElementById('curatedSection');
+    if (!section) return;
+
+    // Show skeleton placeholders while loading
+    const grid = document.getElementById('curatedList');
+    if (grid) {
+        grid.innerHTML = Array(4).fill(0).map(() => `
+            <div class="res-curated-skel">
+                <div class="res-curated-skel-line" style="width:40px;height:40px;border-radius:10px;"></div>
+                <div class="res-curated-skel-line" style="width:80%;height:12px;"></div>
+                <div class="res-curated-skel-line" style="width:55%;height:10px;"></div>
+                <div class="res-curated-skel-line" style="width:40%;height:9px;"></div>
+            </div>`).join('');
+        section.style.display = 'block';
+    }
+
+    try {
+        // Use the same _api helper (goes through Laravel, not Supabase directly)
+        const json = await _api(
+            'GET',
+            '/api/resources?is_curated=1&visibility=public&limit=6&include_own=0'
+        );
+        const items = json?.data || [];
+
+        if (!items.length) {
+            // Nothing curated yet — hide the section completely
+            section.style.display = 'none';
+            return;
+        }
+
+        // Cache resources so openDetailById works without an extra fetch
+        items.forEach(r => { _resourceMap[r.id] = r; });
+
+        grid.innerHTML = items.map(r => {
+            const icon = fileTypeIcon(r.file_type || 'other', r.file_url || null);
+            const avg  = parseFloat(r.rating || r.avg_rating || 0);
+            const filled = Math.round(avg);
+            const stars = '★'.repeat(filled) + '☆'.repeat(5 - filled);
+
+            return `
+            <div class="res-curated-card" onclick="openDetailById('${escH(r.id)}')">
+                <span class="res-curated-pill">⭐ Curated</span>
+                <div class="res-curated-card-icon">${icon}</div>
+                <div class="res-curated-card-title">${escH(r.title)}</div>
+                <div class="res-curated-card-subject">${escH(r.subject || 'General')}</div>
+                ${avg > 0
+                    ? `<div class="res-curated-card-stars">${stars}</div>`
+                    : ''}
+                <div class="res-curated-card-footer">
+                    ${r.view_count ? `${r.view_count} view${r.view_count !== 1 ? 's' : ''}` : 'New'}
+                </div>
+            </div>`;
+        }).join('');
+
+        section.style.display = 'block';
+
+    } catch (e) {
+        // Silently hide — don't break the rest of the page
+        if (section) section.style.display = 'none';
+        console.warn('loadCuratedResources:', e.message);
+    }
+}
 
 // ─────────────────────────────────────────────────────────────
 // SUBJECT DROPDOWN  (replaces the old category-pills row)

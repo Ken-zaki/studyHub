@@ -16,19 +16,19 @@
   ════════════════════════════════════════════════════════════
 --}}
 <script>
-    (function() {
-        if (!sessionStorage.getItem('admViewAsUser')) return;
+(function () {
+    if (!sessionStorage.getItem('admViewAsUser')) return;
 
-        const dashUrl = sessionStorage.getItem('admDashboardUrl') || '/admin';
-        const reportsUrl = sessionStorage.getItem('admReportsUrl') || '/admin/reports';
-        const resourcesUrl = sessionStorage.getItem('admResourcesUrl') || '/admin/resources';
-        const logsUrl = sessionStorage.getItem('admLogsUrl') || '/admin/logs';
-        const usersUrl = sessionStorage.getItem('admUsersUrl') || '/admin/users';
-        const settingsUrl = sessionStorage.getItem('admSettingsUrl') || '/admin/settings';
+    const dashUrl      = sessionStorage.getItem('admDashboardUrl')  || '/admin';
+    const reportsUrl   = sessionStorage.getItem('admReportsUrl')    || '/admin/reports';
+    const resourcesUrl = sessionStorage.getItem('admResourcesUrl')  || '/admin/resources';
+    const logsUrl      = sessionStorage.getItem('admLogsUrl')       || '/admin/logs';
+    const usersUrl     = sessionStorage.getItem('admUsersUrl')      || '/admin/users';
+    const settingsUrl  = sessionStorage.getItem('admSettingsUrl')   || '/admin/settings';
 
-        /* ── Inject styles ── */
-        const style = document.createElement('style');
-        style.textContent = `
+    /* ── Inject styles ── */
+    const style = document.createElement('style');
+    style.textContent = `
         /* Push existing sidebar/content right to make room */
         .adm-preview-push {
             margin-left: 64px !important;
@@ -190,28 +190,28 @@
         #admMiniBar .adm-mini-exit:hover::after,
         #admMiniBar .adm-mini-exit:hover::before { opacity: 1; }
     `;
-        document.head.appendChild(style);
+    document.head.appendChild(style);
 
-        /* ── Push existing sidebar & main content right ── */
-        // The user sidebar (.sidebar) uses margin-left on .main-content
-        // We push both right by adding 64px
-        document.querySelectorAll('.sidebar').forEach(el => {
-            el.style.left = '64px';
-        });
-        document.querySelectorAll('.main-content, .top-bar').forEach(el => {
-            const cur = parseInt(window.getComputedStyle(el).marginLeft || '0');
-            el.style.marginLeft = (cur + 64) + 'px';
-        });
-        // Also shift the top bar left anchor
-        document.querySelectorAll('.top-bar').forEach(el => {
-            el.style.left = (parseInt(el.style.left || el.style.marginLeft || '64') + 64) + 'px';
-            el.style.marginLeft = '0';
-        });
+    /* ── Push existing sidebar & main content right ── */
+    // The user sidebar (.sidebar) uses margin-left on .main-content
+    // We push both right by adding 64px
+    document.querySelectorAll('.sidebar').forEach(el => {
+        el.style.left = '64px';
+    });
+    document.querySelectorAll('.main-content, .top-bar').forEach(el => {
+        const cur = parseInt(window.getComputedStyle(el).marginLeft || '0');
+        el.style.marginLeft = (cur + 64) + 'px';
+    });
+    // Also shift the top bar left anchor
+    document.querySelectorAll('.top-bar').forEach(el => {
+        el.style.left = (parseInt(el.style.left || el.style.marginLeft || '64') + 64) + 'px';
+        el.style.marginLeft = '0';
+    });
 
-        /* ── Build the mini sidebar ── */
-        const bar = document.createElement('div');
-        bar.id = 'admMiniBar';
-        bar.innerHTML = `
+    /* ── Build the mini sidebar ── */
+    const bar = document.createElement('div');
+    bar.id = 'admMiniBar';
+    bar.innerHTML = `
         <!-- Logo -->
         <div class="adm-mini-logo">S</div>
         <div class="adm-mini-badge">Admin</div>
@@ -284,55 +284,47 @@
             </svg>
         </button>
     `;
-        document.body.insertBefore(bar, document.body.firstChild);
+    document.body.insertBefore(bar, document.body.firstChild);
 
-        /* ── Load pending counts for dot badges ── */
-        const SB_URL = sessionStorage.getItem('admSbUrl');
-        const SB_KEY = sessionStorage.getItem('admSbKey');
-        if (SB_URL && SB_KEY) {
-            Promise.all([
-                fetch(`${SB_URL}/rest/v1/reports?status=eq.pending&select=id`, {
-                    headers: {
-                        'apikey': SB_KEY,
-                        'Prefer': 'count=exact'
-                    }
-                }),
-                fetch(`${SB_URL}/rest/v1/resources?is_approved=eq.false&select=id`, {
-                    headers: {
-                        'apikey': SB_KEY,
-                        'Prefer': 'count=exact'
-                    }
-                })
-            ]).then(([rRes, resRes]) => {
-                const rCount = parseInt(rRes.headers.get('content-range')?.split('/')[1] || '0');
-                const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
-                if (rCount > 0) {
-                    const dot = document.createElement('div');
-                    dot.className = 'adm-mini-dot';
-                    document.getElementById('admMiniReports')?.appendChild(dot);
-                }
-                if (resCount > 0) {
-                    const dot = document.createElement('div');
-                    dot.className = 'adm-mini-dot';
-                    dot.style.background = '#f4a261';
-                    document.getElementById('admMiniResources')?.appendChild(dot);
-                }
-            }).catch(() => {});
-        }
+    /* ── Load pending counts for dot badges ── */
+    const SB_URL = sessionStorage.getItem('admSbUrl');
+    const SB_KEY = sessionStorage.getItem('admSbKey');
+    if (SB_URL && SB_KEY) {
+        Promise.all([
+            fetch(`${SB_URL}/rest/v1/reports?status=eq.pending&select=id`,
+                { headers: { 'apikey': SB_KEY, 'Prefer': 'count=exact' } }),
+            fetch(`${SB_URL}/rest/v1/resources?is_approved=eq.false&select=id`,
+                { headers: { 'apikey': SB_KEY, 'Prefer': 'count=exact' } })
+        ]).then(([rRes, resRes]) => {
+            const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1]   || '0');
+            const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
+            if (rCount > 0) {
+                const dot = document.createElement('div');
+                dot.className = 'adm-mini-dot';
+                document.getElementById('admMiniReports')?.appendChild(dot);
+            }
+            if (resCount > 0) {
+                const dot = document.createElement('div');
+                dot.className = 'adm-mini-dot';
+                dot.style.background = '#f4a261';
+                document.getElementById('admMiniResources')?.appendChild(dot);
+            }
+        }).catch(() => {});
+    }
 
-        /* ── Exit handler ── */
-        window._admExit = function(e) {
-            e.preventDefault();
-            sessionStorage.removeItem('admViewAsUser');
-            sessionStorage.removeItem('admDashboardUrl');
-            sessionStorage.removeItem('admReportsUrl');
-            sessionStorage.removeItem('admResourcesUrl');
-            sessionStorage.removeItem('admLogsUrl');
-            sessionStorage.removeItem('admUsersUrl');
-            sessionStorage.removeItem('admSettingsUrl');
-            sessionStorage.removeItem('admSbUrl');
-            sessionStorage.removeItem('admSbKey');
-            window.location.href = dashUrl;
-        };
-    })();
+    /* ── Exit handler ── */
+    window._admExit = function (e) {
+        e.preventDefault();
+        sessionStorage.removeItem('admViewAsUser');
+        sessionStorage.removeItem('admDashboardUrl');
+        sessionStorage.removeItem('admReportsUrl');
+        sessionStorage.removeItem('admResourcesUrl');
+        sessionStorage.removeItem('admLogsUrl');
+        sessionStorage.removeItem('admUsersUrl');
+        sessionStorage.removeItem('admSettingsUrl');
+        sessionStorage.removeItem('admSbUrl');
+        sessionStorage.removeItem('admSbKey');
+        window.location.href = dashUrl;
+    };
+})();
 </script>

@@ -2,7 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\FocusModeController;
 use App\Http\Controllers\FriendRequestController;
 use App\Http\Controllers\DiagnosticsController;
@@ -930,6 +932,14 @@ Route::prefix('admin')->group(function () {
         if ($r = requireAdmin()) return $r;
         return view('admin.logs', ['activeNav' => 'admin']);
     })->name('admin.logs');
+
+    Route::get('/posts', [AdminController::class, 'posts'])->name('admin.posts');
+
+    Route::get    ('/announcements',     [AnnouncementController::class, 'index'])  ->name('admin.announcements');
+    Route::post   ('/announcements',     [AnnouncementController::class, 'store'])  ->name('admin.announcements.store');
+    Route::patch  ('/announcements/{id}',[AnnouncementController::class, 'update']) ->name('admin.announcements.update');
+    Route::delete ('/announcements/{id}',[AnnouncementController::class, 'destroy'])->name('admin.announcements.destroy');
+
 
     Route::get('/settings', function () {
         if ($r = requireAdmin()) return $r;

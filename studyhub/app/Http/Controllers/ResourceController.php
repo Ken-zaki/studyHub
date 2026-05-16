@@ -75,7 +75,7 @@ class ResourceController extends Controller
 
     /**
      * Return paginated resources as JSON.
-     * GET /api/resources?subject=&type=&visibility=public&search=&page=1&limit=20
+     * GET /api/resources?subject=&type=&visibility=public&search=&page=1&limit=20&is_curated=1
      */
     public function list(Request $request)
     {
@@ -118,6 +118,12 @@ class ResourceController extends Controller
                   ->orWhere('subject', 'ilike', "%{$search}%");
             });
         }
+
+        // ── Curated filter (used by the Admin Curated section) ──
+        if ($request->boolean('is_curated')) {
+            $query->where('is_curated', true);
+        }
+        // ────────────────────────────────────────────────────────
 
         $total     = (clone $query)->count();
         $resources = $query->offset($offset)->limit($limit)->get();
@@ -182,6 +188,7 @@ class ResourceController extends Controller
                 'rating_count'     => $ratingRow ? (int) $ratingRow->rating_count : 0,
                 'is_own'           => $userId !== '' && (string) ($r->uploaded_by ?? '') === $userId,
                 'is_bookmarked'    => in_array((string) $r->id, array_map('strval', $bookmarkedIds)),
+                'is_curated'       => (bool) ($r->is_curated ?? false), // ← ADDED
                 'created_at'       => $r->created_at,
             ];
         });
@@ -442,6 +449,7 @@ class ResourceController extends Controller
                 'link_url'         => $resource->link_url ?? null,
                 'visibility'       => $resource->visibility ?? 'public',
                 'is_approved'      => (bool) $resource->is_approved,
+                'is_curated'       => (bool) ($resource->is_curated ?? false),
                 'uploaded_by'      => $resource->uploaded_by ?? null,
                 'uploader_name'    => $uploaderName,
                 'uploader_username'=> $profile['username'] ?? null,
@@ -521,6 +529,7 @@ class ResourceController extends Controller
             'original_filename' => $originalFilename,
             'visibility'        => $request->input('visibility', 'public'),
             'is_approved'       => true,
+            'is_curated'        => false,
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);
@@ -1100,5 +1109,35 @@ class ResourceController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    // ── Admin: toggle curated ─────────────────────────────────
+
+    /**
+     * Toggle the is_curated flag on a resource (admin/moderator only).
+     * POST /api/resources/{id}/curate
+     * Returns: { curated: bool }
+     */
+    public function toggleCurated(string $id)
+    {
+        $role = session('user_role', '');
+
+        if (!in_array($role, ['admin', 'moderator'])) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $resource = DB::table('resources')->where('id', $id)->first();
+
+        if (!$resource) {
+            return response()->json(['error' => 'Resource not found'], 404);
+        }
+
+        $newValue = ! (bool) ($resource->is_curated ?? false);
+
+        DB::table('resources')
+            ->where('id', $id)
+            ->update(['is_curated' => $newValue, 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'curated' => $newValue]);
     }
 }

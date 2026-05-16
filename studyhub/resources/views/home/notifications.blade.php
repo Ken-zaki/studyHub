@@ -160,6 +160,13 @@
                             </div>
                             <span class="flt-count" id="fc-task">0</span>
                         </button>
+                        <button class="flt-btn" onclick="setFilter('announcement', this)">
+                            <div class="flt-left">
+                                <span class="flt-icon">📣</span>
+                                Announcements
+                            </div>
+                            <span class="flt-count" id="fc-announcement">0</span>
+                        </button>
                     </div>
                 </div>
 
@@ -196,32 +203,47 @@
     @include('layouts.admin_bar')
 
     <script>
-        const SB_URL = '{{ config('services.supabase.url') }}';
+        const SB_URL  = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC = '{{ config('services.supabase.service_key') }}';
-        const UID = '{{ session('user_id') }}';
-        const TABLE = 'notifications';
+        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
+        const UID     = '{{ session('user_id') }}';
+        const TABLE   = 'notifications';
 
-        let _all = [];
+        let _all    = [];
         let _filter = 'all';
 
         const FILTER_TITLES = {
-            all: 'All Notifications',
-            unread: 'Unread',
-            urgent: 'Urgent',
-            event: 'Events',
-            task: 'Tasks',
+            all:          'All Notifications',
+            unread:       'Unread',
+            urgent:       'Urgent',
+            event:        'Events',
+            task:         'Tasks',
+            announcement: 'Announcements',
         };
+
+        /* ── ICON per notification_type ─────────────────────────── */
+        function notifIcon(type) {
+            const map = {
+                announcement: '📣',
+                urgent:       '🚨',
+                event:        '📅',
+                task:         '✅',
+                friend:       '👋',
+                message:      '💬',
+                report:       '⚠️',
+            };
+            return map[type] ?? '🔔';
+        }
 
         /* ── HEADERS ────────────────────────────────────────────── */
         function hdrs(write = false) {
             const key = (write && SB_SVC) ? SB_SVC : SB_ANON;
             return {
-                apikey: key,
-                Authorization: `Bearer ${key}`,
-                'Content-Type': 'application/json',
+                apikey:           key,
+                Authorization:    `Bearer ${key}`,
+                'Content-Type':   'application/json',
                 'Accept-Profile': 'public',
-                'Content-Profile': 'public',
+                'Content-Profile':'public',
             };
         }
 
@@ -229,10 +251,7 @@
         function fetchWithTimeout(url, options = {}, ms = 8000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), ms);
-            return fetch(url, {
-                    ...options,
-                    signal: controller.signal
-                })
+            return fetch(url, { ...options, signal: controller.signal })
                 .finally(() => clearTimeout(timer));
         }
 
@@ -262,9 +281,10 @@
 
             try {
                 const res = await fetchWithTimeout(
-                    `${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&order=created_at.desc&limit=200`, {
-                        headers: hdrs()
-                    }
+                    // FIX #4: include `priority` in the select so it arrives in every row
+                    `${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&order=created_at.desc&limit=200` +
+                    `&select=*`,
+                    { headers: hdrs() }
                 );
                 if (!res.ok) {
                     const text = await res.text();
@@ -286,30 +306,52 @@
 
         /* ── COUNTS ─────────────────────────────────────────────── */
         function updateCounts() {
-            const unread = _all.filter(n => !n.read).length;
-            const urgent = _all.filter(n => n.urgency === 'urgent').length;
-            const read = _all.filter(n => n.read).length;
+            const unread = _all.filter(n => !(n.read || n.is_read)).length;
 
-            document.getElementById('sTotal').textContent = _all.length;
+            const urgent = _all.filter(n =>
+                n.priority === 'urgent' ||
+                n.urgency === 'urgent'
+            ).length;
+
+            const read = _all.filter(n =>
+                (n.read || n.is_read)
+            ).length;
+
+            const ann = _all.filter(n =>
+                n.notification_type === 'announcement' ||
+                n.source_type === 'announcement'
+            ).length;
+
+            document.getElementById('sTotal').textContent  = _all.length;
             document.getElementById('sUnread').textContent = unread;
             document.getElementById('sUrgent').textContent = urgent;
-            document.getElementById('sRead').textContent = read;
+            document.getElementById('sRead').textContent   = read;
 
             const pill = document.getElementById('topPill');
-            pill.textContent = unread;
+
+            pill.textContent   = unread;
             pill.style.display = unread > 0 ? 'inline' : 'none';
 
-            // ✅ FIX: apostrophe escaped so it doesn't break the JS string
             document.getElementById('pageSubtitle').textContent =
-                unread > 0 ?
-                `You have ${unread} unread notification${unread !== 1 ? 's' : ''}` :
-                "You're all caught up!";
+                unread > 0
+                    ? `You have ${unread} unread notification${unread !== 1 ? 's' : ''}`
+                    : "You're all caught up!";
 
-            document.getElementById('fc-all').textContent = _all.length;
+            document.getElementById('fc-all').textContent    = _all.length;
             document.getElementById('fc-unread').textContent = unread;
             document.getElementById('fc-urgent').textContent = urgent;
-            document.getElementById('fc-event').textContent = _all.filter(n => n.source_type === 'event').length;
-            document.getElementById('fc-task').textContent = _all.filter(n => n.source_type === 'task').length;
+
+            document.getElementById('fc-event').textContent =
+                _all.filter(n =>
+                    n.notification_type === 'event'
+                ).length;
+
+            document.getElementById('fc-task').textContent =
+                _all.filter(n =>
+                    n.notification_type === 'task'
+                ).length;
+
+            document.getElementById('fc-announcement').textContent = ann;
         }
 
         /* ── FILTER ─────────────────────────────────────────────── */
@@ -322,16 +364,43 @@
         }
 
         function filtered() {
-            if (_filter === 'unread') return _all.filter(n => !n.read);
-            if (_filter === 'urgent') return _all.filter(n => n.urgency === 'urgent');
-            if (_filter === 'event') return _all.filter(n => n.source_type === 'event');
-            if (_filter === 'task') return _all.filter(n => n.source_type === 'task');
+
+            if (_filter === 'unread') {
+                return _all.filter(n => !(n.read || n.is_read));
+            }
+
+            if (_filter === 'urgent') {
+                return _all.filter(n =>
+                    n.priority === 'urgent' ||
+                    n.urgency === 'urgent'
+                );
+            }
+
+            if (_filter === 'event') {
+                return _all.filter(n =>
+                    n.notification_type === 'event'
+                );
+            }
+
+            if (_filter === 'task') {
+                return _all.filter(n =>
+                    n.notification_type === 'task'
+                );
+            }
+
+            if (_filter === 'announcement') {
+                return _all.filter(n =>
+                    n.notification_type === 'announcement' ||
+                    n.source_type === 'announcement'
+                );
+            }
+
             return _all;
         }
 
         /* ── RENDER ─────────────────────────────────────────────── */
         function render() {
-            const list = document.getElementById('notifList');
+            const list  = document.getElementById('notifList');
             const items = filtered();
             document.getElementById('listSub').textContent =
                 `${items.length} notification${items.length !== 1 ? 's' : ''}`;
@@ -353,43 +422,71 @@
             });
 
             let html = '';
-            let idx = 0;
+            let idx  = 0;
             for (const [label, notifs] of Object.entries(groups)) {
                 html += `<div class="ng-label">${esc(label)}</div>`;
-                notifs.forEach(n => {
-                    html += rowHTML(n, idx++);
-                });
+                notifs.forEach(n => { html += rowHTML(n, idx++); });
             }
             list.innerHTML = html;
         }
 
         function rowHTML(n, i) {
-            const ago = timeAgo(new Date(n.created_at));
-            const unread = !n.read;
-            const urgent = n.urgency === 'urgent';
+            const ago    = timeAgo(new Date(n.created_at));
+            const unread = !(n.read || n.is_read);
 
-            const urgentClass = urgent ? 'urgent' : '';
+            const level =
+                (n.priority || n.urgency || 'normal')
+                .toLowerCase();
+
+            const urgent = level === 'urgent';
+            const important = level === 'important';
+            const normal = level === 'normal';
+
+            const icon = notifIcon(
+                n.notification_type ||
+                n.source_type ||
+                'announcement'
+            );
+
+            let priorityClass = 'normal';
+
+            if (urgent) {
+                priorityClass = 'urgent';
+            }
+            else if (important) {
+                priorityClass = 'important';
+            }
+
             const readClass = unread ? 'unread' : 'read';
-            const tagUrgent = urgent ?
-                `<span class="nr-tag urgent">Urgent</span>` :
-                `<span class="nr-tag info">Info</span>`;
-            const tagSource = n.source_type ?
-                `<span class="nr-tag ${esc(n.source_type)}">${esc(n.source_type)}</span>` :
-                '';
+
+            let tagUrgent = '';
+
+            if (urgent) {
+                tagUrgent = `<span class="nr-tag urgent">Urgent</span>`;
+            }
+            else if (important) {
+                tagUrgent = `<span class="nr-tag important">Important</span>`;
+            }
+            else {
+                tagUrgent = `<span class="nr-tag normal">Normal</span>`;
+            }
+            const tagType     = n.notification_type
+                ? `<span class="nr-tag ${esc(n.notification_type)}">${esc(n.notification_type)}</span>`
+                : '';
             const udot = unread ? `<div class="udot"></div>` : '';
 
             return `
-            <div class="nr ${readClass} ${urgentClass}" id="nr-${n.id}"
+            <div class="nr ${readClass} ${priorityClass}" id="nr-${n.id}"
                  style="animation-delay: ${Math.min(i * 25, 300)}ms"
                  onclick="markRead('${n.id}')">
-                <div class="nr-icon-wrap">${esc(n.icon ?? '🔔')}</div>
+                <div class="nr-icon-wrap">${icon}</div>
                 <div class="nr-body">
                     <div class="nr-title">${esc(n.title)}</div>
-                    ${n.body ? `<div class="nr-sub">${esc(n.body)}</div>` : ''}
+                    ${n.message ? `<div class="nr-sub">${esc(n.message)}</div>` : ''}
                     <div class="nr-meta">
                         <span class="nr-time">${ago}</span>
                         ${tagUrgent}
-                        ${tagSource}
+                        ${tagType}
                     </div>
                 </div>
                 <div class="nr-right">
@@ -412,8 +509,8 @@
         /* ── ACTIONS ────────────────────────────────────────────── */
         async function markRead(id) {
             const n = _all.find(x => x.id === id);
-            if (!n || n.read) return;
-            n.read = true;
+            if (!n || n.is_read) return;
+            n.is_read = true;
             const row = document.getElementById('nr-' + id);
             if (row) {
                 row.classList.replace('unread', 'read');
@@ -422,24 +519,20 @@
             }
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
-                method: 'PATCH',
+                method:  'PATCH',
                 headers: hdrs(true),
-                body: JSON.stringify({
-                    read: true
-                }),
+                body:    JSON.stringify({ is_read: true }),
             });
         }
 
         async function markAllRead() {
-            _all.forEach(n => (n.read = true));
+            _all.forEach(n => (n.is_read = true));
             render();
             updateCounts();
-            await fetch(`${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&read=eq.false`, {
-                method: 'PATCH',
+            await fetch(`${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&is_read=eq.false`, {
+                method:  'PATCH',
                 headers: hdrs(true),
-                body: JSON.stringify({
-                    read: true
-                }),
+                body:    JSON.stringify({ is_read: true }),
             });
         }
 
@@ -448,46 +541,43 @@
             render();
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
-                method: 'DELETE',
+                method:  'DELETE',
                 headers: hdrs(true),
             });
         }
 
         async function clearAllRead() {
             if (!confirm('Delete all read notifications?')) return;
-            const ids = _all.filter(n => n.read).map(n => n.id);
+            const ids = _all.filter(n => n.is_read).map(n => n.id);
             if (!ids.length) return;
-            _all = _all.filter(n => !n.read);
+            _all = _all.filter(n => !n.is_read);
             render();
             updateCounts();
             await fetch(
                 `${SB_URL}/rest/v1/${TABLE}?id=in.(${ids.map(i => `"${i}"`).join(',')})`, {
-                    method: 'DELETE',
-                    headers: hdrs(true)
+                    method:  'DELETE',
+                    headers: hdrs(true),
                 }
             );
         }
 
         /* ── HELPERS ────────────────────────────────────────────── */
         function groupLabel(d) {
-            const now = new Date();
+            const now   = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const diff = Math.round((today - dd) / 86400000);
+            const dd    = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const diff  = Math.round((today - dd) / 86400000);
             if (diff === 0) return 'Today';
             if (diff === 1) return 'Yesterday';
-            if (diff < 7) return `${diff} days ago`;
-            return d.toLocaleDateString('en-US', {
-                month: 'long',
-                year: 'numeric'
-            });
+            if (diff < 7)  return `${diff} days ago`;
+            return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         }
 
         function timeAgo(d) {
             const s = Math.floor((Date.now() - d) / 1000);
-            if (s < 10) return 'just now';
-            if (s < 60) return `${s}s ago`;
-            if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+            if (s < 10)    return 'just now';
+            if (s < 60)    return `${s}s ago`;
+            if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
             if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
             return `${Math.floor(s / 86400)}d ago`;
         }

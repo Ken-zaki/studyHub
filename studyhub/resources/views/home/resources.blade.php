@@ -113,6 +113,17 @@
                 <button onclick="clearCategory()" class="res-clear-filters">Clear filter</button>
             </div>
 
+            <!-- ── Admin Curated Section ── -->
+            <div id="curatedSection" class="res-curated-section" style="display:none;">
+                <div class="res-curated-header">
+                    <div class="res-curated-badge">⭐</div>
+                    <span class="res-curated-title">Admin Curated</span>
+                    <span class="res-curated-sub">Selected by our team</span>
+                </div>
+                <div id="curatedList" class="res-curated-grid"></div>
+                <div class="res-curated-divider"></div>
+            </div>
+
             <!-- Feed -->
             <div id="resourceFeed">
                 <div class="loading-state">Loading resources…</div>

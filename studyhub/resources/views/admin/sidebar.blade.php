@@ -1,5 +1,5 @@
 @php
-    $adminUsername = session('user_username', 'Admin');
+    $adminUsername  = session('user_username', 'Admin');
     $adminFirstName = session('user_first_name', 'Admin');
     $adminLastName  = session('user_last_name', '');
     $adminInitials  = strtoupper(substr($adminFirstName, 0, 1) . substr($adminLastName, 0, 1));
@@ -38,7 +38,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
     display:flex; flex-direction:column;
     z-index:1000;
 }
-
 .adm-logo {
     padding:20px 20px 16px;
     border-bottom:1px solid var(--adm-border);
@@ -56,16 +55,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
     background:rgba(26,95,122,0.1); color:var(--adm-primary);
     padding:3px 8px; border-radius:20px; white-space:nowrap;
 }
-
 .adm-nav { flex:1; padding:14px 12px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
-
 .adm-nav-section {
     font-size:10px; font-weight:700; color:var(--adm-light);
     letter-spacing:0.08em; text-transform:uppercase;
     padding:10px 12px 4px;
 }
 .adm-nav-section:first-child { padding-top:4px; }
-
 .adm-nav-item {
     display:flex; align-items:center; gap:10px;
     padding:11px 12px; border-radius:10px;
@@ -86,10 +82,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
     background:linear-gradient(var(--adm-primary),var(--adm-accent));
     border-radius:0 3px 3px 0;
 }
-.adm-nav-icon {
-    width:18px; height:18px; flex-shrink:0;
-    color:inherit; opacity:0.7;
-}
+.adm-nav-icon { width:18px; height:18px; flex-shrink:0; color:inherit; opacity:0.7; }
 .adm-nav-item.active .adm-nav-icon { opacity:1; }
 .adm-nav-badge {
     margin-left:auto; font-size:10px; font-weight:700;
@@ -97,7 +90,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
     padding:2px 7px; border-radius:10px; min-width:20px; text-align:center;
 }
 .adm-nav-badge.warn { background:var(--adm-warning); }
-
 .adm-sidebar-footer { padding:12px; border-top:1px solid var(--adm-border); }
 .adm-user-card {
     display:flex; align-items:center; gap:10px;
@@ -115,7 +107,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
 .adm-user-info { flex:1; min-width:0; }
 .adm-user-name { font-size:13px; font-weight:600; color:var(--adm-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .adm-user-role { font-size:11px; color:var(--adm-light); margin-top:1px; }
-
 .adm-logout {
     display:flex; align-items:center; gap:10px;
     padding:10px 12px; border-radius:10px;
@@ -191,7 +182,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             Reports
-            <span class="adm-nav-badge" id="sidebarReportBadge">—</span>
+            <span class="adm-nav-badge" id="sidebarReportBadge" style="display:none;">0</span>
         </a>
 
         <a href="{{ route('admin.resources') }}" class="adm-nav-item {{ $activeAdmin === 'resources' ? 'active' : '' }}">
@@ -200,7 +191,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
                 <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
             </svg>
             Resource Approval
-            <span class="adm-nav-badge warn" id="sidebarResourceBadge">—</span>
+            <span class="adm-nav-badge warn" id="sidebarResourceBadge" style="display:none;">0</span>
         </a>
 
         <a href="{{ route('admin.logs') }}" class="adm-nav-item {{ $activeAdmin === 'logs' ? 'active' : '' }}">
@@ -213,6 +204,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
             Admin Logs
         </a>
 
+        <a href="{{ route('admin.posts') }}" class="adm-nav-item {{ $activeAdmin === 'posts' ? 'active' : '' }}">
+            <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+            </svg>
+            Posts Feed
+        </a>
+
+        <a href="{{ route('admin.announcements') }}" class="adm-nav-item {{ $activeAdmin === 'announcements' ? 'active' : '' }}">
+            <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6z"/>
+                <path d="M17 11V5a5 5 0 00-10 0v6"/>
+            </svg>
+            Announcements
+            <span class="adm-nav-badge" id="sidebarAnnBadge" style="display:none;">0</span>
+        </a>
+
         <div class="adm-nav-section">Platform</div>
 
         <a href="{{ route('admin.settings') }}" class="adm-nav-item {{ $activeAdmin === 'settings' ? 'active' : '' }}">
@@ -223,9 +230,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
             Settings
         </a>
 
-        <a href="{{ route('newsfeed') }}" class="adm-nav-item">
+        <a href="{{ route('newsfeed') }}" class="adm-nav-item" onclick="activateViewAsUser()">
             <svg class="adm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
             </svg>
             View as User
         </a>
@@ -267,26 +275,44 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
 </div>
 
 <script>
-// Update sidebar report/resource badges from Supabase
-const SUPABASE_URL      = '{{ env("SUPABASE_URL") }}';
-const SUPABASE_ANON_KEY = '{{ env("SUPABASE_ANON_KEY") }}';
+{{-- FIX: use config() via blade so these are never empty --}}
+const SUPABASE_URL      = '{{ config("services.supabase.url") }}';
+const SUPABASE_ANON_KEY = '{{ config("services.supabase.anon_key") }}';
+const SUPABASE_SVC_KEY  = '{{ config("services.supabase.service_key") }}';
+const ADMIN_ID          = '{{ session("user_id") }}';
 
 async function loadSidebarBadges() {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
     try {
+        const headers = {
+            'apikey':        SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer':        'count=exact',
+        };
         const [rRes, resRes] = await Promise.all([
-            fetch(`${SUPABASE_URL}/rest/v1/reports?status=eq.pending&select=id`,
-                { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Prefer':'count=exact' }}),
-            fetch(`${SUPABASE_URL}/rest/v1/resources?is_approved=eq.false&select=id`,
-                { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Prefer':'count=exact' }})
+            fetch(`${SUPABASE_URL}/rest/v1/reports?status=eq.pending&select=id`, { headers }),
+            fetch(`${SUPABASE_URL}/rest/v1/resources?is_approved=eq.false&select=id`, { headers }),
         ]);
-        const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1] || '0');
+        const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1]   || '0');
         const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
 
         const rb = document.getElementById('sidebarReportBadge');
         const ab = document.getElementById('sidebarResourceBadge');
-        if (rb)   { rb.textContent   = rCount;   rb.style.display   = rCount   ? '' : 'none'; }
-        if (ab)   { ab.textContent   = resCount; ab.style.display   = resCount ? '' : 'none'; }
+        if (rb)  { rb.textContent = rCount;   rb.style.display = rCount   ? '' : 'none'; }
+        if (ab)  { ab.textContent = resCount; ab.style.display = resCount ? '' : 'none'; }
     } catch(e) {}
 }
 loadSidebarBadges();
+
+function activateViewAsUser() {
+    sessionStorage.setItem('admViewAsUser',   '1');
+    sessionStorage.setItem('admDashboardUrl', '{{ route("admin.dashboard") }}');
+    sessionStorage.setItem('admReportsUrl',   '{{ route("admin.reports") }}');
+    sessionStorage.setItem('admResourcesUrl', '{{ route("admin.resources") }}');
+    sessionStorage.setItem('admLogsUrl',      '{{ route("admin.logs") }}');
+    sessionStorage.setItem('admUsersUrl',     '{{ route("admin.users") }}');
+    sessionStorage.setItem('admSettingsUrl',  '{{ route("admin.settings") }}');
+    sessionStorage.setItem('admSbUrl',        '{{ config("services.supabase.url") }}');
+    sessionStorage.setItem('admSbKey',        '{{ config("services.supabase.anon_key") }}');
+}
 </script>

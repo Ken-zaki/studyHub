@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        ['newsfeed', 'study-groups', 'resources', 'messages', 'friends', 'focus-mode'],
+        ['friends'],
         true,
     );
 

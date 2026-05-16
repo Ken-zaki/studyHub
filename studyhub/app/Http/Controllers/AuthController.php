@@ -31,7 +31,6 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // LOGIN  (POST)
-    // On success: set session and redirect to dashboard
     // ──────────────────────────────────────────────
     public function login(Request $request)
     {
@@ -40,15 +39,17 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        $sbUrl  = config('services.supabase.url');
+        $sbAnon = config('services.supabase.anon_key');
+        $sbSvc  = config('services.supabase.service_key');
+
         // 1. Sign in via Supabase Auth REST API
-        $response = Http::post(env('SUPABASE_URL') . '/auth/v1/token?grant_type=password', [
+        $response = Http::withHeaders([
+            'apikey'       => $sbAnon,
+            'Content-Type' => 'application/json',
+        ])->post("{$sbUrl}/auth/v1/token?grant_type=password", [
             'email'    => $request->email,
             'password' => $request->password,
-        ], [
-            'headers' => [
-                'apikey'       => env('SUPABASE_ANON_KEY'),
-                'Content-Type' => 'application/json',
-            ],
         ]);
 
         if ($response->failed()) {
@@ -62,24 +63,30 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Authentication failed.']);
         }
 
-        // 2. Fetch profile from public.profiles
+        // 2. Fetch profile from public.profiles (use service key to bypass RLS)
         $profileResponse = Http::withHeaders([
-            'apikey'        => env('SUPABASE_ANON_KEY'),
-            'Authorization' => 'Bearer ' . env('SUPABASE_ANON_KEY'),
-        ])->get(env('SUPABASE_URL') . '/rest/v1/profiles?id=eq.' . $userId . '&select=*');
+            'apikey'        => $sbSvc,
+            'Authorization' => "Bearer {$sbSvc}",
+        ])->get("{$sbUrl}/rest/v1/profiles?id=eq.{$userId}&select=*");
 
-        $profiles = $profileResponse->json();
-        $profile  = $profiles[0] ?? [];
+        $profile = $profileResponse->json()[0] ?? [];
 
-        // 3. Store everything in Laravel session
+        // 3. Store everything in Laravel session — including role
         Session::put([
             'user_id'            => $userId,
             'user_first_name'    => $profile['first_name']        ?? '',
             'user_last_name'     => $profile['last_name']         ?? '',
             'user_username'      => $profile['username']          ?? '',
             'user_profile_photo' => $profile['profile_photo_url'] ?? '',
+            'user_role'          => $profile['role']              ?? 'student', // FIX: was never stored
             'supabase_token'     => $authData['access_token']     ?? '',
         ]);
+
+        // 4. Redirect admins/moderators to admin dashboard, others to user dashboard
+        $role = $profile['role'] ?? 'student';
+        if (in_array($role, ['admin', 'moderator'])) {
+            return redirect()->route('admin.dashboard');
+        }
 
         return redirect()->route('dashboard');
     }
@@ -98,11 +105,15 @@ class AuthController extends Controller
             'birthday'   => 'required|date',
         ]);
 
+        $sbUrl  = config('services.supabase.url');
+        $sbAnon = config('services.supabase.anon_key');
+        $sbSvc  = config('services.supabase.service_key');
+
         // 1. Create auth user via Supabase
         $authResponse = Http::withHeaders([
-            'apikey'       => env('SUPABASE_ANON_KEY'),
+            'apikey'       => $sbAnon,
             'Content-Type' => 'application/json',
-        ])->post(env('SUPABASE_URL') . '/auth/v1/signup', [
+        ])->post("{$sbUrl}/auth/v1/signup", [
             'email'    => $request->email,
             'password' => $request->password,
         ]);
@@ -118,11 +129,11 @@ class AuthController extends Controller
 
         // 2. Insert into public.profiles using service key
         $profileResponse = Http::withHeaders([
-            'apikey'        => env('SUPABASE_SERVICE_KEY'),
-            'Authorization' => 'Bearer ' . env('SUPABASE_SERVICE_KEY'),
+            'apikey'        => $sbSvc,
+            'Authorization' => "Bearer {$sbSvc}",
             'Content-Type'  => 'application/json',
             'Prefer'        => 'return=representation',
-        ])->post(env('SUPABASE_URL') . '/rest/v1/profiles', [
+        ])->post("{$sbUrl}/rest/v1/profiles", [
             'id'         => $userId,
             'first_name' => $request->first_name,
             'last_name'  => $request->last_name,
@@ -149,8 +160,6 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // PAGE CONTROLLERS
-    // Each method passes $activeNav so the sidebar
-    // highlights the correct nav item automatically.
     // ──────────────────────────────────────────────
 
     public function dashboard()
@@ -213,7 +222,6 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // FORGOT PASSWORD (POST)
-    // Sends OTP code to user's email via Supabase
     // ──────────────────────────────────────────────
     public function forgotPassword(Request $request)
     {
@@ -221,15 +229,17 @@ class AuthController extends Controller
             'email' => 'required|email',
         ]);
 
-        $response = Http::withHeaders([
-            'apikey'       => env('SUPABASE_ANON_KEY'),
+        $sbUrl  = config('services.supabase.url');
+        $sbAnon = config('services.supabase.anon_key');
+
+        Http::withHeaders([
+            'apikey'       => $sbAnon,
             'Content-Type' => 'application/json',
-        ])->post(env('SUPABASE_URL') . '/auth/v1/otp', [
-            'email' => $request->email,
+        ])->post("{$sbUrl}/auth/v1/otp", [
+            'email'       => $request->email,
             'create_user' => false,
         ]);
 
-        // Always show success to avoid email enumeration
         return back()->with('success', 'If that email exists, a reset code has been sent.');
     }
 
@@ -243,7 +253,6 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // VERIFY OTP (POST)
-    // Validates the code and stores access token
     // ──────────────────────────────────────────────
     public function verifyOtp(Request $request)
     {
@@ -252,10 +261,13 @@ class AuthController extends Controller
             'token' => 'required|string',
         ]);
 
+        $sbUrl  = config('services.supabase.url');
+        $sbAnon = config('services.supabase.anon_key');
+
         $response = Http::withHeaders([
-            'apikey'       => env('SUPABASE_ANON_KEY'),
+            'apikey'       => $sbAnon,
             'Content-Type' => 'application/json',
-        ])->post(env('SUPABASE_URL') . '/auth/v1/verify', [
+        ])->post("{$sbUrl}/auth/v1/verify", [
             'type'  => 'recovery',
             'token' => $request->token,
             'email' => $request->email,
@@ -265,7 +277,6 @@ class AuthController extends Controller
             return back()->withErrors(['token' => 'Invalid or expired code. Please try again.']);
         }
 
-        // Store access token so user can set a new password
         Session::put('reset_access_token', $response->json()['access_token']);
         Session::put('reset_email', $request->email);
 
@@ -286,7 +297,6 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // RESET PASSWORD (POST)
-    // Updates the user's password using the access token
     // ──────────────────────────────────────────────
     public function resetPassword(Request $request)
     {
@@ -294,6 +304,8 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
+        $sbUrl      = config('services.supabase.url');
+        $sbAnon     = config('services.supabase.anon_key');
         $accessToken = Session::get('reset_access_token');
 
         if (!$accessToken) {
@@ -301,10 +313,10 @@ class AuthController extends Controller
         }
 
         $response = Http::withHeaders([
-            'apikey'        => env('SUPABASE_ANON_KEY'),
-            'Authorization' => 'Bearer ' . $accessToken,
+            'apikey'        => $sbAnon,
+            'Authorization' => "Bearer {$accessToken}",
             'Content-Type'  => 'application/json',
-        ])->put(env('SUPABASE_URL') . '/auth/v1/user', [
+        ])->put("{$sbUrl}/auth/v1/user", [
             'password' => $request->password,
         ]);
 
@@ -312,10 +324,8 @@ class AuthController extends Controller
             return back()->withErrors(['password' => 'Failed to reset password. Please try again.']);
         }
 
-        // Clean up reset session keys
         Session::forget(['reset_access_token', 'reset_email']);
 
         return redirect()->route('login')->with('success', 'Password reset! Please log in.');
     }
 }
-
