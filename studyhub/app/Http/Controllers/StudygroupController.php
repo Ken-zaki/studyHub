@@ -38,20 +38,22 @@ class StudyGroupController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $provider = new SupabaseServiceProvider();
+        $friendsAsUser   = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
+        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
+        $friendIds       = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
 
-        $allProfiles  = $provider->getAllProfiles();
+        $provider = new SupabaseServiceProvider();
+        $profiles = $provider->getProfilesByIds($friendIds);
+
         $profilesById = [];
-        foreach ($allProfiles as $profile) {
+
+        foreach ($profiles as $profile) {
             $id = (string) ($profile['id'] ?? '');
+
             if ($id !== '') {
                 $profilesById[$id] = $profile;
             }
         }
-
-        $friendsAsUser   = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
-        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
-        $friendIds       = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
 
         $friends = [];
         foreach ($friendIds as $friendId) {
@@ -549,20 +551,22 @@ class StudyGroupController extends Controller
             return response()->json(['error' => 'Not authenticated'], 401);
         }
 
-        $provider = new SupabaseServiceProvider();
+        $friendsAsUser   = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
+        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
+        $friendIds       = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
 
-        $allProfiles  = $provider->getAllProfiles();
+        $provider = new SupabaseServiceProvider();
+        $profiles = $provider->getProfilesByIds($friendIds);
+
         $profilesById = [];
-        foreach ($allProfiles as $profile) {
+
+        foreach ($profiles as $profile) {
             $id = (string) ($profile['id'] ?? '');
+
             if ($id !== '') {
                 $profilesById[$id] = $profile;
             }
         }
-
-        $friendsAsUser   = Friendship::where('user_id', $userId)->pluck('friend_id')->toArray();
-        $friendsAsFriend = Friendship::where('friend_id', $userId)->pluck('user_id')->toArray();
-        $friendIds       = array_unique(array_merge($friendsAsUser, $friendsAsFriend));
 
         $friends = [];
         foreach ($friendIds as $friendId) {

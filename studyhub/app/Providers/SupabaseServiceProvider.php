@@ -89,6 +89,24 @@ class SupabaseServiceProvider
         return !empty($result) && !isset($result['error']) ? $result[0] : null;
     }
 
+    public function getProfilesByIds(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $encodedIds = array_map('urlencode', $ids);
+
+        $result = $this->request(
+            'GET',
+            '/rest/v1/profiles?id=in.(' . implode(',', $encodedIds) . ')',
+            null,
+            useServiceKey: true
+        );
+
+        return isset($result['error']) ? [] : $result;
+    }
+
     public function getProfileByUsername(string $username): ?array
     {
         $result = $this->request(
