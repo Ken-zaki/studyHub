@@ -12,11 +12,28 @@ let allFocusSessions = []; // for study time tracking
 let allSubjects = []; // user_subject_colors
 let progressPeriod = "weekly"; // 'weekly' | 'monthly'
 
+/** Colour bar for study-session / event categories. */
+const SESSION_BAR_COLOR = {
+    class: "#185FA5",
+    group: "#7c3aed",
+    event: "#0F6E56",
+    exam: "#dc2626",
+    deadline: "#d97706",
+};
+
+/** Colour set for priority badges in tasks list. */
+const TASK_TAG_STYLE = {
+    high: "background:#FAECE7;color:#993C1D",
+    medium: "background:#FAEEDA;color:#854F0B",
+    low: "background:#E1F5EE;color:#0F6E56",
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
     try {
+        curDate = new Date(); // ensure expandAll windows on today
         await Promise.all([
             dbLoad(),
             taskLoad(),
@@ -31,19 +48,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    // ── existing widgets ──────────────────────────────────────────
     renderDeadlines();
     renderUpcoming();
     renderTaskSummary();
-    renderMySubjects(); // renamed from renderMyCalendars
-
-    // ── new widgets ───────────────────────────────────────────────
-    renderMetricRow(); // FR-2.2 / FR-2.5 — 4 stat cards at top
-    renderTodaySchedule(); // FR-2.1 — today's study sessions
-    renderUpcomingTasks(); // FR-2.2 — task list with priority + tags
-    renderStudyGroups(); // FR-2.3 — active study groups
-    loadProgressSummary("weekly"); // FR-2.5 — progress bars (default weekly)
-    renderMiniCal(); // mini calendar grid
+    renderMySubjects();
+    renderMetricRow();
+    renderTodaySchedule();
+    renderUpcomingTasks();
+    renderStudyGroups();
+    loadProgressSummary("weekly");
+    renderMiniCal();
 
     initNotifications?.();
 });
@@ -54,7 +68,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function loadFocusSessions() {
     try {
         allFocusSessions = await sbReq(
-            `focus_sessions?user_id=eq.${UID}&order=session_date.desc`,
+            `focus_sessions?user_id=eq.${UID}&order=created_at.desc`,
             { headers: hdrs() },
         );
         if (!Array.isArray(allFocusSessions)) allFocusSessions = [];
@@ -80,17 +94,8 @@ async function loadSubjects() {
 // ═══════════════════════════════════════════════════════════════════
 // FR-2.5  PROGRESS SUMMARY (Week / Month toggle + bars)
 // ═══════════════════════════════════════════════════════════════════
-
-/**
- * FIX: The original code used document.querySelectorAll(".period-toggle")
- * but the blade renders buttons inside #progressToggle with data-period
- * attributes — none have the class "period-toggle".
- * Updated selector targets the actual DOM structure.
- */
 function switchProgressPeriod(period) {
     progressPeriod = period;
-
-    // Update toggle button styles — target by #progressToggle > button[data-period]
     const toggleContainer = document.getElementById("progressToggle");
     if (toggleContainer) {
         toggleContainer
@@ -105,7 +110,6 @@ function switchProgressPeriod(period) {
                     : "var(--text-secondary,#6b7280)";
             });
     }
-
     loadProgressSummary(period);
 }
 
@@ -115,17 +119,13 @@ async function loadProgressSummary(period) {
 
     if (period === "weekly") {
         rangeStart = new Date(today);
-        rangeStart.setDate(today.getDate() - today.getDay()); // start of week (Sunday)
+        rangeStart.setDate(today.getDate() - today.getDay()); // Sunday
         rangeEnd = new Date(rangeStart);
         rangeEnd.setDate(rangeStart.getDate() + 6);
     } else {
-        // monthly
         rangeStart = new Date(today.getFullYear(), today.getMonth(), 1);
         rangeEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     }
-
-    const startStr = fd(rangeStart);
-    const endStr = fd(rangeEnd);
 
     // ── Tasks ────────────────────────────────────────────────────
     const periodTasks = allTasks.filter((t) => {
@@ -144,11 +144,22 @@ async function loadProgressSummary(period) {
         taskValEl.textContent = `${tasksDone} / ${periodTasks.length}`;
     if (taskBarEl) taskBarEl.style.width = `${taskPct}%`;
 
-    // ── Study hours ──────────────────────────────────────────────
+    // ── Study hours — filter by created_at ──────────────────────
     const GOAL_HRS = period === "weekly" ? 20 : 80;
     const periodMins = allFocusSessions
-        .filter((s) => s.session_date >= startStr && s.session_date <= endStr)
-        .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        .filter((s) => {
+            if (!s.created_at) return false;
+            const d = new Date(s.created_at);
+            d.setHours(0, 0, 0, 0);
+            return d >= rangeStart && d <= rangeEnd;
+        })
+        .reduce(
+            (sum, s) =>
+                sum +
+                (s.duration_minutes ||
+                    Math.round((s.duration_seconds || 0) / 60)),
+            0,
+        );
     const periodHrs = (periodMins / 60).toFixed(1);
     const hoursPct = Math.min(
         Math.round((periodMins / 60 / GOAL_HRS) * 100),
@@ -162,9 +173,12 @@ async function loadProgressSummary(period) {
 
     // ── Focus sessions count ─────────────────────────────────────
     const FOCUS_GOAL = period === "weekly" ? 8 : 32;
-    const focusCount = allFocusSessions.filter(
-        (s) => s.session_date >= startStr && s.session_date <= endStr,
-    ).length;
+    const focusCount = allFocusSessions.filter((s) => {
+        if (!s.created_at) return false;
+        const d = new Date(s.created_at);
+        d.setHours(0, 0, 0, 0);
+        return d >= rangeStart && d <= rangeEnd;
+    }).length;
     const focusPct = Math.min(Math.round((focusCount / FOCUS_GOAL) * 100), 100);
 
     const focusValEl = document.getElementById("wsSummFocusVal");
@@ -200,22 +214,6 @@ function dueLabel(dateStr) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** Colour set for priority badges in tasks list. */
-const TASK_TAG_STYLE = {
-    high: "background:#FAECE7;color:#993C1D",
-    medium: "background:#FAEEDA;color:#854F0B",
-    low: "background:#E1F5EE;color:#0F6E56",
-};
-
-/** Colour bar for study-session / event categories. */
-const SESSION_BAR_COLOR = {
-    class: "#185FA5",
-    group: "#7c3aed",
-    event: "#0F6E56",
-    exam: "#dc2626",
-    deadline: "#d97706",
-};
-
 /** Badge text + style for a session relative to now. */
 function sessionBadge(dateStr, timeStr) {
     const diff = daysFromToday(dateStr);
@@ -231,7 +229,7 @@ function sessionBadge(dateStr, timeStr) {
         const start = new Date();
         start.setHours(hh, mm, 0, 0);
         const end = new Date(start);
-        end.setHours(hh + 1, mm, 0, 0); // rough 1-hr block
+        end.setHours(hh + 1, mm, 0, 0);
         if (now >= start && now <= end)
             return { label: "Now", style: "background:#EEEDFE;color:#534AB7" };
         if (now < start)
@@ -286,8 +284,14 @@ function renderMetricRow() {
     // Study time today
     const todayStr = today.toISOString().split("T")[0];
     const minsToday = allFocusSessions
-        .filter((s) => s.session_date === todayStr)
-        .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        .filter((s) => s.created_at && s.created_at.slice(0, 10) === todayStr)
+        .reduce(
+            (sum, s) =>
+                sum +
+                (s.duration_minutes ||
+                    Math.round((s.duration_seconds || 0) / 60)),
+            0,
+        );
     let studyTimeStr;
     if (minsToday > 0) {
         const h = Math.floor(minsToday / 60);
@@ -296,7 +300,6 @@ function renderMetricRow() {
     } else {
         studyTimeStr = "0h";
     }
-    const studyGoalStr = "Goal: 4h";
 
     // Active study groups
     const activeGroups = [
@@ -350,7 +353,7 @@ function renderMetricRow() {
         cards[2],
         studyTimeStr,
         "Study time today",
-        studyGoalStr || "Track with focus mode",
+        "Goal: 4h",
         "var(--secondary,#2a9d8f)",
     );
     setCard(
@@ -378,9 +381,11 @@ function renderTodaySchedule() {
         );
 
     if (!sessions.length) {
-        el.innerHTML = `<div style="text-align:center;padding:28px 0;color:var(--text-light);font-size:13px;">
+        el.innerHTML = `<div style="text-align:center;padding:28px 0;
+            color:var(--text-light);font-size:13px;">
             No sessions scheduled for today.<br>
-            <a href="/calendar" style="color:var(--primary,#1a5f7a);font-weight:600;text-decoration:none;margin-top:6px;display:inline-block;">
+            <a href="/calendar" style="color:var(--primary,#1a5f7a);font-weight:600;
+               text-decoration:none;margin-top:6px;display:inline-block;">
                 + Add to calendar
             </a>
         </div>`;
@@ -392,21 +397,21 @@ function renderTodaySchedule() {
             const barColor = SESSION_BAR_COLOR[ev.category] || "#888";
             const badge = sessionBadge(ev.idate, ev.event_time);
             const timeStr = ev.event_time ? fmt12(ev.event_time) : "";
-            const endStr = ev.event_end_time
-                ? ` – ${fmt12(ev.event_end_time)}`
-                : "";
+            // use end_time (matches DB column), not event_end_time
+            const endStr = ev.end_time ? ` – ${fmt12(ev.end_time)}` : "";
             const subject = ev.subject_name || "";
 
             return `<a href="/calendar" class="dash-session-item" style="text-decoration:none;">
-            <div class="dash-session-bar" style="background:${barColor};"></div>
-            <div class="dash-session-info">
-                <div class="dash-session-title">${esc(ev.title)}</div>
-                <div class="dash-session-time">
-                    ${timeStr}${endStr}${subject ? ` &nbsp;·&nbsp; <span style="color:var(--text-light)">${esc(subject)}</span>` : ""}
+                <div class="dash-session-bar" style="background:${barColor};"></div>
+                <div class="dash-session-info">
+                    <div class="dash-session-title">${esc(ev.title)}</div>
+                    <div class="dash-session-time">
+                        ${timeStr}${endStr}
+                        ${subject ? ` &nbsp;·&nbsp; <span style="color:var(--text-light)">${esc(subject)}</span>` : ""}
+                    </div>
                 </div>
-            </div>
-            <span class="dash-session-badge" style="${badge.style}">${badge.label}</span>
-        </a>`;
+                <span class="dash-session-badge" style="${badge.style}">${badge.label}</span>
+            </a>`;
         })
         .join("");
 }
@@ -468,12 +473,12 @@ function renderUpcomingTasks() {
                 : TASK_TAG_STYLE[pri] || TASK_TAG_STYLE.low;
 
             return `<a href="/tasks" class="dash-task-item" style="text-decoration:none;">
-            <div class="dash-task-check${t.status === "done" ? " done" : ""}"></div>
-            <div class="dash-priority-dot ${priDotClass[pri] || "dash-priority-low"}"></div>
-            <span class="dash-task-name${t.status === "done" ? " done" : ""}">${esc(t.title)}</span>
-            ${subjectTag ? `<span class="dash-task-tag" style="${tagStyle}">${esc(subjectTag)}</span>` : ""}
-            <span class="dash-task-due" style="${dueStyle}">${label}</span>
-        </a>`;
+                <div class="dash-task-check${t.status === "done" ? " done" : ""}"></div>
+                <div class="dash-priority-dot ${priDotClass[pri] || "dash-priority-low"}"></div>
+                <span class="dash-task-name${t.status === "done" ? " done" : ""}">${esc(t.title)}</span>
+                ${subjectTag ? `<span class="dash-task-tag" style="${tagStyle}">${esc(subjectTag)}</span>` : ""}
+                <span class="dash-task-due" style="${dueStyle}">${label}</span>
+            </a>`;
         })
         .join("");
 }
@@ -525,21 +530,21 @@ async function renderStudyGroups() {
             const memberLabel = `${g.members_count ?? 0} member${g.members_count !== 1 ? "s" : ""}`;
 
             return `<a href="/study-groups/${g.id}" class="dash-group-item" style="text-decoration:none;">
-            <div class="dash-group-avatar" style="background:${palette.bg};color:${palette.fg};">
-                ${initial}
-            </div>
-            <div class="dash-group-info">
-                <div class="dash-group-name">${esc(g.name)}</div>
-                <div class="dash-group-meta">${memberLabel}${g.subject ? " &nbsp;·&nbsp; " + esc(g.subject) : ""}</div>
-            </div>
-            ${g.is_admin ? `<span class="dash-group-badge" style="background:#e6f1fb;color:#185fa5;">Admin</span>` : ""}
-        </a>`;
+                <div class="dash-group-avatar" style="background:${palette.bg};color:${palette.fg};">
+                    ${initial}
+                </div>
+                <div class="dash-group-info">
+                    <div class="dash-group-name">${esc(g.name)}</div>
+                    <div class="dash-group-meta">${memberLabel}${g.subject ? " &nbsp;·&nbsp; " + esc(g.subject) : ""}</div>
+                </div>
+                ${g.is_admin ? `<span class="dash-group-badge" style="background:#e6f1fb;color:#185fa5;">Admin</span>` : ""}
+            </a>`;
         })
         .join("");
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DEADLINES WIDGET (Exams & Deadlines)
+// DEADLINES WIDGET
 // ═══════════════════════════════════════════════════════════════════
 function renderDeadlines() {
     const el = document.getElementById("deadlinesList");
@@ -597,22 +602,21 @@ function renderDeadlines() {
                 cls = "due-soon";
             }
 
-            let icon;
-            if (e.isTask) {
-                icon = PRI_ICON[e.priority || "low"];
-            } else {
-                icon = e.category === "exam" ? "📝" : "📌";
-            }
+            const icon = e.isTask
+                ? PRI_ICON[e.priority || "low"]
+                : e.category === "exam"
+                  ? "📝"
+                  : "📌";
 
             const href = e.isTask ? "/tasks" : "/calendar";
             return `<a href="${href}" class="deadline-item" style="text-decoration:none;">
-            <div class="deadline-icon">${icon}</div>
-            <div class="deadline-info">
-                <div class="deadline-title">${esc(e.title)}</div>
-                <div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.time ? " · " + fmt12(e.time) : ""}</div>
-            </div>
-            <div class="deadline-due ${cls}">${lbl}</div>
-        </a>`;
+                <div class="deadline-icon">${icon}</div>
+                <div class="deadline-info">
+                    <div class="deadline-title">${esc(e.title)}</div>
+                    <div class="deadline-subject">${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${e.time ? " · " + fmt12(e.time) : ""}</div>
+                </div>
+                <div class="deadline-due ${cls}">${lbl}</div>
+            </a>`;
         })
         .join("");
 }
@@ -762,7 +766,7 @@ function renderTaskSummary() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// MY SUBJECTS WIDGET (renamed from My Calendars)
+// MY SUBJECTS WIDGET
 // ═══════════════════════════════════════════════════════════════════
 function renderMySubjects() {
     const el = document.getElementById("myCalendars");
@@ -813,13 +817,13 @@ function renderMySubjects() {
         .map(
             (c) =>
                 `<div class="cal-category ${filters[c.key] ? "active" : ""}" style="color:${c.color};cursor:pointer;" onclick="toggleFilter('${c.key}')">
-            <div class="cal-category-dot" style="background:${c.color}"></div>
-            <div class="cal-category-info">
-                <div class="cal-category-name">${esc(c.label)}</div>
-                <div class="cal-category-meta">${c.meta}</div>
-            </div>
-            <div class="cal-category-toggle"></div>
-        </div>`,
+                    <div class="cal-category-dot" style="background:${c.color}"></div>
+                    <div class="cal-category-info">
+                        <div class="cal-category-name">${esc(c.label)}</div>
+                        <div class="cal-category-meta">${c.meta}</div>
+                    </div>
+                    <div class="cal-category-toggle"></div>
+                </div>`,
         )
         .join("");
 }
@@ -831,7 +835,7 @@ function toggleFilter(key) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// MINI CALENDAR  (dashboard centre column)
+// MINI CALENDAR
 // ═══════════════════════════════════════════════════════════════════
 function renderMiniCal() {
     const grid = document.getElementById("dashMiniCalGrid");
@@ -839,7 +843,7 @@ function renderMiniCal() {
 
     const today = new Date();
     const year = today.getFullYear();
-    const month = today.getMonth(); // 0-based
+    const month = today.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -851,23 +855,17 @@ function renderMiniCal() {
     );
 
     let html = "";
-
-    // Leading blank cells
     for (let i = 0; i < firstDay; i++) {
         html += `<div class="mini-cal-cell other-month"></div>`;
     }
-
-    // Day cells
     for (let d = 1; d <= daysInMonth; d++) {
         const isToday = d === today.getDate();
         const hasEvent = eventDates.has(d);
         const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-
         html += `<a href="/calendar" class="mini-cal-cell${isToday ? " today" : ""}" style="text-decoration:none;" title="${dateStr}">
             ${d}
             ${hasEvent ? `<span class="event-dot"></span>` : ""}
         </a>`;
     }
-
     grid.innerHTML = html;
 }

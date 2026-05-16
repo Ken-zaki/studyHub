@@ -106,7 +106,7 @@ async function sbReq(path, opts = {}) {
 async function dbLoad() {
     allEvents = await sbReq(
         `${TABLE}?user_id=eq.${UID}&order=event_date.asc,event_time.asc`,
-        { headers: hdrs() },
+        { headers: hdrs(true) },
     );
 }
 async function dbInsert(data) {
