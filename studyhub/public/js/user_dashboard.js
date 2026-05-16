@@ -352,7 +352,7 @@ async function renderStudyGroups() {
 
     let groups = [];
     try {
-        const res = await fetch("/study-groups/my-groups");
+        const res = await fetch("/study-groups/api/groups");
         if (!res.ok) throw new Error("Network error");
         const data = await res.json();
         groups = data.groups ?? [];
