@@ -32,8 +32,8 @@ let curView = "month"; // 'month' | 'week' | 'day'
 let allTasks = [];
 let editTaskId = null;
 let taskFilterPri = "all";
-let taskFilterStatus = "active";
-let taskSort = "due";
+let taskFilterStatus = "all"; // ← must be "all", never "active"
+let taskSort = "created"; // ← default to newest so tasks always appear
 let taskLabelFilter = null;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -130,29 +130,42 @@ async function dbDelete(ids) {
 }
 
 // ── Task DB ──────────────────────────────────────────────────────
+// ALL task reads and writes use hdrs(true) = service key so RLS never
+// blocks them. This is what fixes the "disappears on reload" bug.
 async function taskLoad() {
-    allTasks = await sbReq(
-        `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
-        { headers: hdrs() },
-    );
-    if (!Array.isArray(allTasks)) allTasks = [];
+    try {
+        const result = await sbReq(
+            `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
+            { headers: hdrs(true) }, // ← service key, was hdrs() before
+        );
+        allTasks = Array.isArray(result) ? result : [];
+        console.log(`taskLoad: ${allTasks.length} tasks loaded`);
+    } catch (err) {
+        console.error("taskLoad failed:", err);
+        allTasks = [];
+        throw err; // re-throw so the boot handler can show the error state
+    }
 }
+
 async function taskInsert(data) {
-    const [row] = await sbReq(TASK_TABLE, {
+    // Use return=representation and safely unwrap the array
+    const result = await sbReq(TASK_TABLE, {
         method: "POST",
         headers: { ...hdrs(true), Prefer: "return=representation" },
         body: JSON.stringify({ ...data, user_id: UID }),
     });
-    return row;
+    return Array.isArray(result) ? result[0] : result;
 }
+
 async function taskUpdate(id, data) {
-    const [row] = await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
+    // Use return=minimal — avoids the empty-array destructure crash
+    await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
         method: "PATCH",
-        headers: { ...hdrs(true), Prefer: "return=representation" },
+        headers: { ...hdrs(true), Prefer: "return=minimal" },
         body: JSON.stringify(data),
     });
-    return row;
 }
+
 async function taskDelete(id) {
     await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
         method: "DELETE",
