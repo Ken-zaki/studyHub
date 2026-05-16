@@ -14,8 +14,13 @@
         <div class="center-column">
 
             {{-- ── Metric Summary Row (FR-2.2, FR-2.5) ─────────────── --}}
+            {{--
+                CHANGE: Labels now match FR wording exactly.
+                "Active study groups" kept (FR-2.3).
+                "Study time today" kept (FR-2.5 — daily component of weekly summary).
+                Rendered/populated by dashboard.js — placeholders only here.
+            --}}
             <div id="dashMetricRow" class="dash-metric-row" style="margin-bottom:20px;">
-                {{-- Rendered by dashboard.js --}}
                 <div class="dash-metric-card">
                     <div class="dash-metric-val" style="color:var(--accent,#ff6b6b);">–</div>
                     <div class="dash-metric-label">Tasks due today</div>
@@ -39,6 +44,13 @@
             </div>
 
             {{-- ── Two-column grid: Schedule + Tasks ────────────────── --}}
+            {{--
+                FR-2.1: Today's Schedule — daily study plan/schedule view.
+                FR-2.2: Upcoming Tasks — summary list, max 5 items, links to /tasks.
+                CHANGE: Both cards use class="card" consistently (not widget-card).
+                CHANGE: Task list now shows status badge (To-do / In Progress / Done)
+                        so the dashboard reflects FR-4.4 states at a glance.
+            --}}
             <div class="dash-two-col" style="margin-bottom:20px;">
 
                 {{-- Today's Schedule (FR-2.1) --}}
@@ -57,6 +69,10 @@
                             </svg>
                         </a>
                     </div>
+                    {{--
+                        dashboard.js renders schedule items here.
+                        Each item should show: time, title, subject color dot (FR-3.3).
+                    --}}
                     <div id="todayScheduleList">
                         <div style="text-align:center;padding:32px 0;color:var(--text-light);font-size:13px;">
                             Loading schedule…
@@ -65,6 +81,11 @@
                 </div>
 
                 {{-- Upcoming Tasks (FR-2.2) --}}
+                {{--
+                    CHANGE: Shows status pill per task (To-do / In Progress / Done)
+                            so users see progress at a glance — satisfying FR-4.4 on dashboard.
+                    dashboard.js should cap this list at 5 items then show "View all".
+                --}}
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h2 class="card-title" style="margin:0;">Upcoming Tasks</h2>
@@ -90,6 +111,7 @@
             </div>
 
             {{-- ── Mini Calendar Preview Card ────────────────────────── --}}
+            {{-- FR-2.1: Gives users a visual anchor for their daily plan. --}}
             <div class="card" style="margin-bottom:20px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                     <h2 class="card-title" style="margin:0;">Calendar</h2>
@@ -105,8 +127,6 @@
                         </svg>
                     </a>
                 </div>
-
-                {{-- Mini calendar grid rendered by dashboard.js --}}
                 <div id="dashMiniCal">
                     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
                         @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $d)
@@ -127,12 +147,12 @@
                 </div>
             </div>
 
-            {{-- Upcoming This Week --}}
+            {{-- ── Upcoming This Week ───────────────────────────────── --}}
+            {{-- FR-2.2: Combined tasks + calendar events for the week ahead. --}}
             <div class="card">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                     <h2 class="card-title" style="margin:0;">Upcoming This Week</h2>
                 </div>
-                {{-- Cap at ~5 items (~52px each) then scroll --}}
                 <div id="upcomingList"
                     style="max-height:265px;overflow-y:auto;
                             scrollbar-width:thin;
@@ -148,11 +168,18 @@
         {{-- ── RIGHT SIDEBAR ──────────────────────────────────────────── --}}
         <aside class="right-sidebar">
 
-            {{-- Task Summary Stats --}}
+            {{-- Task Overview (FR-2.2 + FR-4.4) --}}
+            {{--
+                CHANGE: Renamed from "Task Summary Stats" to "Task Overview" for clarity.
+                CHANGE: Three stats now use FR-4.4 language: To-do / In Progress / Done.
+                        Previously was "Active / Done / Overdue" which didn't match FR-4.4.
+                        Overdue is surfaced separately in the Deadlines card below.
+            --}}
             <div class="card" style="margin-bottom:20px;">
                 <h3 class="card-title" style="margin-bottom:14px;">Task Overview</h3>
                 <div id="taskSummaryStats">
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+                        {{-- To-do --}}
                         <div
                             style="text-align:center;padding:12px 8px;border-radius:12px;
                                     background:var(--bg-main);border:1px solid var(--border);">
@@ -163,8 +190,22 @@
                             <div
                                 style="font-size:11px;font-weight:600;color:var(--text-light);
                                         margin-top:2px;letter-spacing:.03em;">
-                                Active</div>
+                                To-do</div>
                         </div>
+                        {{-- In Progress --}}
+                        <div
+                            style="text-align:center;padding:12px 8px;border-radius:12px;
+                                    background:var(--bg-main);border:1px solid var(--border);">
+                            <div
+                                style="font-size:22px;font-weight:700;color:#8b5cf6;
+                                        font-family:'Crimson Pro',serif;">
+                                –</div>
+                            <div
+                                style="font-size:11px;font-weight:600;color:var(--text-light);
+                                        margin-top:2px;letter-spacing:.03em;">
+                                In Progress</div>
+                        </div>
+                        {{-- Done --}}
                         <div
                             style="text-align:center;padding:12px 8px;border-radius:12px;
                                     background:var(--bg-main);border:1px solid var(--border);">
@@ -177,24 +218,22 @@
                                         margin-top:2px;letter-spacing:.03em;">
                                 Done</div>
                         </div>
-                        <div
-                            style="text-align:center;padding:12px 8px;border-radius:12px;
-                                    background:var(--bg-main);border:1px solid var(--border);">
-                            <div
-                                style="font-size:22px;font-weight:700;color:var(--accent,#ff6b6b);
-                                        font-family:'Crimson Pro',serif;">
-                                –</div>
-                            <div
-                                style="font-size:11px;font-weight:600;color:var(--text-light);
-                                        margin-top:2px;letter-spacing:.03em;">
-                                Overdue</div>
-                        </div>
                     </div>
+                    {{-- Link to full task manager --}}
+                    <a href="{{ url('/tasks') }}"
+                        style="display:block;text-align:center;font-size:12px;font-weight:600;
+                               color:var(--primary,#1a5f7a);text-decoration:none;opacity:.85;
+                               padding:6px 0;border-top:1px solid var(--border);">
+                        Manage all tasks →
+                    </a>
                 </div>
-
             </div>
 
             {{-- Upcoming Deadlines (FR-2.2) --}}
+            {{--
+                CHANGE: Kept as "Deadlines" — this is the overdue/urgent view,
+                        separate from the To-do/In-Progress/Done overview above.
+            --}}
             <div class="card" style="margin-bottom:20px;">
                 <h3 class="card-title" style="margin-bottom:14px;">Deadlines</h3>
                 <div id="deadlinesList">
@@ -223,18 +262,38 @@
             </div>
 
             {{-- Weekly Summary / Progress (FR-2.5) --}}
+            {{--
+                CHANGE: Added toggle for Weekly / Monthly view (FR-2.5 requires both).
+                CHANGE: Added "Full report" link to /progress page.
+                dashboard.js should listen to the toggle and switch the data shown.
+            --}}
             <div class="card" style="margin-bottom:20px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                    <h3 class="card-title" style="margin:0;">Weekly Summary</h3>
-                    <a href="{{ url('/progress') }}"
-                        style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
-                               text-decoration:none;opacity:.85;transition:.15s;"
-                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
-                        Full report
-                    </a>
+                    <h3 class="card-title" style="margin:0;">Progress Summary</h3>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        {{-- Weekly / Monthly toggle (FR-2.5) --}}
+                        <div id="progressToggle"
+                            style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;font-weight:700;">
+                            <button data-period="weekly" onclick="switchProgressPeriod('weekly')"
+                                style="padding:4px 10px;border:none;background:var(--primary,#1a5f7a);
+                                       color:#fff;cursor:pointer;transition:.15s;">
+                                Week
+                            </button>
+                            <button data-period="monthly" onclick="switchProgressPeriod('monthly')"
+                                style="padding:4px 10px;border:none;background:transparent;
+                                       color:var(--text-secondary);cursor:pointer;transition:.15s;">
+                                Month
+                            </button>
+                        </div>
+                        <a href="{{ url('/progress') }}"
+                            style="font-size:12px;font-weight:600;color:var(--primary,#1a5f7a);
+                                   text-decoration:none;opacity:.85;transition:.15s;"
+                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
+                            Full report
+                        </a>
+                    </div>
                 </div>
                 <div id="weeklySummary">
-                    {{-- Rendered by dashboard.js --}}
                     <div class="dash-progress-wrap">
                         <div class="dash-progress-label">
                             <span>Tasks completed</span><span id="wsSummTaskVal">– / –</span>
@@ -265,9 +324,15 @@
                 </div>
             </div>
 
-            {{-- My Calendars --}}
+            {{-- My Subjects (formerly "My Calendars") --}}
+            {{--
+                CHANGE: Renamed to "My Subjects" to match calendar FR-3.3 language.
+                This sidebar card mirrors the calendar's subject color filter.
+                Each subject shows its color dot so users recognise the same
+                color system across dashboard and calendar pages.
+            --}}
             <div class="card">
-                <h3 class="card-title" style="margin-bottom:14px;">My Calendars</h3>
+                <h3 class="card-title" style="margin-bottom:14px;">My Subjects</h3>
                 <div id="myCalendars">
                     <div style="text-align:center;padding:20px 0;color:var(--text-light);font-size:13px;">
                         Loading…
@@ -278,7 +343,6 @@
         </aside>{{-- /right-sidebar --}}
 
     </main>
-
 
     {{-- ── Supabase config ───────────────────────────────────────────── --}}
     <script>
@@ -292,6 +356,27 @@
     <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/user_dashboard.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
+
+    {{-- ── Progress period toggle helper (FR-2.5) ─────────────────── --}}
+    {{--
+        switchProgressPeriod() tells dashboard.js which period to render.
+        dashboard.js must expose window.loadProgressSummary(period) and
+        re-render #wsSummTaskVal, #wsSummHoursVal, #wsSummFocusVal,
+        #wsSummTaskBar, #wsSummHoursBar, #wsSummFocusBar accordingly.
+    --}}
+    <script>
+        function switchProgressPeriod(period) {
+            document.querySelectorAll('#progressToggle button').forEach(btn => {
+                const active = btn.dataset.period === period;
+                btn.style.background = active ? 'var(--primary,#1a5f7a)' : 'transparent';
+                btn.style.color = active ? '#fff' : 'var(--text-secondary)';
+            });
+            if (typeof loadProgressSummary === 'function') {
+                loadProgressSummary(period);
+            }
+        }
+    </script>
+
     {{-- ── Top-bar: greeting + date + focus button (FR-2.4) ────────── --}}
     @php
         $hour = (int) now()->format('H');
@@ -313,17 +398,16 @@
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
-                }) +
-                '</span>';
+                }) + '</span>';
 
+            // FR-2.4: Focus mode shortcut button
             const focusBtn = document.createElement('a');
             focusBtn.href = '{{ route('focus-mode') }}';
             focusBtn.className = 'dash-focus-btn';
             focusBtn.title = 'Start a focus session';
             focusBtn.innerHTML =
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">' +
-                '<polygon points="5 3 19 12 5 21 5 3"/>' +
-                '</svg>Focus';
+                '<polygon points="5 3 19 12 5 21 5 3"/></svg>Focus';
 
             topBar.prepend(left);
             topBar.insertBefore(focusBtn, topBar.children[1]);

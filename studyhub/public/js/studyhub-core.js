@@ -13,7 +13,13 @@ const TASK_TABLE = "tasks";
 let curDate = new Date();
 let allEvents = [];
 let expanded = [];
-let filters = { class: true, group: true, event: true };
+let filters = {
+    class: true,
+    group: true,
+    event: true,
+    exam: true,
+    deadline: true,
+};
 let selectMode = false;
 let selPopoverEl = null;
 let selIds = new Set();
@@ -33,14 +39,34 @@ let taskLabelFilter = null;
 // ═══════════════════════════════════════════════════════════════════
 // COLOUR / ICON CONSTANTS  (used by calendar AND tasks)
 // ═══════════════════════════════════════════════════════════════════
-const CC = { class: "#0f766e", group: "#7c3aed", event: "#1a5f7a" };
+const CC = {
+    class: "#0f766e",
+    group: "#7c3aed",
+    event: "#1a5f7a",
+    exam: "#dc2626",
+    deadline: "#d97706",
+};
 const CB = {
     class: "rgba(42,157,143,.13)",
     group: "rgba(124,77,202,.13)",
     event: "rgba(26,95,122,.11)",
+    exam: "rgba(220,38,38,.1)",
+    deadline: "rgba(217,119,6,.1)",
 };
-const CI = { class: "📗", group: "👥", event: "📅" };
-const CL = { class: "Class", group: "Study Group", event: "Event" };
+const CI = {
+    class: "📗",
+    group: "👥",
+    event: "📅",
+    exam: "📝",
+    deadline: "📌",
+};
+const CL = {
+    class: "Class",
+    group: "Study Group",
+    event: "Event",
+    exam: "Exam",
+    deadline: "Deadline",
+};
 
 const PRI_COLOR = { high: "#dc2626", medium: "#d97706", low: "#16a34a" };
 const PRI_BG = {

@@ -1829,3 +1829,750 @@ body.select-mode .all-ev-check {
 .dash-task-name {
     max-width: 160px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   user_dashboard.css — PATCH
+   Append this block to the bottom of user_dashboard.css.
+   Covers every new element introduced in the blade handoff:
+     FR-4.1  Subtasks
+     FR-4.4  Status pills + tab strip
+     FR-4.5  Subject tag chips + color dots
+     FR-3.3  My Subjects sidebar (color dots on calendar/dashboard)
+     FR-3.5  Sync & Export card
+     FR-3.6  Reminder toggle + minutes select
+     FR-2.5  Progress summary bars (IDs)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── FR-4.4 STATUS PILLS ─────────────────────────────────────────── */
+/*
+ * Used in task rows and the task modal radio group.
+ * Three concrete modifier classes map to the snake_case DB values:
+ *   status = 'todo'        → .status-todo
+ *   status = 'in_progress' → .status-in-progress
+ *   status = 'done'        → .status-done
+ */
+.task-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+.task-status-pill.status-todo {
+    background: rgba(107, 114, 128, 0.1);
+    color: #4b5563;
+}
+
+.task-status-pill.status-in-progress {
+    background: rgba(124, 77, 202, 0.12);
+    color: #7c3aed;
+}
+
+.task-status-pill.status-done {
+    background: rgba(42, 157, 143, 0.12);
+    color: #0f766e;
+}
+
+/* Status radio buttons in the task modal (FR-4.4) */
+.status-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.18s;
+    user-select: none;
+}
+.status-option:hover {
+    border-color: var(--primary);
+    background: var(--bg-main);
+}
+.status-option[data-s="todo"].sel,
+.status-option[data-s="todo"]:has(input:checked) {
+    border-color: #6b7280;
+    background: rgba(107, 114, 128, 0.08);
+    color: #4b5563;
+}
+.status-option[data-s="in_progress"].sel,
+.status-option[data-s="in_progress"]:has(input:checked) {
+    border-color: #7c3aed;
+    background: rgba(124, 77, 202, 0.08);
+    color: #7c3aed;
+}
+.status-option[data-s="done"].sel,
+.status-option[data-s="done"]:has(input:checked) {
+    border-color: #0f766e;
+    background: rgba(42, 157, 143, 0.08);
+    color: #0f766e;
+}
+
+/* ── FR-4.4 STATUS TAB STRIP (tasks page) ────────────────────────── */
+/*
+ * Horizontal strip above the task list: All / To-do / In Progress / Done
+ * JS uses setStatusTab() to toggle the .active class.
+ */
+.status-tab-strip {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-main);
+    border-radius: 12px;
+    padding: 4px;
+    border: 1px solid var(--border);
+}
+
+.status-tab {
+    flex: 1;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+    text-align: center;
+}
+.status-tab:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+.status-tab.active {
+    background: var(--bg-card);
+    color: var(--primary);
+    box-shadow: 0 2px 8px var(--shadow-md);
+}
+/* Per-status accent on active tab */
+.status-tab[data-s="todo"].active {
+    color: #4b5563;
+}
+.status-tab[data-s="in_progress"].active {
+    color: #7c3aed;
+}
+.status-tab[data-s="done"].active {
+    color: #0f766e;
+}
+
+/* ── FR-4.4 TASK OVERVIEW SIDEBAR MINI-STATS ─────────────────────── */
+/*
+ * #taskSummaryStats — three-column grid wrapping #statTodo,
+ * #statInProgress, #statDone. Reuses .stat-tile from the existing file
+ * but constrains the grid layout for the sidebar context.
+ */
+#taskSummaryStats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+/* #statTodo / #statInProgress / #statDone inherit .stat-tile styles.
+   Override the number color per state so it matches the pill palette. */
+#statTodo .stat-tile-num {
+    color: #4b5563;
+}
+#statInProgress .stat-tile-num {
+    color: #7c3aed;
+}
+#statDone .stat-tile-num {
+    color: #0f766e;
+}
+
+/* ── FR-4.1 SUBTASKS ─────────────────────────────────────────────── */
+/*
+ * #subtaskList — container inside the task modal.
+ * .subtask-row — one row per subtask (checkbox + text + remove btn).
+ */
+#subtaskList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.subtask-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg-main);
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    transition: border-color 0.15s;
+}
+.subtask-row:hover {
+    border-color: var(--primary);
+}
+
+/* Checkbox matches task-check-btn aesthetic */
+.subtask-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--success);
+    transition: border-color 0.15s;
+}
+.subtask-check:checked {
+    accent-color: var(--success);
+}
+.subtask-row:has(.subtask-check:checked) {
+    opacity: 0.6;
+}
+.subtask-row:has(.subtask-check:checked) .subtask-title {
+    text-decoration: line-through;
+    color: var(--text-light);
+}
+
+/* Text input inside the subtask row */
+.subtask-title {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    min-width: 0;
+}
+.subtask-title:focus {
+    outline: none;
+}
+.subtask-title::placeholder {
+    color: var(--text-light);
+}
+
+/* Remove (✕) button */
+.subtask-remove {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+}
+.subtask-remove:hover {
+    background: #fee2e2;
+    color: var(--accent);
+}
+
+/* Expand chevron on task row that reveals inline subtask list */
+.task-expand-btn {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.18s;
+    padding: 0;
+}
+.task-expand-btn:hover {
+    background: var(--bg-main);
+    color: var(--primary);
+}
+.task-expand-btn svg {
+    width: 13px;
+    height: 13px;
+    transition: transform 0.18s;
+}
+.task-item.expanded .task-expand-btn svg {
+    transform: rotate(180deg);
+}
+
+/* Inline subtask list shown below a task row */
+.task-subtask-inline {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    padding-left: 32px; /* align with task title */
+}
+.task-item.expanded .task-subtask-inline {
+    display: flex;
+}
+.task-subtask-inline-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.task-subtask-inline-row input[type="checkbox"] {
+    accent-color: var(--success);
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+.task-subtask-inline-row.done span {
+    text-decoration: line-through;
+    color: var(--text-light);
+}
+
+/* ── FR-4.5 SUBJECT TAG CHIPS + COLOR DOTS ───────────────────────── */
+/*
+ * .subject-dot / .subject-color-dot — 10px circle whose background-color
+ *   is set inline by JS from user_subject_colors.color_hex.
+ * .subject-chip — pill wrapper combining the dot + label text.
+ */
+.subject-dot,
+.subject-color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    /* background-color set inline by JS */
+}
+
+/* Chip = dot + text, used in task rows and the sidebar subject list */
+.subject-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px 3px 6px;
+    border-radius: 20px;
+    white-space: nowrap;
+    /* border + background tinted from color_hex — set inline or via JS */
+    background: rgba(26, 95, 122, 0.08);
+    color: var(--primary);
+    border: 1px solid rgba(26, 95, 122, 0.2);
+}
+
+/* ── FR-3.3 MY SUBJECTS SIDEBAR (calendar + dashboard) ───────────── */
+/*
+ * #myCalendars — the sidebar widget container.
+ * Subject rows reuse .cal-category but subject color dots are dynamic.
+ *
+ * "+ Add" button next to the "My Subjects" heading.
+ */
+#myCalendars {
+    /* inherits .widget-card padding — no extra padding needed */
+}
+
+.subjects-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.btn-add-subject {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+.btn-add-subject:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(26, 95, 122, 0.04);
+}
+
+/* Inline form that opens when "+ Add" is clicked */
+.add-subject-form {
+    display: none; /* shown by JS */
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-main);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+.add-subject-form.open {
+    display: flex;
+}
+.add-subject-form input[type="text"] {
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+}
+.add-subject-form input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Color-swatch row inside the add-subject form */
+.subject-color-swatches {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.color-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition:
+        transform 0.15s,
+        border-color 0.15s;
+    flex-shrink: 0;
+}
+.color-swatch:hover {
+    transform: scale(1.15);
+}
+.color-swatch.selected {
+    border-color: var(--text-primary);
+    transform: scale(1.15);
+}
+
+.add-subject-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+.btn-subject-save {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.btn-subject-save:hover {
+    opacity: 0.88;
+}
+.btn-subject-cancel {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.btn-subject-cancel:hover {
+    background: var(--bg-main);
+}
+
+/* ── FR-3.5 SYNC & EXPORT CARD ───────────────────────────────────── */
+/*
+ * .sync-export-card — sidebar widget for iCal export/copy actions.
+ * Reuses .widget-card base; these rules add the two action buttons.
+ */
+.sync-export-card {
+    /* inherits .widget-card */
+}
+
+.btn-ics,
+.btn-ical-copy {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: left;
+}
+
+/* Export as .ics */
+.btn-ics {
+    background: rgba(26, 95, 122, 0.07);
+    color: var(--primary);
+    border: 1.5px solid rgba(26, 95, 122, 0.2);
+    margin-bottom: 8px;
+}
+.btn-ics:hover {
+    background: rgba(26, 95, 122, 0.13);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 95, 122, 0.12);
+}
+
+/* Copy iCal link */
+.btn-ical-copy {
+    background: rgba(124, 77, 202, 0.07);
+    color: #7c3aed;
+    border: 1.5px solid rgba(124, 77, 202, 0.2);
+}
+.btn-ical-copy:hover {
+    background: rgba(124, 77, 202, 0.13);
+    border-color: #7c3aed;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 77, 202, 0.12);
+}
+.btn-ical-copy svg,
+.btn-ics svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+/* "Copied!" toast — shown briefly by JS after copyICalLink() */
+.ical-toast {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 7px 12px;
+    background: rgba(42, 157, 143, 0.1);
+    border: 1px solid rgba(42, 157, 143, 0.25);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f766e;
+}
+.ical-toast.visible {
+    display: flex;
+}
+
+/* ── FR-3.6 REMINDER TOGGLE + MINUTES SELECT ─────────────────────── */
+/*
+ * #evReminder checkbox toggle → #evReminderMinutes select (hidden until checked).
+ * .reminder-toggle — the row wrapping the checkbox + label + select.
+ */
+.reminder-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-main);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 0.18s;
+}
+.reminder-toggle:has(#evReminder:checked) {
+    border-color: var(--primary);
+    background: rgba(26, 95, 122, 0.04);
+}
+
+/* The checkbox itself — styled as a toggle-ish pill */
+#evReminder {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.reminder-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex: 1;
+    cursor: pointer;
+    user-select: none;
+}
+.reminder-toggle:has(#evReminder:checked) .reminder-label {
+    color: var(--primary);
+}
+
+/* Minutes select — hidden by default, revealed by JS when #evReminder is checked */
+#evReminderMinutes {
+    display: none;
+    padding: 6px 28px 6px 10px;
+    border: 1.5px solid var(--primary);
+    border-radius: 8px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--bg-card);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231a5f7a' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+#evReminderMinutes:focus {
+    outline: none;
+}
+
+/* Show the select when checkbox is checked — JS also does this but CSS
+   handles the instant visual without a tick of delay */
+.reminder-toggle:has(#evReminder:checked) #evReminderMinutes {
+    display: block;
+}
+
+/* ── FR-3.4 EXAM & DEADLINE CATEGORY CHIPS (calendar chips) ──────── */
+/*
+ * The existing .chip-class / .chip-group / .chip-event cover three
+ * categories. These two complete the set for exam + deadline.
+ */
+.chip-exam {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+}
+.chip-deadline {
+    background: rgba(217, 119, 6, 0.12);
+    color: #d97706;
+}
+
+/* Upcoming-tag variants for the upcoming widget */
+.tag-exam {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+.tag-deadline {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+}
+
+/* ── FR-3.3 / FR-3.4 DEADLINES WIDGET (#deadlinesList) ───────────── */
+/*
+ * #deadlinesList — the widget container rendered by calendar.js.
+ * Reuses .deadline-item / .deadline-icon etc. already in the file.
+ * This block only adds the empty-state style specific to this widget.
+ */
+#deadlinesList {
+    display: flex;
+    flex-direction: column;
+}
+
+.deadlines-empty {
+    font-size: 13px;
+    color: var(--text-light);
+    text-align: center;
+    padding: 16px 0;
+}
+
+/* Days-remaining badge variants (companion to .deadline-due) */
+.due-overdue {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+}
+.due-today {
+    background: rgba(245, 158, 66, 0.14);
+    color: #d97706;
+}
+
+/* ── FR-2.5 PROGRESS SUMMARY BAR IDs ─────────────────────────────── */
+/*
+ * #wsSummTaskBar / #wsSummHoursBar / #wsSummFocusBar are the fill
+ * elements inside .dash-progress-bar. JS sets their width (%).
+ * Colors distinguish the three metrics.
+ */
+#wsSummTaskBar {
+    background: linear-gradient(90deg, var(--primary) 0%, #2a9d8f 100%);
+}
+#wsSummHoursBar {
+    background: linear-gradient(90deg, var(--secondary) 0%, #f59e42cc 100%);
+}
+#wsSummFocusBar {
+    background: linear-gradient(90deg, var(--purple) 0%, #a78bfa 100%);
+}
+
+/* Value labels above each bar */
+#wsSummTaskVal,
+#wsSummHoursVal,
+#wsSummFocusVal {
+    font-family: "Crimson Pro", serif;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary);
+}
+
+/* ── FR-3.3 SUBJECT SELECT IN EVENT MODAL (#evSubject) ───────────── */
+/*
+ * #evSubject shares .form-input styles but also needs a colored left
+ * border that JS swaps when a subject with a color is chosen.
+ */
+#evSubject {
+    /* inherits .form-input; border-left-color set inline by JS */
+    border-left-width: 4px;
+    padding-left: 12px;
+    transition:
+        border-color 0.2s,
+        border-left-color 0.2s;
+}
+#evSubject:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* ── WEEK/MONTH TOGGLE (Progress Summary card — FR-2.5) ───────────── */
+/*
+ * Small pill-toggle used by switchProgressPeriod() in dashboard.js.
+ * Mirrors .cal-view-toggle / .view-btn without touching those rules.
+ */
+.period-toggle {
+    display: flex;
+    background: var(--bg-main);
+    border-radius: 9px;
+    padding: 3px;
+    gap: 2px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.period-btn {
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+.period-btn:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+.period-btn.active {
+    background: var(--bg-card);
+    color: var(--primary);
+    box-shadow: 0 2px 6px var(--shadow-md);
+}
