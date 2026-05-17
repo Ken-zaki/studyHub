@@ -13,7 +13,13 @@ const TASK_TABLE = "tasks";
 let curDate = new Date();
 let allEvents = [];
 let expanded = [];
-let filters = { class: true, group: true, event: true };
+let filters = {
+    class: true,
+    group: true,
+    event: true,
+    exam: true,
+    deadline: true,
+};
 let selectMode = false;
 let selPopoverEl = null;
 let selIds = new Set();
@@ -26,21 +32,41 @@ let curView = "month"; // 'month' | 'week' | 'day'
 let allTasks = [];
 let editTaskId = null;
 let taskFilterPri = "all";
-let taskFilterStatus = "active";
-let taskSort = "due";
+let taskFilterStatus = "all"; // ← must be "all", never "active"
+let taskSort = "created"; // ← default to newest so tasks always appear
 let taskLabelFilter = null;
 
 // ═══════════════════════════════════════════════════════════════════
 // COLOUR / ICON CONSTANTS  (used by calendar AND tasks)
 // ═══════════════════════════════════════════════════════════════════
-const CC = { class: "#0f766e", group: "#7c3aed", event: "#1a5f7a" };
+const CC = {
+    class: "#0f766e",
+    group: "#7c3aed",
+    event: "#1a5f7a",
+    exam: "#dc2626",
+    deadline: "#d97706",
+};
 const CB = {
     class: "rgba(42,157,143,.13)",
     group: "rgba(124,77,202,.13)",
     event: "rgba(26,95,122,.11)",
+    exam: "rgba(220,38,38,.1)",
+    deadline: "rgba(217,119,6,.1)",
 };
-const CI = { class: "📗", group: "👥", event: "📅" };
-const CL = { class: "Class", group: "Study Group", event: "Event" };
+const CI = {
+    class: "📗",
+    group: "👥",
+    event: "📅",
+    exam: "📝",
+    deadline: "📌",
+};
+const CL = {
+    class: "Class",
+    group: "Study Group",
+    event: "Event",
+    exam: "Exam",
+    deadline: "Deadline",
+};
 
 const PRI_COLOR = { high: "#dc2626", medium: "#d97706", low: "#16a34a" };
 const PRI_BG = {
@@ -69,14 +95,18 @@ async function sbReq(path, opts = {}) {
         const e = await r.json().catch(() => ({}));
         throw new Error(e.message || e.error || `HTTP ${r.status}`);
     }
-    return r.status === 204 ? null : r.json();
+    // Handle empty bodies (204 No Content OR empty 200)
+    if (r.status === 204) return null;
+    const text = await r.text();
+    if (!text || !text.trim()) return null;
+    return JSON.parse(text);
 }
 
 // ── Calendar DB ──────────────────────────────────────────────────
 async function dbLoad() {
     allEvents = await sbReq(
         `${TABLE}?user_id=eq.${UID}&order=event_date.asc,event_time.asc`,
-        { headers: hdrs() },
+        { headers: hdrs(true) },
     );
 }
 async function dbInsert(data) {
@@ -104,29 +134,48 @@ async function dbDelete(ids) {
 }
 
 // ── Task DB ──────────────────────────────────────────────────────
+// ALL task reads and writes use hdrs(true) = service key so RLS never
+// blocks them. This is what fixes the "disappears on reload" bug.
 async function taskLoad() {
-    allTasks = await sbReq(
-        `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc`,
-        { headers: hdrs() },
-    );
-    if (!Array.isArray(allTasks)) allTasks = [];
+    try {
+        const result = await sbReq(
+            `${TASK_TABLE}?user_id=eq.${UID}&order=created_at.desc&select=*,subtask_count:subtasks(count)`,
+            { headers: hdrs(true) },
+        );
+        allTasks = (Array.isArray(result) ? result : []).map((t) => ({
+            ...t,
+            // Supabase returns count as [{ count: N }], normalize to a plain number
+            subtask_count: Array.isArray(t.subtask_count)
+                ? (t.subtask_count[0]?.count ?? 0)
+                : (t.subtask_count ?? 0),
+        }));
+        console.log(`taskLoad: ${allTasks.length} tasks loaded`);
+    } catch (err) {
+        console.error("taskLoad failed:", err);
+        allTasks = [];
+        throw err; // re-throw so the boot handler can show the error state
+    }
 }
+
 async function taskInsert(data) {
-    const [row] = await sbReq(TASK_TABLE, {
+    // Use return=representation and safely unwrap the array
+    const result = await sbReq(TASK_TABLE, {
         method: "POST",
         headers: { ...hdrs(true), Prefer: "return=representation" },
         body: JSON.stringify({ ...data, user_id: UID }),
     });
-    return row;
+    return Array.isArray(result) ? result[0] : result;
 }
+
 async function taskUpdate(id, data) {
-    const [row] = await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
+    // Use return=minimal — avoids the empty-array destructure crash
+    await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
         method: "PATCH",
-        headers: { ...hdrs(true), Prefer: "return=representation" },
+        headers: { ...hdrs(true), Prefer: "return=minimal" },
         body: JSON.stringify(data),
     });
-    return row;
 }
+
 async function taskDelete(id) {
     await sbReq(`${TASK_TABLE}?id=eq.${id}`, {
         method: "DELETE",

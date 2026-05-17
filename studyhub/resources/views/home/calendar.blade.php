@@ -1,12 +1,9 @@
 {{-- resources/views/home/calendar.blade.php --}}
 @extends('layouts.app')
-
 @section('title', 'Calendar – StudyHub')
-
 @php $activeNav = 'calendar'; @endphp
-
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/user_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/calendar.css') }}">
 @endpush
 
 @section('content')
@@ -86,27 +83,94 @@
         {{-- ── RIGHT SIDEBAR ─────────────────────────────────────────────────── --}}
         <aside class="right-sidebar">
 
-            {{-- Filter My Events --}}
-            <div class="widget-card">
-                <div class="widget-title">🗂️ Filter My Events</div>
-                <div id="myCalendars"></div>
+            {{-- ══════════════════════════════════════════════
+                 CARD 1 — Calendar Filters
+                 Checkboxes that show / hide event categories
+                 on the calendar and in "All My Events".
+                 calendar.js: renderFilters() writes here.
+            ══════════════════════════════════════════════ --}}
+            <div class="card">
+                <div class="widget-title" style="margin-bottom:12px;">Show on Calendar</div>
+                {{-- renderFilters() in calendar.js populates this --}}
+                <div id="calFilters"></div>
+            </div>
+
+            {{-- ══════════════════════════════════════════════
+                 CARD 2 — My Subjects
+                 Color-coded subject list (FR-3.3).
+                 calendar.js: renderSubjects() writes here.
+            ══════════════════════════════════════════════ --}}
+            <div class="card" style="margin-top:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div class="widget-title" style="margin:0;">My Subjects</div>
+                    {{-- FR-3.3: Opens inline add-subject form --}}
+                    <button id="btnAddSubject"
+                        style="font-size:11px;font-weight:700;color:var(--primary,#1a5f7a);
+                               background:none;border:none;cursor:pointer;padding:0;opacity:.85;"
+                        onclick="openAddSubjectForm()">
+                        + Add
+                    </button>
+                </div>
+                {{-- renderSubjects() in calendar.js populates this --}}
+                <div id="mySubjectsList"></div>
+                {{-- Inline add-subject form mounts here --}}
+                <div id="addSubjectFormContainer"></div>
             </div>
 
             {{-- All My Events --}}
-            <div class="widget-card" id="allEventsWidget">
-                <div class="widget-title" style="margin-bottom:12px;">📋 All My Events</div>
+            <div class="card" id="allEventsWidget" style="margin-top:16px;">
+                <div class="widget-title" style="margin-bottom:12px;">All My Events</div>
                 <input type="text" class="all-ev-search" id="allEvSearch" placeholder="Search events…">
                 <div id="allEventsList"></div>
             </div>
 
-            {{-- Deadlines --}}
-            <div class="widget-card">
-                <div class="widget-title">⏰ Deadlines</div>
+            {{-- Exams & Deadlines (FR-3.4) --}}
+            <div class="card" style="margin-top:16px;">
+                <div class="widget-title" style="margin-bottom:8px;">Exams &amp; Deadlines</div>
                 <div id="deadlinesList">
                     <div class="state-box">
                         <div class="spinner"></div>
                     </div>
                 </div>
+            </div>
+
+            {{-- Sync / Export (FR-3.5) --}}
+            <div class="card" style="margin-top:16px;">
+                <div class="widget-title" style="margin-bottom:10px;">Sync &amp; Export</div>
+                <p style="font-size:12px;color:var(--text-light);margin:0 0 10px;">
+                    Export your schedule to Google Calendar, Apple Calendar, or any app that supports .ics files.
+                </p>
+                <button id="btnExportICS"
+                    onclick="if(typeof exportToICS==='function') exportToICS(); else alert('Export not available yet.');"
+                    style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+                           padding:9px 14px;border-radius:10px;border:1px solid var(--border);
+                           background:var(--bg-main);font-size:13px;font-weight:600;
+                           color:var(--text-secondary);cursor:pointer;transition:.15s;"
+                    onmouseover="this.style.borderColor='var(--primary,#1a5f7a)';this.style.color='var(--primary,#1a5f7a)'"
+                    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                        height="15">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Export as .ics
+                </button>
+                <button id="btnCopyICalLink"
+                    onclick="if(typeof copyICalLink==='function') copyICalLink(); else alert('iCal link not available yet.');"
+                    style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+                           margin-top:8px;padding:9px 14px;border-radius:10px;border:1px solid var(--border);
+                           background:var(--bg-main);font-size:13px;font-weight:600;
+                           color:var(--text-secondary);cursor:pointer;transition:.15s;"
+                    onmouseover="this.style.borderColor='var(--primary,#1a5f7a)';this.style.color='var(--primary,#1a5f7a)'"
+                    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"
+                        height="15">
+                        <rect x="9" y="9" width="13" height="13" rx="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy iCal link
+                </button>
             </div>
 
         </aside>
@@ -128,7 +192,7 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════════════
-     EVENT MODAL (Add / Edit)
+     EVENT MODAL
 ═══════════════════════════════════════════════════════════ --}}
     <div class="modal-overlay" id="eventModal">
         <div class="modal ev-modal">
@@ -146,7 +210,15 @@
                     <select class="form-input" id="evCat" onchange="updateModalFields()">
                         <option value="class">📗 Class</option>
                         <option value="group">👥 Study Group</option>
-                        <option value="event">📅 Event</option>
+                        <option value="exam">📝 Exam</option>
+                        <option value="deadline">⏰ Deadline</option>
+                        <option value="event">📅 Other Event</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <select class="form-input" id="evSubject">
+                        <option value="">— None —</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -175,10 +247,25 @@
                     <label class="form-label">Description (optional)</label>
                     <textarea class="form-input" id="evDesc" rows="2" placeholder="Notes…" style="resize:vertical;"></textarea>
                 </div>
+                <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="evReminder" style="width:16px;height:16px;cursor:pointer;">
+                        <label for="evReminder" class="form-label" style="margin:0;cursor:pointer;">🔔 Set
+                            reminder</label>
+                    </div>
+                    <div id="reminderOpts" style="display:none;margin-top:10px;">
+                        <label class="form-label">Remind me</label>
+                        <select class="form-input" id="evReminderMinutes" style="margin-top:4px;">
+                            <option value="10">10 minutes before</option>
+                            <option value="30" selected>30 minutes before</option>
+                            <option value="60">1 hour before</option>
+                            <option value="1440">1 day before</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-group" style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="evRecur" style="width:16px;height:16px;cursor:pointer;">
-                    <label for="evRecur" class="form-label" style="margin:0;cursor:pointer;">Repeat /
-                        Recurring</label>
+                    <label for="evRecur" class="form-label" style="margin:0;cursor:pointer;">Repeat / Recurring</label>
                 </div>
                 <div id="recurOpts"
                     style="display:none;padding:12px;background:var(--bg-main);border-radius:10px;margin-top:4px;">
@@ -204,8 +291,7 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════════════
-     TASK MODAL (Add / Edit Task)
-     — needed because task dots on the calendar open this modal
+     TASK MODAL
 ═══════════════════════════════════════════════════════════ --}}
     <div class="modal-overlay" id="taskModal">
         <div class="modal ev-modal">
@@ -225,7 +311,7 @@
                             <input type="radio" name="taskPriority" value="low" checked style="display:none;">
                             <span>🟢 Low</span>
                         </label>
-                        <label class="priority-option sel" data-p="medium">
+                        <label class="priority-option" data-p="medium">
                             <input type="radio" name="taskPriority" value="medium" style="display:none;">
                             <span>🟡 Medium</span>
                         </label>
@@ -236,6 +322,14 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" id="taskStatus">
+                        <option value="todo">To-do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Due Date (optional)</label>
                     <input type="date" class="form-input" id="taskDueDate">
                 </div>
@@ -244,8 +338,8 @@
                     <input type="time" class="form-input" id="taskDueTime">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Label / Tag (optional)</label>
-                    <input type="text" class="form-input" id="taskLabel" placeholder="e.g. Math, Project, Reading…">
+                    <label class="form-label">Subject tag (optional)</label>
+                    <input type="text" class="form-input" id="taskLabel" placeholder="e.g. Math, Biology, History…">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Notes (optional)</label>
@@ -293,26 +387,26 @@
     <script src="{{ asset('js/calendar.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
-    {{-- ── INJECT CALENDAR ACTIONS INTO THE TOP-BAR ────────────────────────────
-         Same pattern as old dashboard — JS portal so there's only ONE top-bar.
-    ──────────────────────────────────────────────────────────────────────────── --}}
+    {{-- ── INJECT CALENDAR ACTIONS INTO THE TOP-BAR ────────────────────────── --}}
     <script>
         (function() {
             const topBar = document.querySelector('.top-bar');
             if (!topBar) return;
-
             const actionsEl = document.createElement('div');
             actionsEl.className = 'top-bar-left';
             actionsEl.id = 'calTopBarLeft';
             actionsEl.innerHTML = `
                 <button class="btn-add-event" id="btnAdd">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                         style="width:15px;height:15px">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                     Add Event
                 </button>
                 <button class="btn-select-mode" id="btnSelectMode">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         style="width:15px;height:15px">
                         <rect x="3" y="3" width="7" height="7" rx="1"/>
                         <rect x="14" y="3" width="7" height="7" rx="1"/>
                         <rect x="3" y="14" width="7" height="7" rx="1"/>
@@ -326,7 +420,6 @@
                     <button class="btn-bulk-delete" id="btnBulkDelete">🗑 Delete Selected</button>
                 </div>
             `;
-
             const topBarRight = topBar.querySelector('.top-bar-right');
             if (topBarRight) {
                 topBar.insertBefore(actionsEl, topBarRight);
@@ -334,6 +427,18 @@
                 topBar.insertBefore(actionsEl, topBar.firstChild);
             }
         })();
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const recurCheck = document.getElementById('evRecur');
+            if (recurCheck) {
+                recurCheck.addEventListener('change', function() {
+                    document.getElementById('recurOpts').style.display =
+                        this.checked ? 'block' : 'none';
+                });
+            }
+        });
     </script>
 
 @endsection

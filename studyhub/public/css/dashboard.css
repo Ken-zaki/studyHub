@@ -1,0 +1,907 @@
+/* ═══════════════════════════════════════════════════════════════════
+   StudyHub — user_dashboard.css
+   Scoped to: dashboard.blade.php + user_dashboard.js
+   Does NOT contain calendar-grid, task-manager modal, or calendar
+   popover styles — those live in calendar.css / tasks.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── DESIGN TOKENS ───────────────────────────────────────────────── */
+:root {
+    --primary: #1a5f7a;
+    --primary-dark: #144d61;
+    --secondary: #2a9d8f;
+    --accent: #ff6b6b;
+    --success: #2a9d8f;
+    --purple: #7c4dca;
+
+    --bg-main: #fafbfc;
+    --bg-sidebar: #ffffff;
+    --bg-card: #ffffff;
+
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b7280;
+    --text-light: #9ca3af;
+
+    --border: #e5e7eb;
+    --shadow-sm: rgba(0, 0, 0, 0.03);
+    --shadow-md: rgba(0, 0, 0, 0.08);
+    --shadow-lg: rgba(0, 0, 0, 0.14);
+
+    --sidebar-col: 80px;
+    --sidebar-full: 280px;
+    --right-w: 300px;
+}
+
+/* ── RESET ───────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: "DM Sans", sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOP BAR
+   ═══════════════════════════════════════════════════════════════════ */
+.top-bar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: var(--sidebar-col);
+    height: 64px;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    z-index: 900;
+}
+
+/* Greeting block injected by dashboard JS */
+.top-bar-greeting {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+.dash-greeting {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-topbar-date {
+    font-size: 12px;
+    color: var(--text-light);
+    display: block;
+    margin-top: 1px;
+}
+
+/* Icon buttons (bell, etc.) */
+.top-bar-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.top-bar-btn:hover {
+    background: var(--bg-main);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+.top-bar-btn svg {
+    width: 20px;
+    height: 20px;
+}
+.notif-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+/* Avatar */
+.top-bar-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary) 0%, #f59e42 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    overflow: hidden;
+    transition: all 0.2s;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.top-bar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.top-bar-avatar:hover {
+    opacity: 0.85;
+    transform: scale(0.97);
+}
+
+/* FR-2.4 Focus session shortcut */
+.dash-focus-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+        opacity 0.15s,
+        transform 0.1s;
+    flex-shrink: 0;
+}
+.dash-focus-btn:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE LAYOUT
+   ═══════════════════════════════════════════════════════════════════ */
+.main-content {
+    margin-left: var(--sidebar-col);
+    margin-top: 64px;
+    min-height: calc(100vh - 64px);
+    padding: 28px 24px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.center-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Right sidebar */
+.right-sidebar {
+    width: var(--right-w);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: calc(64px + 28px);
+    max-height: calc(100vh - 64px - 56px);
+    overflow-y: auto;
+}
+.right-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+.right-sidebar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+@media (max-width: 1100px) {
+    .right-sidebar {
+        display: none;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CARD  (base widget container)
+   ═══════════════════════════════════════════════════════════════════ */
+.card {
+    background: var(--bg-card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    box-shadow: 0 4px 16px var(--shadow-sm);
+}
+.card-title {
+    font-family: "Crimson Pro", serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FR-2.2 / FR-2.5  METRIC ROW  (4 stat cards)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 900px) {
+    .dash-metric-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 540px) {
+    .dash-metric-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dash-metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition:
+        box-shadow 0.2s,
+        transform 0.2s;
+}
+.dash-metric-card:hover {
+    box-shadow: 0 6px 20px var(--shadow-md);
+    transform: translateY(-1px);
+}
+.dash-metric-val {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: "Crimson Pro", serif;
+    line-height: 1.1;
+}
+.dash-metric-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 3px;
+}
+.dash-metric-sub {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-top: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TWO-COLUMN GRID  (Today's Schedule + Upcoming Tasks)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 780px) {
+    .dash-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FR-2.1  TODAY'S SCHEDULE  (#todayScheduleList items)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-session-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+    border-radius: 6px;
+}
+.dash-session-item:last-child {
+    border-bottom: none;
+}
+.dash-session-item:hover {
+    background: var(--bg-main);
+}
+
+.dash-session-bar {
+    width: 3px;
+    min-height: 38px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.dash-session-info {
+    flex: 1;
+    min-width: 0;
+}
+.dash-session-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-session-time {
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+.dash-session-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FR-2.2  UPCOMING TASKS  (#upcomingTasksList items)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+    border-radius: 6px;
+}
+.dash-task-item:last-child {
+    border-bottom: none;
+}
+.dash-task-item:hover {
+    background: var(--bg-main);
+}
+
+/* Circular completion indicator */
+.dash-task-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid #b0b8c1;
+    flex-shrink: 0;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
+}
+.dash-task-check.done {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+/* Priority colour dots */
+.dash-priority-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.dash-priority-high {
+    background: #e24b4a;
+}
+.dash-priority-med {
+    background: #ef9f27;
+}
+.dash-priority-low {
+    background: #639922;
+}
+
+.dash-task-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+.dash-task-name.done {
+    color: var(--text-light);
+    text-decoration: line-through;
+}
+
+/* Subject / category tag */
+.dash-task-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Due date label */
+.dash-task-due {
+    font-size: 11px;
+    color: var(--text-light);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MINI CALENDAR  (#dashMiniCalGrid)
+   ═══════════════════════════════════════════════════════════════════ */
+.mini-cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+    text-decoration: none;
+}
+.mini-cal-cell:hover {
+    background: var(--bg-main);
+}
+.mini-cal-cell.today {
+    background: linear-gradient(135deg, var(--primary) 0%, #f59e42 100%);
+    color: #fff;
+}
+.mini-cal-cell.other-month {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* Event indicator dot beneath date number */
+.mini-cal-cell .event-dot {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--primary);
+}
+/* Prevent dot from showing on today cell (already highlighted) */
+.mini-cal-cell.today .event-dot {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   UPCOMING THIS WEEK  (#upcomingList items)
+   ═══════════════════════════════════════════════════════════════════ */
+.upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+    margin-bottom: 8px;
+}
+.upcoming-item:last-child {
+    margin-bottom: 0;
+}
+.upcoming-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.upcoming-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.upcoming-info {
+    flex: 1;
+    min-width: 0;
+}
+.upcoming-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+.upcoming-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.upcoming-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TASK OVERVIEW SIDEBAR  (#taskSummaryStats + progress)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The progress bar row beneath the card title */
+#taskProgress {
+    margin-top: 12px;
+}
+#taskProgressLabel {
+    font-size: 11.5px;
+    color: var(--text-light);
+    display: block;
+    margin-bottom: 5px;
+}
+/* Reuse dash-progress-bar styles for the task progress bar */
+#taskProgressBar {
+    height: 6px;
+    border-radius: 4px;
+    background: var(--primary);
+    transition: width 0.5s ease;
+}
+
+/* Stat tiles rendered by renderTaskSummary() */
+.stat-tile {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+}
+.stat-tile-num {
+    font-family: "Crimson Pro", serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+.stat-tile-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-top: 4px;
+    letter-spacing: 0.03em;
+}
+
+/* ── task count badge in card header ──── */
+.task-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 99px;
+    background: linear-gradient(
+        135deg,
+        var(--primary) 0%,
+        var(--primary-dark) 100%
+    );
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DEADLINES SIDEBAR  (#deadlinesList)
+   ═══════════════════════════════════════════════════════════════════ */
+.deadline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: opacity 0.15s;
+}
+.deadline-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.deadline-item:hover {
+    opacity: 0.8;
+}
+
+.deadline-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    background: var(--bg-main);
+}
+.deadline-info {
+    flex: 1;
+    min-width: 0;
+}
+.deadline-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+.deadline-subject {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.deadline-due {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.due-urgent {
+    background: rgba(255, 107, 107, 0.12);
+    color: #dc2626;
+}
+.due-soon {
+    background: rgba(245, 158, 66, 0.12);
+    color: #d97706;
+}
+.due-normal {
+    background: rgba(26, 95, 122, 0.1);
+    color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STUDY GROUPS SIDEBAR  (#activeStudyGroups)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-group-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: opacity 0.15s;
+}
+.dash-group-item:last-child {
+    border-bottom: none;
+}
+.dash-group-item:hover {
+    opacity: 0.8;
+}
+
+.dash-group-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.dash-group-info {
+    flex: 1;
+    min-width: 0;
+}
+.dash-group-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-group-meta {
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+.dash-group-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    background: rgba(26, 95, 122, 0.1);
+    color: var(--primary);
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FR-2.5  PROGRESS SUMMARY  (#weeklySummary)
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-progress-wrap {
+    margin-top: 10px;
+}
+.dash-progress-wrap:first-child {
+    margin-top: 0;
+}
+.dash-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--text-light);
+    margin-bottom: 5px;
+}
+.dash-progress-bar {
+    height: 6px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+}
+.dash-progress-fill {
+    height: 6px;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/*
+ * FIX: The blade uses #progressToggle > button[data-period] but the JS
+ *      calls document.querySelectorAll(".period-toggle") which would find
+ *      nothing.  We add the .period-toggle class to the button selector so
+ *      the existing blade markup still works AND we provide the visual
+ *      active state that switchProgressPeriod() expects.
+ *
+ *      Note: The duplicated switchProgressPeriod() in the inline <script>
+ *      at the bottom of the blade already targets the right buttons via
+ *      dataset.period; the JS file version uses .period-toggle.
+ *      The safest fix is to style both and let the blade's inline script
+ *      win (it runs last).  See the JS fix note below.
+ */
+#progressToggle button {
+    padding: 4px 10px;
+    border: none;
+    cursor: pointer;
+    font-family: "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+/* Active state applied by the blade's inline switchProgressPeriod() */
+#progressToggle button[data-period="weekly"] {
+    background: var(--primary);
+    color: #fff;
+}
+#progressToggle button[data-period="monthly"] {
+    background: transparent;
+    color: var(--text-secondary);
+}
+/* When JS flips them */
+#progressToggle button.active {
+    background: var(--primary) !important;
+    color: #fff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MY SUBJECTS SIDEBAR  (#myCalendars  →  renderMySubjects())
+   ═══════════════════════════════════════════════════════════════════ */
+.cal-category {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 6px;
+    border: 1.5px solid transparent;
+}
+.cal-category:last-child {
+    margin-bottom: 0;
+}
+.cal-category:hover {
+    background: var(--bg-main);
+}
+
+.cal-category-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.cal-category-info {
+    flex: 1;
+    min-width: 0;
+}
+.cal-category-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.cal-category-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+}
+
+/* Checkbox toggle */
+.cal-category-toggle {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 2px solid currentColor;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.cal-category.active .cal-category-toggle {
+    background: currentColor;
+}
+.cal-category.active .cal-category-toggle::after {
+    content: "";
+    width: 8px;
+    height: 5px;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SHARED STATE / UTILITY
+   ═══════════════════════════════════════════════════════════════════ */
+.state-box {
+    text-align: center;
+    padding: 28px;
+    color: var(--text-light);
+    font-size: 14px;
+}
+.state-box.err {
+    color: #dc2626;
+    background: rgba(255, 107, 107, 0.1);
+    border-radius: 12px;
+    border: 1px solid #fecaca;
+}
+
+/* Loading spinner */
+.spinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: db-spin 0.7s linear infinite;
+    margin: 0 auto 8px;
+}
+@keyframes db-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
