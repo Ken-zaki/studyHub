@@ -551,6 +551,62 @@ Route::post('/api/resources/{id}/approve', [ResourceController::class, 'approve'
 // Study groups discovery
 Route::get('/api/study-groups/active', [ResourceController::class, 'activeGroups']);
 
+Route::get('/api/search/users', function (Request $request) {
+    if ($r = requireAuth()) return $r;
+
+    $q = strtolower(trim((string) $request->query('q', '')));
+
+    if (strlen($q) < 2) {
+        return response()->json(['users' => []]);
+    }
+
+    $currentUserId = (string) session('user_id', '');
+    $provider = new SupabaseServiceProvider();
+    $profiles = $provider->getAllProfiles();
+
+    $users = [];
+
+    foreach ($profiles as $profile) {
+        $id = (string) ($profile['id'] ?? '');
+
+        if ($id === '' || $id === $currentUserId) {
+            continue;
+        }
+
+        $firstName = trim((string) ($profile['first_name'] ?? ''));
+        $lastName = trim((string) ($profile['last_name'] ?? ''));
+        $username = trim((string) ($profile['username'] ?? ''));
+
+        $name = trim($firstName . ' ' . $lastName);
+        if ($name === '') {
+            $name = $username ?: 'StudyHub User';
+        }
+
+        $haystack = strtolower($name . ' ' . $username);
+
+        if (!str_contains($haystack, $q)) {
+            continue;
+        }
+
+        $users[] = [
+            'id' => $id,
+            'name' => $name,
+            'username' => $username,
+            'photo' => (string) ($profile['profile_photo_url'] ?? ''),
+            'url' => route('profile.view', ['userId' => $id]),
+            'is_friend' => Friendship::areFriends($currentUserId, $id),
+        ];
+
+        if (count($users) >= 10) {
+            break;
+        }
+    }
+
+    return response()->json([
+        'users' => $users,
+    ]);
+})->name('api.search.users');
+
 Route::get('/notifications', function () {
     if ($r = requireAuth()) return $r;
     return view('home.notifications', ['activeNav' => 'notifications']);

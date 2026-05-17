@@ -193,7 +193,6 @@
                     <div class="friend-list" id="friendList">
                         @forelse($friends as $friend)
                             <label class="friend-item" for="friend_{{ $friend['id'] }}">
-                                <input type="checkbox" id="friend_{{ $friend['id'] }}" value="{{ $friend['id'] }}">
                                 <div class="friend-avatar">
                                     @if (!empty($friend['photo']))
                                         <img src="{{ $friend['photo'] }}" alt="">
@@ -201,10 +200,13 @@
                                         {{ $friend['initials'] }}
                                     @endif
                                 </div>
-                                <div>
+
+                                <div class="friend-details">
                                     <div class="friend-name">{{ $friend['name'] }}</div>
                                     <div class="friend-username">@{{ $friend['username'] }}</div>
                                 </div>
+
+                                <input class="friend-check" type="checkbox" id="friend_{{ $friend['id'] }}" value="{{ $friend['id'] }}">
                             </label>
                         @empty
                             <div class="no-msg">No friends to add yet.</div>
@@ -795,12 +797,12 @@
                                 ? `<img src="${escHtml(f.photo)}" alt="">`
                                 : f.initials;
                             return `<label class="friend-item" for="friend_${f.id}">
-                                <input type="checkbox" id="friend_${f.id}" value="${f.id}">
                                 <div class="friend-avatar">${photoHtml}</div>
-                                <div>
+                                <div class="friend-details">
                                     <div class="friend-name">${escHtml(f.name)}</div>
                                     <div class="friend-username">@${escHtml(f.username || 'friend')}</div>
                                 </div>
+                                <input class="friend-check" type="checkbox" id="friend_${f.id}" value="${f.id}">
                             </label>`;
                         }).join('');
                     })

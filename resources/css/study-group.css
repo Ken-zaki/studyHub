@@ -829,16 +829,135 @@ body {
 .friend-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 9px;
+
+    padding: 12px 14px;
+    border-radius: 16px;
+
+    background: #161820;
+    border: 1px solid transparent;
+
+    transition: all 0.18s ease;
     cursor: pointer;
-    transition: background .15s;
     user-select: none;
 }
 
-.friend-item:hover { background: #1e2030; }
-.friend-item input[type="checkbox"] { accent-color: #6c63ff; width: 15px; height: 15px; }
+.friend-item:hover {
+    background: #1d2030;
+    border-color: #2a2d3e;
+    transform: translateY(-1px);
+}
+
+.friend-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+
+    border-radius: 50%;
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: linear-gradient(135deg, #6c63ff, #9f7aea);
+
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+
+    margin-right: 12px;
+}
+
+.friend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.friend-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.friend-name {
+    color: #f3f4f6;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.friend-username {
+    color: #6b7280;
+    font-size: 0.74rem;
+
+    margin-top: 2px;
+}
+
+.friend-check {
+    appearance: none;
+    -webkit-appearance: none;
+
+    margin-left: auto;
+
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+
+    border-radius: 50%;
+
+    background: #0f1117;
+    border: 2px solid #313548;
+
+    position: relative;
+
+    transition: all 0.2s ease;
+    cursor: pointer;
+
+    box-shadow:
+        inset 0 0 0 3px #161820,
+        0 0 0 0 rgba(108,99,255,0);
+}
+
+.friend-check:hover {
+    border-color: #7c5cff;
+
+    box-shadow:
+        inset 0 0 0 3px #161820,
+        0 0 0 5px rgba(124,92,255,.12);
+}
+
+.friend-check:checked {
+    background: linear-gradient(135deg, #7c5cff, #9f7aea);
+    border-color: #7c5cff;
+
+    box-shadow:
+        0 0 0 5px rgba(124,92,255,.16),
+        0 10px 25px rgba(124,92,255,.28);
+}
+
+.friend-check:checked::before {
+    content: "";
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+    background: white;
+
+    transform: translate(-50%, -50%);
+}
+
+.friend-item:has(.friend-check:checked) {
+    background: rgba(124,92,255,.10);
+    border-color: rgba(124,92,255,.30);
+}
 
 .friend-avatar {
     width: 34px;
@@ -1050,4 +1169,76 @@ body {
 .sidebar:hover ~ .main-content-simple,
 .sidebar:hover + * .main-content-simple {
     left: var(--sidebar-width, 260px);
+}
+
+.sg-modal label.friend-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px;
+
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+
+    background: #161820;
+    border: 1px solid transparent;
+
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s ease;
+}
+
+.sg-modal label.friend-item:hover {
+    background: #1e2030;
+    border-color: #2a2d3e;
+}
+
+.sg-modal .friend-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.sg-modal .friend-check {
+    appearance: none;
+    -webkit-appearance: none;
+
+    margin-left: auto !important;
+
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+
+    border-radius: 50%;
+    border: 2px solid #35384a;
+    background: #0f1117;
+
+    position: relative;
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+.sg-modal .friend-check:checked {
+    background: linear-gradient(135deg, #6c63ff, #a78bfa);
+    border-color: #6c63ff;
+    box-shadow: 0 0 0 5px rgba(108, 99, 255, 0.16);
+}
+
+.sg-modal .friend-check:checked::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.sg-modal label.friend-item:has(.friend-check:checked) {
+    background: rgba(108, 99, 255, 0.13);
+    border-color: rgba(108, 99, 255, 0.35);
 }

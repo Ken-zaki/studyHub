@@ -28,7 +28,7 @@
         $currentRoute,
         ['friends'],
         true,
-    );
+    ) && $activeNav !== 'friends';
 
     $sidebarFriends = [];
     if ($showFriendRail && $sessionUserId !== '') {
@@ -163,6 +163,68 @@
         overflow: hidden;
         max-height: 280px;
         overflow-y: auto;
+    }
+    .global-search-result {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--border, #e5e7eb);
+        transition: background 0.18s ease;
+    }
+    .global-search-result:hover {
+        background: var(--bg-main, #fafbfc);
+    }
+    .global-search-result:last-child {
+        border-bottom: none;
+    }
+    .global-search-result img,
+    .global-search-avatar {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        overflow: hidden;
+        background: linear-gradient(135deg, var(--primary, #1a5f7a), var(--secondary, #f59e42));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .global-search-result > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .global-search-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary, #1a1a1a);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .global-search-username {
+        font-size: 12px;
+        color: var(--text-light, #9ca3af);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .global-search-badge {
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(26, 95, 122, 0.1);
+        color: var(--primary, #1a5f7a);
+        flex-shrink: 0;
     }
     </style>
 
@@ -432,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 box.innerHTML = users.map(user => {
                     const avatar = user.photo
-                        ? `<img src="${user.photo}" alt="">`
+                        ? `<img src="${user.photo}" alt="" class="global-search-avatar-image">`
                         : `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
 
                     return `
