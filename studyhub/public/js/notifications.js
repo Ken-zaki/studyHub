@@ -152,8 +152,12 @@ async function _tick() {
 // FR-3.6: if the event has reminder_minutes set, use ONLY that single
 // custom trigger (plus overdue/1hr_after which always apply).
 function _triggersFor(item) {
-    if (item.source_type !== "event" || !item.customReminder) {
-        return NOTIF.triggers; // tasks + events without custom reminder
+    if (item.source_type !== "event") {
+        return NOTIF.triggers;
+    }
+
+    if (!item.customReminder) {
+        return NOTIF.triggers;
     }
 
     const customMs = item.customReminder * 60 * 1000;
@@ -164,14 +168,9 @@ function _triggersFor(item) {
         custom: true,
     };
 
-    // Always include overdue + 1hr_after so user knows when event passed
-    const always = NOTIF.triggers.filter(
-        (t) => t.key === "overdue" || t.key === "1hr_after",
-    );
-
-    // Avoid duplicating a standard trigger that matches the custom offset
-    const alreadyCovered = always.some((t) => t.offsetMs === customMs);
-    return alreadyCovered ? always : [customTrigger, ...always];
+    const overdueOnly = NOTIF.triggers.filter((t) => t.key === "overdue");
+    const alreadyCovered = customMs === 0;
+    return alreadyCovered ? overdueOnly : [customTrigger, ...overdueOnly];
 }
 
 function _reminderLabel(minutes) {
@@ -513,8 +512,7 @@ function _buildTitle(item, trig) {
     if (trig.key === "1hr_after") return `🕐 1 hour ago: ${item.title}`;
 
     const prefix = item.source_type === "task" ? "✅" : _evIcon(item.category);
-    const label = trig.custom ? trig.label : trig.label; // custom already has readable label
-    return `${prefix} ${label}: ${item.title}`;
+    return `${prefix} ${trig.label}: ${item.title}`;
 }
 
 function _buildBody(item, dueDate) {

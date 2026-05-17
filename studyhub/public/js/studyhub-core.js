@@ -105,7 +105,7 @@ async function sbReq(path, opts = {}) {
 // ── Calendar DB ──────────────────────────────────────────────────
 async function dbLoad() {
     allEvents = await sbReq(
-        `${TABLE}?user_id=eq.${UID}&order=event_date.asc,event_time.asc`,
+        `${TABLE}?user_id=eq.${UID}&order=event_date.asc,event_time.asc&select=*`,
         { headers: hdrs(true) },
     );
 }
