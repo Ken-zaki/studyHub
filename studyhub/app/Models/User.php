@@ -79,7 +79,7 @@ class User extends Authenticatable
     public function getAllFriends()
     {
         $userId = $this->id;
-        
+
         // Get all friends where this user is the initiator OR the recipient
         return self::where(function ($query) use ($userId) {
             // Friends where I'm the user_id

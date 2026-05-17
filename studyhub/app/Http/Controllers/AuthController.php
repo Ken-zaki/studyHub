@@ -43,7 +43,7 @@ class AuthController extends Controller
         $sbAnon = config('services.supabase.anon_key');
         $sbSvc  = config('services.supabase.service_key');
 
-        // 1. Sign in via Supabase Auth REST API
+        // 1. Attempt sign-in via Supabase Auth REST
         $response = Http::withHeaders([
             'apikey'       => $sbAnon,
             'Content-Type' => 'application/json',
@@ -53,7 +53,7 @@ class AuthController extends Controller
         ]);
 
         if ($response->failed()) {
-            return back()->withErrors(['email' => 'Invalid credentials. Please try again.']);
+            return back()->withErrors(['email' => 'Invalid email or password.']);
         }
 
         $authData = $response->json();
@@ -63,26 +63,36 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Authentication failed.']);
         }
 
-        // 2. Fetch profile from public.profiles (use service key to bypass RLS)
+        // 2. Check profile row exists (only created after OTP verified).
+        //    If there is no profile, the user registered but never verified
+        //    their email — treat them as an invalid / unregistered user.
         $profileResponse = Http::withHeaders([
             'apikey'        => $sbSvc,
             'Authorization' => "Bearer {$sbSvc}",
         ])->get("{$sbUrl}/rest/v1/profiles?id=eq.{$userId}&select=*");
 
-        $profile = $profileResponse->json()[0] ?? [];
+        $profile = $profileResponse->json()[0] ?? null;
 
-        // 3. Store everything in Laravel session — including role
+        if (!$profile) {
+            // Auth account exists but email was never verified — no profile row.
+            // Block login and prompt them to complete signup.
+            return back()->withErrors([
+                'email' => 'Account not found. Please complete registration by verifying your email first.',
+            ]);
+        }
+
+        // 3. Store session
         Session::put([
             'user_id'            => $userId,
             'user_first_name'    => $profile['first_name']        ?? '',
             'user_last_name'     => $profile['last_name']         ?? '',
             'user_username'      => $profile['username']          ?? '',
             'user_profile_photo' => $profile['profile_photo_url'] ?? '',
-            'user_role'          => $profile['role']              ?? 'student', // FIX: was never stored
+            'user_role'          => $profile['role']              ?? 'student',
             'supabase_token'     => $authData['access_token']     ?? '',
         ]);
 
-        // 4. Redirect admins/moderators to admin dashboard, others to user dashboard
+        // 4. Redirect by role
         $role = $profile['role'] ?? 'student';
         if (in_array($role, ['admin', 'moderator'])) {
             return redirect()->route('admin.dashboard');
@@ -93,6 +103,8 @@ class AuthController extends Controller
 
     // ──────────────────────────────────────────────
     // SIGNUP  (POST)
+    // Signup is handled entirely client-side via signup.js.
+    // This PHP method is kept as a fallback only.
     // ──────────────────────────────────────────────
     public function signup(Request $request)
     {
@@ -109,7 +121,6 @@ class AuthController extends Controller
         $sbAnon = config('services.supabase.anon_key');
         $sbSvc  = config('services.supabase.service_key');
 
-        // 1. Create auth user via Supabase
         $authResponse = Http::withHeaders([
             'apikey'       => $sbAnon,
             'Content-Type' => 'application/json',
@@ -127,7 +138,6 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Could not create user account.']);
         }
 
-        // 2. Insert into public.profiles using service key
         $profileResponse = Http::withHeaders([
             'apikey'        => $sbSvc,
             'Authorization' => "Bearer {$sbSvc}",
@@ -146,7 +156,7 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Profile creation failed: ' . ($profileResponse->json()['message'] ?? 'Unknown error')]);
         }
 
-        return redirect()->route('login')->with('success', 'Account created! Please log in.');
+        return redirect()->route('login')->with('success', 'Account created! Please verify your email, then log in.');
     }
 
     // ──────────────────────────────────────────────
@@ -304,8 +314,8 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
-        $sbUrl      = config('services.supabase.url');
-        $sbAnon     = config('services.supabase.anon_key');
+        $sbUrl       = config('services.supabase.url');
+        $sbAnon      = config('services.supabase.anon_key');
         $accessToken = Session::get('reset_access_token');
 
         if (!$accessToken) {

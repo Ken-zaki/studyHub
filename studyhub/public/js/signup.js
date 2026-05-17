@@ -1,13 +1,19 @@
 /* ============================================================
    public/js/signup.js
-   All new users get role = 'student' by default.
-   Admin accounts must be set manually via SQL.
+   Two-step signup:
+     Step 1 — validate form → signUp() → Supabase sends 6-digit OTP
+     Step 2 — user enters OTP → verifyOtp() → profile row created → login
+   Profile row is ONLY created after OTP is verified, so unverified
+   auth users have no profile and are blocked at login.
    ============================================================ */
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Holds form data between step 1 and step 2
+let pendingFormData = null;
+
 // ── CHECKBOX ──────────────────────────────────────────────────
-document.getElementById('termsAgreement').addEventListener('change', function() {
+document.getElementById('termsAgreement').addEventListener('change', function () {
     document.getElementById('termsWrapper').classList.toggle('checked', this.checked);
     updateSubmitButton();
 });
@@ -43,7 +49,7 @@ function togglePassword(inputId) {
 }
 
 // ── PASSWORD MATCH ────────────────────────────────────────────
-document.getElementById('confirmPassword').addEventListener('input', function() {
+document.getElementById('confirmPassword').addEventListener('input', function () {
     const match = document.getElementById('password').value === this.value;
     document.getElementById('confirmPasswordError').textContent =
         this.value && !match ? 'Passwords do not match' : '';
@@ -71,14 +77,10 @@ function validateForm() {
     document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
 
     const username = document.getElementById('username').value.trim();
-
-    // ── BLOCK reserved admin username on signup ───────────────
     if (username.toLowerCase() === 'useradmin') {
-        showError('username', 'This username is reserved.');
-        valid = false;
+        showError('username', 'This username is reserved.'); valid = false;
     } else if (username.length < 3) {
-        showError('username', 'Username must be at least 3 characters.');
-        valid = false;
+        showError('username', 'Username must be at least 3 characters.'); valid = false;
     }
 
     if (document.getElementById('firstName').value.trim().length < 2)
@@ -87,15 +89,18 @@ function validateForm() {
         { showError('lastName',  'Please enter a valid last name.');  valid = false; }
 
     const bday = document.getElementById('birthday').value;
-    if (!bday)                        { showError('birthday', 'Please select your birthday.'); valid = false; }
-    else if (calculateAge(bday) < 13) { showError('birthday', 'You must be at least 13 years old.'); valid = false; }
+    if (!bday)
+        { showError('birthday', 'Please select your birthday.'); valid = false; }
+    else if (calculateAge(bday) < 13)
+        { showError('birthday', 'You must be at least 13 years old.'); valid = false; }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(document.getElementById('email').value.trim()))
         { showError('email', 'Please enter a valid email.'); valid = false; }
 
     const pass = document.getElementById('password').value;
-    if (pass.length < 8) { showError('password', 'Password must be at least 8 characters.'); valid = false; }
+    if (pass.length < 8)
+        { showError('password', 'Password must be at least 8 characters.'); valid = false; }
     if (pass !== document.getElementById('confirmPassword').value)
         { showError('confirmPassword', 'Passwords do not match.'); valid = false; }
 
@@ -105,77 +110,152 @@ function validateForm() {
     return valid;
 }
 
-// ── SUBMIT ────────────────────────────────────────────────────
-document.getElementById('signupForm').addEventListener('submit', async function(e) {
+// ── STEP 1: SUBMIT FORM → SEND OTP ───────────────────────────
+document.getElementById('signupForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const formData = {
+    pendingFormData = {
         username:  document.getElementById('username').value.trim(),
         firstName: document.getElementById('firstName').value.trim(),
         lastName:  document.getElementById('lastName').value.trim(),
         birthday:  document.getElementById('birthday').value,
         email:     document.getElementById('email').value.trim(),
-        password:  document.getElementById('password').value
+        password:  document.getElementById('password').value,
     };
 
-    document.getElementById('loading').style.display = 'block';
+    document.getElementById('signupLoading').style.display = 'block';
     document.getElementById('submitBtn').disabled = true;
 
     try {
-        // Check username not taken
+        // Check username not already taken by a verified user
         const { data: existing } = await supabaseClient
             .from('profiles').select('username')
-            .eq('username', formData.username).maybeSingle();
+            .eq('username', pendingFormData.username).maybeSingle();
         if (existing) throw new Error('Username already taken.');
 
-        // Create Supabase auth user
+        // Create auth user — Supabase sends a 6-digit OTP to the email
+        // because email verification is enabled in Auth → Providers → Email.
+        // We do NOT insert a profile row here; that only happens after OTP
+        // is verified, so abandoned signups never become real users.
         const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-            email:    formData.email,
-            password: formData.password,
-            options:  { data: {
-                username:   formData.username,
-                first_name: formData.firstName,
-                last_name:  formData.lastName,
-                birthday:   formData.birthday
-            }}
+            email:    pendingFormData.email,
+            password: pendingFormData.password,
         });
         if (authError) throw authError;
 
-        await new Promise(r => setTimeout(r, 500));
-
-        // Create profile row — role defaults to 'student'
-        const { error: profileError } = await supabaseClient.from('profiles').insert({
-            id:         authData.user.id,
-            username:   formData.username,
-            first_name: formData.firstName,
-            last_name:  formData.lastName,
-            birthday:   formData.birthday,
-            email:      formData.email,
-            role:       'student',     // ← always student on signup
-            is_banned:  false
-        });
-        if (profileError) throw profileError;
-
-        alert('Account created successfully! You can now log in.');
-        window.location.href = LOGIN_URL;
+        // Advance to step 2
+        document.getElementById('otpEmailDisplay').textContent = pendingFormData.email;
+        document.getElementById('signupSection').classList.remove('active');
+        document.getElementById('otpSection').classList.add('active');
+        document.getElementById('step1').classList.replace('active', 'completed');
+        document.getElementById('step2').classList.add('active');
 
     } catch (error) {
-        console.error('Signup error:', error);
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('signupLoading').style.display = 'none';
         document.getElementById('submitBtn').disabled = false;
 
         const msg = error.message || '';
-        if (msg.includes('Username already taken') || msg.includes('reserved'))
+        if (msg.includes('Username already taken'))
             showError('username', msg);
-        else if (msg.includes('already registered'))
+        else if (msg.toLowerCase().includes('already registered') || msg.includes('already been registered'))
             showError('email', 'This email is already registered.');
-        else if (msg.includes('violates row-level security'))
-            alert('Profile creation failed. Please try again.');
         else
-            alert('Error: ' + msg);
+            showError('email', msg || 'Signup failed. Please try again.');
+    } finally {
+        document.getElementById('signupLoading').style.display = 'none';
     }
 });
+
+// ── STEP 2: VERIFY OTP → CREATE PROFILE ──────────────────────
+document.getElementById('otpForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    document.getElementById('otpError').textContent = '';
+    document.getElementById('otpLoading').style.display = 'block';
+
+    const otp = document.getElementById('otp').value.trim();
+
+    try {
+        // Verify the OTP — type 'signup' matches the email sent by signUp()
+        const { data, error } = await supabaseClient.auth.verifyOtp({
+            email: pendingFormData.email,
+            token: otp,
+            type:  'signup',
+        });
+        if (error) throw error;
+
+        const userId = data.user?.id;
+        if (!userId) throw new Error('Verification succeeded but no user ID returned.');
+
+        // OTP verified — NOW create the profile row.
+        // This is the gate: only verified users get a profile,
+        // so login will reject anyone without one.
+        const { error: profileError } = await supabaseClient.from('profiles').insert({
+            id:         userId,
+            username:   pendingFormData.username,
+            first_name: pendingFormData.firstName,
+            last_name:  pendingFormData.lastName,
+            birthday:   pendingFormData.birthday,
+            email:      pendingFormData.email,
+            role:       'student',
+            is_banned:  false,
+        });
+        if (profileError) throw profileError;
+
+        // Sign out the auto-session Supabase creates after verifyOtp,
+        // so the user is taken to login fresh (matching your existing flow).
+        await supabaseClient.auth.signOut();
+
+        // Mark step 2 completed and redirect
+        document.getElementById('step2').classList.replace('active', 'completed');
+
+        alert('Email verified! Your account is ready. Please log in.');
+        window.location.href = LOGIN_URL;
+
+    } catch (error) {
+        const msg = error.message || '';
+        if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('token')) {
+            document.getElementById('otpError').textContent = 'Invalid or expired code. Please try again or resend.';
+        } else if (msg.includes('violates row-level security') || msg.includes('duplicate key')) {
+            // Profile already exists (e.g. user retried after partial failure) — still succeed
+            await supabaseClient.auth.signOut();
+            alert('Account already verified! Please log in.');
+            window.location.href = LOGIN_URL;
+        } else {
+            document.getElementById('otpError').textContent = msg || 'Verification failed. Please try again.';
+        }
+    } finally {
+        document.getElementById('otpLoading').style.display = 'none';
+    }
+});
+
+// ── RESEND CODE ───────────────────────────────────────────────
+async function resendCode() {
+    if (!pendingFormData?.email) return;
+
+    const btn = document.getElementById('resendBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Sending…';
+
+    try {
+        const { error } = await supabaseClient.auth.resend({
+            type:  'signup',
+            email: pendingFormData.email,
+        });
+        if (error) throw error;
+        btn.textContent = 'Sent!';
+    } catch (err) {
+        btn.textContent = 'Failed — try again';
+        btn.disabled    = false;
+        return;
+    }
+
+    // Re-enable after 60 seconds
+    setTimeout(() => {
+        btn.disabled    = false;
+        btn.textContent = 'Resend code';
+    }, 60000);
+}
 
 function showTerms(e)   { e.preventDefault(); alert('Terms and Conditions — coming soon!'); }
 function showPrivacy(e) { e.preventDefault(); alert('Privacy Policy — coming soon!'); }

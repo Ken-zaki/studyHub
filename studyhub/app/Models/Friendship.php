@@ -19,6 +19,8 @@ class Friendship extends Model
     protected $fillable = [
         'user_id',
         'friend_id',
+        'is_muted',
+        'is_archived',
     ];
 
     public function user()

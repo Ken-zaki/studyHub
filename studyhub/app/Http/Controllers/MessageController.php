@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Friendship;
 use App\Providers\SupabaseServiceProvider;
 
@@ -95,23 +96,37 @@ class MessageController extends Controller
         $friendRows = Friendship::query()
             ->where('user_id', $userId)
             ->orWhere('friend_id', $userId)
-            ->get(['user_id', 'friend_id']);
-
-        $friendIds = [];
-        foreach ($friendRows as $row) {
-            $candidate = (string) ($row->user_id === $userId ? $row->friend_id : $row->user_id);
-            if ($candidate !== '' && $candidate !== $userId) {
-                $friendIds[] = $candidate;
-            }
-        }
-        $friendIds = array_unique(array_filter($friendIds));
+            ->get([
+                'user_id',
+                'friend_id',
+                'is_archived',
+                'is_muted',
+            ]);
 
         $friends = [];
+        $archivedFriends = [];
 
-        foreach ($friendIds as $friendId) {
+        foreach ($friendRows as $friendship) {
+
+            $friendId = (string) (
+                $friendship->user_id === $userId
+                    ? $friendship->friend_id
+                    : $friendship->user_id
+            );
+
+
+            if ($friendId === '' || $friendId === $userId) {
+                continue;
+            }
+
+
+
             // Get profile from Supabase
             $friendProfile = $provider->getProfileById($friendId);
-            if (!$friendProfile) continue;
+
+            if (!$friendProfile) {
+                continue;
+            }
 
             // Last message (sent)
             $sentLast = $this->sbGet('direct_messages', [
@@ -132,7 +147,9 @@ class MessageController extends Controller
             ]);
 
             $lastMessage = null;
-            $candidates  = array_filter(array_merge($sentLast, $receivedLast));
+
+            $candidates = array_filter(array_merge($sentLast, $receivedLast));
+
             if (!empty($candidates)) {
                 usort($candidates, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
                 $lastMessage = $candidates[0];
@@ -141,31 +158,56 @@ class MessageController extends Controller
             // Unread count
             $unreadResp = Http::withoutVerifying()
                 ->withHeaders(array_merge(
-                $this->supabaseHeaders(),
-                ['Prefer' => 'count=exact']
-            ))->get($this->supabaseUrl() . '/rest/v1/direct_messages', [
-                'select'      => 'id',
-                'sender_id'   => 'eq.' . $friendId,
-                'receiver_id' => 'eq.' . $userId,
-                'is_read'     => 'eq.false',
-            ]);
+                    $this->supabaseHeaders(),
+                    ['Prefer' => 'count=exact']
+                ))
+                ->get($this->supabaseUrl() . '/rest/v1/direct_messages', [
+                    'select'      => 'id',
+                    'sender_id'   => 'eq.' . $friendId,
+                    'receiver_id' => 'eq.' . $userId,
+                    'is_read'     => 'eq.false',
+                ]);
 
-            $unreadCount  = 0;
+            $unreadCount = 0;
+
             $contentRange = $unreadResp->header('Content-Range');
+
             if ($contentRange && str_contains($contentRange, '/')) {
                 $unreadCount = (int) explode('/', $contentRange)[1];
             }
 
-            $friends[] = (object) [
+            $friendData = (object) [
                 'id'                => $friendProfile['id'],
-                'username'          => $friendProfile['username']          ?? '',
-                'first_name'        => $friendProfile['first_name']        ?? '',
-                'last_name'         => $friendProfile['last_name']         ?? '',
+                'username'          => $friendProfile['username'] ?? '',
+                'first_name'        => $friendProfile['first_name'] ?? '',
+                'last_name'         => $friendProfile['last_name'] ?? '',
                 'profile_photo_url' => $friendProfile['profile_photo_url'] ?? '',
                 'last_message'      => $lastMessage ? (object) $lastMessage : null,
                 'unread_count'      => $unreadCount,
+
+                // IMPORTANT
+                'is_muted' => filter_var($friendship->is_muted, FILTER_VALIDATE_BOOLEAN),
+                'is_archived' => filter_var($friendship->is_archived ?? false, FILTER_VALIDATE_BOOLEAN),
             ];
+
+            if ($friendData->is_archived) {
+
+                    $archivedFriends[] = $friendData;
+
+                } else {
+
+                    $friends[] = $friendData;
+                }
         }
+        $friends = collect($friends)
+            ->unique('id')
+            ->values()
+            ->all();
+
+        $archivedFriends = collect($archivedFriends)
+            ->unique('id')
+            ->values()
+            ->all();
 
         // Sort by most recent message
         usort($friends, function ($a, $b) {
@@ -174,8 +216,13 @@ class MessageController extends Controller
             return strcmp($bTime, $aTime);
         });
 
-        return view('home.messages', ['friends' => collect($friends)]);
+
+        return view('home.messages', [
+            'friends' => collect($friends),
+            'archivedFriends' => collect($archivedFriends),
+        ]);
     }
+
 
     // ── conversation() ─────────────────────────────────────────
 
@@ -243,6 +290,81 @@ class MessageController extends Controller
         ]);
     }
 
+    public function archive($friendId)
+    {
+        $userId = session('user_id');
+
+        Friendship::where(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $userId)
+            ->where('friend_id', $friendId);
+        })->orWhere(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $friendId)
+            ->where('friend_id', $userId);
+        })->update([
+            'is_archived' => true
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    public function unarchive($friendId)
+    {
+        $userId = session('user_id');
+
+        Friendship::where(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $userId)
+            ->where('friend_id', $friendId);
+        })->orWhere(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $friendId)
+            ->where('friend_id', $userId);
+        })->update([
+            'is_archived' => false
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    public function mute($friendId)
+    {
+        $userId = session('user_id');
+
+        Friendship::where(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $userId)
+            ->where('friend_id', $friendId);
+        })->orWhere(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $friendId)
+            ->where('friend_id', $userId);
+        })->update([
+            'is_muted' => true
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    public function unmute($friendId)
+    {
+        $userId = session('user_id');
+
+        Friendship::where(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $userId)
+            ->where('friend_id', $friendId);
+        })->orWhere(function ($q) use ($userId, $friendId) {
+            $q->where('user_id', $friendId)
+            ->where('friend_id', $userId);
+        })->update([
+            'is_muted' => false
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
     // ── send() ─────────────────────────────────────────────────
 
     public function send(Request $request)

@@ -44,6 +44,24 @@ let _dropdown = null;
 let _badgeEl = null;
 let _cached = [];
 
+function hdrs(withBody = false) {
+    return {
+        apikey: SB_ANON,
+        Authorization: `Bearer ${SB_ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+    };
+}
+
+async function sbReq(path, options = {}) {
+    const url = path.startsWith('http') ? path : `${SB_URL}/rest/v1/${path}`;
+    const res = await fetch(url, options);
+    if (!res.ok) {
+        throw new Error(`Supabase request failed: ${res.status}`);
+    }
+    return await res.json();
+}
+
 // ================================================================
 // PUBLIC ENTRY
 // ================================================================

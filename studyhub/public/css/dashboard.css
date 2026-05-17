@@ -365,17 +365,19 @@ body {
 .dash-task-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 4px;
+    gap: 10px;
+    padding: 10px 6px; /* was 7px 4px */
     border-bottom: 1px solid var(--border);
     text-decoration: none;
     color: inherit;
     transition: background 0.15s;
     border-radius: 6px;
 }
+
 .dash-task-item:last-child {
     border-bottom: none;
 }
+
 .dash-task-item:hover {
     background: var(--bg-main);
 }
@@ -421,8 +423,9 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 160px;
+    max-width: unset; /* was 160px — this was cutting off the name */
 }
+
 .dash-task-name.done {
     color: var(--text-light);
     text-decoration: line-through;
@@ -436,6 +439,9 @@ body {
     font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
+    max-width: 90px; /* prevent super long subject tags from breaking layout */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Due date label */
@@ -444,6 +450,7 @@ body {
     color: var(--text-light);
     white-space: nowrap;
     flex-shrink: 0;
+    margin-left: auto; /* push due date to the right */
 }
 
 /* ═══════════════════════════════════════════════════════════════════

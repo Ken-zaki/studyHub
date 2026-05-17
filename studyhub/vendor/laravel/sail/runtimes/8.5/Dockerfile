@@ -11,6 +11,7 @@ WORKDIR /var/www/html
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
+ENV LANG=C.UTF-8
 ENV SUPERVISOR_PHP_COMMAND="/usr/bin/php -d variables_order=EGPCS /var/www/html/artisan serve --host=0.0.0.0 --port=80"
 ENV SUPERVISOR_PHP_USER="sail"
 ENV PLAYWRIGHT_BROWSERS_PATH=0
@@ -49,7 +50,7 @@ RUN apt-get update && apt-get upgrade -y \
         php8.5-msgpack \
         php8.5-igbinary \
         php8.5-redis \
-        #php8.5-swoole \
+        php8.5-swoole \
         php8.5-memcached \
         php8.5-pcov \
         php8.5-imagick \

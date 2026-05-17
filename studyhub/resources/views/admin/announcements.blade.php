@@ -45,6 +45,7 @@
             background: #fafafa;
             transition: border-color 0.2s;
             outline: none;
+            box-sizing: border-box;
         }
         .ann-input:focus, .ann-textarea:focus {
             border-color: var(--adm-primary);
@@ -68,6 +69,55 @@
         .ann-priority-btn.active[data-p="important"] { border-color: var(--adm-accent);  color: var(--adm-accent);  background: rgba(245,158,66,0.1); }
         .ann-priority-btn.active[data-p="urgent"]    { border-color: var(--adm-danger);  color: var(--adm-danger);  background: rgba(255,107,107,0.1); }
         .ann-priority-btn:hover { border-color: var(--adm-primary); color: var(--adm-primary); }
+
+        /* ── FILE UPLOAD ZONE ── */
+        .ann-file-zone {
+            border: 2px dashed var(--adm-border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+        .ann-file-zone:hover,
+        .ann-file-zone.dragover {
+            border-color: var(--adm-primary);
+            background: rgba(26,95,122,0.04);
+        }
+        .ann-file-zone input[type="file"] {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .ann-file-zone-icon { font-size: 28px; margin-bottom: 6px; }
+        .ann-file-zone-label {
+            font-size: 13px; font-weight: 600;
+            color: var(--adm-primary);
+        }
+        .ann-file-zone-sub {
+            font-size: 12px; color: var(--adm-light); margin-top: 3px;
+        }
+        .ann-file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .ann-file-chip {
+            display: flex; align-items: center; gap: 10px;
+            background: white;
+            border: 1.5px solid var(--adm-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        .ann-file-chip-icon { font-size: 18px; flex-shrink: 0; }
+        .ann-file-chip-name { flex: 1; font-weight: 600; color: var(--adm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ann-file-chip-size { font-size: 11px; color: var(--adm-light); flex-shrink: 0; }
+        .ann-file-chip-remove {
+            background: none; border: none; cursor: pointer;
+            color: var(--adm-light); font-size: 16px; line-height: 1;
+            padding: 0 2px; transition: color 0.15s;
+            flex-shrink: 0;
+        }
+        .ann-file-chip-remove:hover { color: var(--adm-danger); }
+
         .ann-submit-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
         .ann-btn {
             padding: 10px 22px; border-radius: 10px;
@@ -86,6 +136,7 @@
         .ann-btn-primary:hover { opacity: 0.9; color: white; }
         .ann-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+        /* ── LIST ── */
         .ann-list-card {
             background: white;
             border: 1px solid var(--adm-border);
@@ -141,6 +192,17 @@
         .ann-act-btn:hover { border-color: var(--adm-primary); color: var(--adm-primary); }
         .ann-act-btn.danger:hover { border-color: var(--adm-danger); color: var(--adm-danger); }
 
+        /* Attached files in list */
+        .ann-item-files { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .ann-item-file-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #f3f4f6; border-radius: 6px;
+            padding: 4px 9px; font-size: 11px; font-weight: 600;
+            color: var(--adm-primary); text-decoration: none;
+            transition: background 0.15s;
+        }
+        .ann-item-file-chip:hover { background: rgba(26,95,122,0.12); }
+
         .ann-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
         .ann-toggle input { opacity: 0; width: 0; height: 0; }
         .ann-toggle-slider {
@@ -158,7 +220,7 @@
         .ann-toggle input:checked + .ann-toggle-slider { background: var(--adm-success); }
         .ann-toggle input:checked + .ann-toggle-slider::before { transform: translateX(16px); }
 
-        .adm-empty { padding: 40px; text-align: center; color: var(--adm-light); font-size: 14px; }
+        .adm-empty   { padding: 40px; text-align: center; color: var(--adm-light); font-size: 14px; }
         .adm-loading { padding: 40px; text-align: center; color: var(--adm-light); font-size: 14px; }
 
         .ann-toast {
@@ -174,6 +236,23 @@
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        /* Upload progress bar */
+        .ann-upload-progress {
+            display: none;
+            margin-top: 10px;
+            background: #f3f4f6;
+            border-radius: 99px;
+            height: 6px;
+            overflow: hidden;
+        }
+        .ann-upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--adm-primary), #2a9d8f);
+            border-radius: 99px;
+            width: 0%;
+            transition: width 0.3s ease;
         }
     </style>
 </head>
@@ -216,6 +295,23 @@
             <input type="hidden" id="annPriority" value="normal">
         </div>
 
+        {{-- ── FILE ATTACHMENTS ── --}}
+        <div class="ann-form-group">
+            <label class="ann-label">Attachments <span style="color:var(--adm-light);font-weight:400;">(optional — PDF, Word, images, etc. Max 20 MB each)</span></label>
+            <div class="ann-file-zone" id="fileZone">
+                <input type="file" id="annFiles" multiple
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.zip,.rar"
+                       onchange="handleFileSelect(this.files)">
+                <div class="ann-file-zone-icon">📎</div>
+                <div class="ann-file-zone-label">Click to attach files or drag & drop here</div>
+                <div class="ann-file-zone-sub">PDF, Word, Excel, PowerPoint, images, ZIP — up to 20 MB each</div>
+            </div>
+            <div class="ann-file-list" id="fileList"></div>
+            <div class="ann-upload-progress" id="uploadProgress">
+                <div class="ann-upload-progress-bar" id="uploadProgressBar"></div>
+            </div>
+        </div>
+
         <div class="ann-submit-row">
             <button class="ann-btn" onclick="clearForm()">Clear</button>
             <button class="ann-btn ann-btn-primary" id="sendBtn" onclick="sendAnnouncement()">
@@ -238,12 +334,12 @@
 </main>
 
 <script>
-// ── All Supabase access goes through Laravel routes — no credentials needed in JS ──
 const SB_URL  = '{{ config("services.supabase.url") }}';
 const SB_ANON = '{{ config("services.supabase.anon_key") }}';
+const CSRF    = document.querySelector('meta[name="csrf-token"]').content;
 
-// CSRF token for Laravel POST/PATCH/DELETE requests
-const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+// ── Chosen files (kept in JS so we can show previews + remove them) ──
+let _selectedFiles = [];
 
 function setPriority(p, btn) {
     document.querySelectorAll('.ann-priority-btn').forEach(b => b.classList.remove('active'));
@@ -255,9 +351,74 @@ function clearForm() {
     document.getElementById('annTitle').value = '';
     document.getElementById('annBody').value  = '';
     setPriority('normal', document.querySelector('[data-p="normal"]'));
+    _selectedFiles = [];
+    renderFileList();
+    // Reset the file input so the same file can be re-selected after clear
+    document.getElementById('annFiles').value = '';
 }
 
-/* ── SEND — calls the Laravel controller, not Supabase directly ── */
+/* ── FILE SELECTION ── */
+function handleFileSelect(fileList) {
+    const MAX_MB   = 20;
+    const MAX_BYTES = MAX_MB * 1024 * 1024;
+    Array.from(fileList).forEach(f => {
+        if (f.size > MAX_BYTES) {
+            toast(`"${f.name}" exceeds the ${MAX_MB} MB limit and was skipped.`, 'error');
+            return;
+        }
+        // Avoid duplicates by name+size
+        const exists = _selectedFiles.some(x => x.name === f.name && x.size === f.size);
+        if (!exists) _selectedFiles.push(f);
+    });
+    renderFileList();
+}
+
+function removeFile(index) {
+    _selectedFiles.splice(index, 1);
+    renderFileList();
+}
+
+function fileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const map = {
+        pdf: '📄', doc: '📝', docx: '📝',
+        xls: '📊', xlsx: '📊',
+        ppt: '📋', pptx: '📋',
+        png: '🖼', jpg: '🖼', jpeg: '🖼', gif: '🖼',
+        zip: '🗜', rar: '🗜', txt: '📃',
+    };
+    return map[ext] ?? '📎';
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024)        return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+    const el = document.getElementById('fileList');
+    if (!_selectedFiles.length) { el.innerHTML = ''; return; }
+    el.innerHTML = _selectedFiles.map((f, i) => `
+        <div class="ann-file-chip">
+            <span class="ann-file-chip-icon">${fileIcon(f.name)}</span>
+            <span class="ann-file-chip-name" title="${escH(f.name)}">${escH(f.name)}</span>
+            <span class="ann-file-chip-size">${formatSize(f.size)}</span>
+            <button class="ann-file-chip-remove" onclick="removeFile(${i})" title="Remove">×</button>
+        </div>`).join('');
+}
+
+/* ── DRAG & DROP ── */
+const fileZone = document.getElementById('fileZone');
+fileZone.addEventListener('dragover',  e => { e.preventDefault(); fileZone.classList.add('dragover'); });
+fileZone.addEventListener('dragleave', () => fileZone.classList.remove('dragover'));
+fileZone.addEventListener('drop', e => {
+    e.preventDefault();
+    fileZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files);
+});
+
+/* ── SEND — uses FormData so files travel as multipart ── */
 async function sendAnnouncement() {
     const title    = document.getElementById('annTitle').value.trim();
     const body     = document.getElementById('annBody').value.trim();
@@ -268,35 +429,57 @@ async function sendAnnouncement() {
 
     const btn = document.getElementById('sendBtn');
     btn.disabled    = true;
-    btn.textContent = 'Sending…';
+    btn.textContent = _selectedFiles.length ? 'Uploading…' : 'Sending…';
+
+    // Show progress bar if files are attached
+    const progressWrap = document.getElementById('uploadProgress');
+    const progressBar  = document.getElementById('uploadProgressBar');
+    if (_selectedFiles.length) {
+        progressWrap.style.display = 'block';
+        progressBar.style.width    = '30%';
+    }
 
     try {
-        const res = await fetch('{{ route("admin.announcements.store") }}', {
+        const fd = new FormData();
+        fd.append('title',    title);
+        fd.append('body',     body);
+        fd.append('priority', priority);
+        fd.append('_token',   CSRF);
+        _selectedFiles.forEach(f => fd.append('files[]', f));
+
+        if (_selectedFiles.length) progressBar.style.width = '60%';
+
+        const res  = await fetch('{{ route("admin.announcements.store") }}', {
             method:  'POST',
-            headers: {
-                'Content-Type':     'application/json',
-                'Accept':           'application/json',
-                'X-CSRF-TOKEN':     CSRF,
-            },
-            body: JSON.stringify({ title, body, priority }),
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+            body:    fd,
+            // Note: do NOT set Content-Type — browser sets it with the boundary for multipart
         });
+
+        if (_selectedFiles.length) progressBar.style.width = '90%';
 
         const data = await res.json();
 
-        if (!res.ok) {
-            throw new Error(data.error || `Server error ${res.status}`);
-        }
+        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
-        if (data.rpc_warning) {
-            toast('⚠️ Announcement saved but notifications may not have sent. Check logs.', 'warning');
+        progressBar.style.width = '100%';
+        setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0%'; }, 600);
+
+        if (data.file_warning) {
+            toast('⚠️ ' + data.file_warning, 'warning');
+        } else if (data.rpc_warning) {
+            toast('⚠️ Announcement saved but notifications may not have sent.', 'warning');
         } else {
-            toast('✅ Announcement sent to all users!');
+            const fileCount = (data.uploaded_files ?? []).length;
+            toast('✅ Announcement sent!' + (fileCount ? ` (${fileCount} file${fileCount !== 1 ? 's' : ''} attached)` : ''));
         }
 
         clearForm();
         loadAnnouncements();
 
     } catch (e) {
+        progressWrap.style.display = 'none';
+        progressBar.style.width    = '0%';
         toast('Failed: ' + e.message, 'error');
     } finally {
         btn.disabled    = false;
@@ -304,19 +487,31 @@ async function sendAnnouncement() {
     }
 }
 
-/* ── LOAD LIST — reads directly from Supabase (read-only, anon key is fine) ── */
+/* ── LOAD LIST — reads Supabase + joins files ── */
 async function loadAnnouncements() {
     try {
-        const res  = await fetch(
+        // Fetch announcements
+        const annRes  = await fetch(
             `${SB_URL}/rest/v1/announcements?order=created_at.desc&limit=100`,
             { headers: { 'apikey': SB_ANON, 'Authorization': `Bearer ${SB_ANON}` } }
         );
+        if (!annRes.ok) throw new Error(`HTTP ${annRes.status}`);
+        const rows = await annRes.json();
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Fetch all files in one request (no individual per-announcement calls)
+        const filesRes = await fetch(
+            `${SB_URL}/rest/v1/announcement_files?order=created_at.asc`,
+            { headers: { 'apikey': SB_ANON, 'Authorization': `Bearer ${SB_ANON}` } }
+        );
+        const allFiles = filesRes.ok ? await filesRes.json() : [];
 
-        const rows = await res.json();
-        const el   = document.getElementById('annList');
+        // Group files by announcement_id
+        const filesByAnn = {};
+        (Array.isArray(allFiles) ? allFiles : []).forEach(f => {
+            (filesByAnn[f.announcement_id] = filesByAnn[f.announcement_id] ?? []).push(f);
+        });
 
+        const el = document.getElementById('annList');
         document.getElementById('annCount').textContent =
             `${rows.length} announcement${rows.length !== 1 ? 's' : ''}`;
 
@@ -326,7 +521,18 @@ async function loadAnnouncements() {
         }
 
         const icons = { normal: '📢', important: '⚠️', urgent: '🚨' };
-        el.innerHTML = rows.map(a => `
+        el.innerHTML = rows.map(a => {
+            const annFiles = filesByAnn[a.id] ?? [];
+            const filesHtml = annFiles.length
+                ? `<div class="ann-item-files">
+                    ${annFiles.map(f => `
+                        <a class="ann-item-file-chip" href="${escH(f.file_url)}" target="_blank" rel="noopener">
+                            ${fileIcon(f.file_name)} ${escH(f.file_name)}
+                        </a>`).join('')}
+                   </div>`
+                : '';
+
+            return `
             <div class="ann-item" id="ann-${escH(a.id)}">
                 <div class="ann-item-icon icon-${escH(a.priority)}">
                     ${icons[a.priority] ?? '📢'}
@@ -334,9 +540,11 @@ async function loadAnnouncements() {
                 <div class="ann-item-body">
                     <div class="ann-item-title">${escH(a.title)}</div>
                     <div class="ann-item-body-text">${escH(a.body)}</div>
+                    ${filesHtml}
                     <div class="ann-item-meta">
                         <span class="ann-badge badge-${escH(a.priority)}">${escH(a.priority)}</span>
                         ${!a.is_active ? '<span class="ann-badge badge-inactive">Inactive</span>' : ''}
+                        ${annFiles.length ? `<span style="font-size:11px;color:var(--adm-light);">📎 ${annFiles.length} file${annFiles.length !== 1 ? 's' : ''}</span>` : ''}
                         <span class="ann-item-time">${timeAgo(a.created_at)}</span>
                     </div>
                 </div>
@@ -348,7 +556,8 @@ async function loadAnnouncements() {
                     </label>
                     <button class="ann-act-btn danger" onclick="deleteAnn('${escH(a.id)}')">🗑</button>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
 
     } catch(e) {
         document.getElementById('annList').innerHTML = '<div class="adm-empty">Failed to load announcements.</div>';
@@ -356,7 +565,7 @@ async function loadAnnouncements() {
     }
 }
 
-/* ── TOGGLE ACTIVE — calls Laravel controller ── */
+/* ── TOGGLE ACTIVE ── */
 async function toggleActive(id, val) {
     try {
         await fetch(`/admin/announcements/${id}`, {
@@ -370,9 +579,9 @@ async function toggleActive(id, val) {
     }
 }
 
-/* ── DELETE — calls Laravel controller ── */
+/* ── DELETE ── */
 async function deleteAnn(id) {
-    if (!confirm('Delete this announcement?')) return;
+    if (!confirm('Delete this announcement and all its attached files?')) return;
     try {
         await fetch(`/admin/announcements/${id}`, {
             method:  'DELETE',
@@ -385,6 +594,7 @@ async function deleteAnn(id) {
     }
 }
 
+/* ── HELPERS ── */
 function escH(t) {
     if (t == null) return '';
     const d = document.createElement('div');
@@ -399,6 +609,16 @@ function timeAgo(ts) {
     if (s < 86400)  return `${Math.floor(s/3600)}h ago`;
     if (s < 604800) return `${Math.floor(s/86400)}d ago`;
     return new Date(ts).toLocaleDateString();
+}
+
+function fileIcon(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    const map = {
+        pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊',
+        ppt:'📋', pptx:'📋', png:'🖼', jpg:'🖼', jpeg:'🖼',
+        gif:'🖼', zip:'🗜', rar:'🗜', txt:'📃',
+    };
+    return map[ext] ?? '📎';
 }
 
 function toast(msg, type = '') {

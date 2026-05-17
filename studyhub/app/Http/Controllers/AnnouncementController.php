@@ -8,11 +8,13 @@ class AnnouncementController extends Controller
 {
     private string $sbUrl;
     private string $sbSvc;
+    private string $sbAnon;
 
     public function __construct()
     {
-        $this->sbUrl = config('services.supabase.url',         '');
-        $this->sbSvc = config('services.supabase.service_key', '');
+        $this->sbUrl  = config('services.supabase.url',         '');
+        $this->sbSvc  = config('services.supabase.service_key', '');
+        $this->sbAnon = config('services.supabase.anon_key',    '');
     }
 
     /**
@@ -20,13 +22,14 @@ class AnnouncementController extends Controller
      * Uses CURLOPT_SSL_VERIFYPEER = false to avoid cURL error 60 on Windows.
      * Returns decoded array on success, ['error' => true, 'message' => ...] on failure.
      */
-    private function supabase(string $method, string $path, ?array $body = null): array
+    private function supabase(string $method, string $path, ?array $body = null, bool $useAnon = false): array
     {
         $url = $this->sbUrl . $path;
+        $key = $useAnon ? $this->sbAnon : $this->sbSvc;
 
         $headers = [
-            'apikey: '               . $this->sbSvc,
-            'Authorization: Bearer ' . $this->sbSvc,
+            'apikey: '               . $key,
+            'Authorization: Bearer ' . $key,
             'Content-Type: application/json',
             'Prefer: return=representation',
         ];
@@ -37,7 +40,7 @@ class AnnouncementController extends Controller
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_CUSTOMREQUEST  => $method,
-            CURLOPT_SSL_VERIFYPEER => false,   // fix for Windows localhost cURL error 60
+            CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_TIMEOUT        => 15,
         ]);
@@ -72,6 +75,52 @@ class AnnouncementController extends Controller
         return is_array($decoded) ? $decoded : [];
     }
 
+    /**
+     * Upload a single file to Supabase Storage bucket "announcement-files".
+     * Returns the public URL on success, or null on failure.
+     */
+    private function uploadFileToStorage(\Illuminate\Http\UploadedFile $file): ?string
+    {
+        $bucket    = 'announcement-files';
+        $safeName  = time() . '_' . preg_replace('/[^a-zA-Z0-9.\-_]/', '_', $file->getClientOriginalName());
+        $uploadUrl = $this->sbUrl . '/storage/v1/object/' . $bucket . '/' . $safeName;
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $uploadUrl,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_HTTPHEADER     => [
+                'apikey: '               . $this->sbSvc,
+                'Authorization: Bearer ' . $this->sbSvc,
+                'Content-Type: '         . $file->getMimeType(),
+                'x-upsert: true',
+            ],
+            CURLOPT_POSTFIELDS     => file_get_contents($file->getRealPath()),
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr || $httpCode >= 400) {
+            \Log::error('AnnouncementController: Storage upload failed', [
+                'file'     => $safeName,
+                'httpCode' => $httpCode,
+                'curlErr'  => $curlErr,
+                'response' => $response,
+            ]);
+            return null;
+        }
+
+        // Build the public URL
+        return $this->sbUrl . '/storage/v1/object/public/' . $bucket . '/' . $safeName;
+    }
+
     private function requireAdmin(): void
     {
         $role = session('user_role', 'student');
@@ -87,7 +136,50 @@ class AnnouncementController extends Controller
         return view('admin.announcements');
     }
 
+    // ── GET /announcements (student-facing page) ─────────────────
+    public function studentIndex()
+    {
+        $userId = session('user_id');
+        if (! $userId) {
+            return redirect()->route('login');
+        }
+
+        // Fetch active announcements with their attached files
+        $announcements = $this->supabase(
+            'GET',
+            '/rest/v1/announcements?is_active=eq.true&order=created_at.desc&limit=50',
+            null,
+            true   // use anon key — students can read
+        );
+
+        if (isset($announcements['error'])) {
+            $announcements = [];
+        }
+
+        // For each announcement, fetch its files
+        foreach ($announcements as &$ann) {
+            $files = $this->supabase(
+                'GET',
+                '/rest/v1/announcement_files?announcement_id=eq.' . urlencode($ann['id'])
+                    . '&order=created_at.asc',
+                null,
+                true
+            );
+            $ann['files'] = isset($files['error']) ? [] : $files;
+        }
+        unset($ann);
+
+        return view('home.announcements', [
+            'activeNav'      => 'announcements',
+            'announcements'  => $announcements,
+            'supabaseUrl'    => $this->sbUrl,
+            'supabaseAnonKey'=> $this->sbAnon,
+            'userId'         => $userId,
+        ]);
+    }
+
     // ── POST /admin/announcements ────────────────────────────────
+    // Now accepts multipart/form-data so files can be attached.
     public function store(Request $request)
     {
         $this->requireAdmin();
@@ -96,6 +188,8 @@ class AnnouncementController extends Controller
             'title'    => 'required|string|max:255',
             'body'     => 'required|string',
             'priority' => 'sometimes|in:normal,important,urgent',
+            // Each uploaded file: max 20 MB, common doc/image/archive types
+            'files.*'  => 'sometimes|file|max:20480|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,png,jpg,jpeg,gif,zip,rar',
         ]);
 
         $adminId  = session('user_id');
@@ -116,7 +210,6 @@ class AnnouncementController extends Controller
             ], 422);
         }
 
-        // Supabase returns an array of rows with Prefer: return=representation
         $announcement   = $res[0] ?? null;
         $announcementId = $announcement['id'] ?? null;
 
@@ -124,7 +217,45 @@ class AnnouncementController extends Controller
             return response()->json(['error' => 'Announcement created but no ID returned.'], 500);
         }
 
-        // 2. Fan-out notifications to all non-banned users via DB function
+        // 2. Upload attached files (if any) and record them
+        $uploadedFiles  = [];
+        $failedFiles    = [];
+
+        if ($request->hasFile('files')) {
+            foreach ($request->file('files') as $file) {
+                if (! $file->isValid()) {
+                    $failedFiles[] = $file->getClientOriginalName();
+                    continue;
+                }
+
+                $publicUrl = $this->uploadFileToStorage($file);
+
+                if (! $publicUrl) {
+                    $failedFiles[] = $file->getClientOriginalName();
+                    continue;
+                }
+
+                // Record the file in announcement_files
+                $fileRes = $this->supabase('POST', '/rest/v1/announcement_files', [
+                    'announcement_id' => $announcementId,
+                    'file_name'       => $file->getClientOriginalName(),
+                    'file_url'        => $publicUrl,
+                    'file_size'       => $file->getSize(),
+                    'mime_type'       => $file->getMimeType(),
+                ]);
+
+                if (! isset($fileRes['error'])) {
+                    $uploadedFiles[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'url'  => $publicUrl,
+                    ];
+                } else {
+                    $failedFiles[] = $file->getClientOriginalName();
+                }
+            }
+        }
+
+        // 3. Fan-out notifications to all non-banned users via DB function
         $rpcRes = $this->supabase('POST', '/rest/v1/rpc/broadcast_announcement', [
             'p_announcement_id' => $announcementId,
             'p_title'           => $validated['title'],
@@ -132,27 +263,30 @@ class AnnouncementController extends Controller
             'p_priority'        => $priority,
         ]);
 
-        // 3. Log admin action (non-fatal — don't fail the request if this errors)
+        // 4. Log admin action (non-fatal)
         $this->supabase('POST', '/rest/v1/admin_logs', [
             'admin_id'    => $adminId ?: null,
             'action'      => 'create_announcement',
             'target_type' => 'announcement',
             'target_id'   => $announcementId,
-            'notes'       => "Created announcement: {$validated['title']}",
+            'notes'       => "Created announcement: {$validated['title']} (files: " . count($uploadedFiles) . ')',
         ]);
 
-        if (isset($rpcRes['error'])) {
-            return response()->json([
-                'success'      => true,
-                'rpc_warning'  => 'Announcement saved but notifications failed: ' . ($rpcRes['message'] ?? 'unknown error'),
-                'announcement' => $announcement,
-            ]);
+        $response = [
+            'success'        => true,
+            'announcement'   => $announcement,
+            'uploaded_files' => $uploadedFiles,
+        ];
+
+        if (! empty($failedFiles)) {
+            $response['file_warning'] = 'Some files failed to upload: ' . implode(', ', $failedFiles);
         }
 
-        return response()->json([
-            'success'      => true,
-            'announcement' => $announcement,
-        ]);
+        if (isset($rpcRes['error'])) {
+            $response['rpc_warning'] = 'Announcement saved but notifications failed: ' . ($rpcRes['message'] ?? 'unknown error');
+        }
+
+        return response()->json($response);
     }
 
     // ── PATCH /admin/announcements/{id} ─────────────────────────
@@ -176,6 +310,8 @@ class AnnouncementController extends Controller
     {
         $this->requireAdmin();
 
+        // Files are deleted automatically via ON DELETE CASCADE on announcement_files.
+        // Storage objects however must be cleaned up separately if needed.
         $this->supabase('DELETE', '/rest/v1/announcements?id=eq.' . urlencode($id));
 
         $this->supabase('POST', '/rest/v1/admin_logs', [
@@ -185,6 +321,17 @@ class AnnouncementController extends Controller
             'target_id'   => $id,
             'notes'       => 'Announcement deleted.',
         ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // ── DELETE /admin/announcements/{annId}/files/{fileId} ───────
+    public function destroyFile(string $annId, string $fileId)
+    {
+        $this->requireAdmin();
+
+        $this->supabase('DELETE', '/rest/v1/announcement_files?id=eq.' . urlencode($fileId)
+            . '&announcement_id=eq.' . urlencode($annId));
 
         return response()->json(['success' => true]);
     }

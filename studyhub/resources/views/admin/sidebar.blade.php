@@ -275,44 +275,49 @@ body{font-family:'DM Sans',sans-serif;background:var(--adm-bg);color:var(--adm-t
 </div>
 
 <script>
-{{-- FIX: use config() via blade so these are never empty --}}
-const SUPABASE_URL      = '{{ config("services.supabase.url") }}';
-const SUPABASE_ANON_KEY = '{{ config("services.supabase.anon_key") }}';
-const SUPABASE_SVC_KEY  = '{{ config("services.supabase.service_key") }}';
-const ADMIN_ID          = '{{ session("user_id") }}';
+    // ── Global admin JS variables ─────────────────────────────
+    window.SB_URL      = '{{ config("services.supabase.url") }}';
+    window.SB_ANON     = '{{ config("services.supabase.anon_key") }}';
+    window.SB_SVC      = '{{ config("services.supabase.service_key") }}';
+    window.ADMIN_ID    = '{{ session("user_id") }}';
 
-async function loadSidebarBadges() {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
-    try {
-        const headers = {
-            'apikey':        SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Prefer':        'count=exact',
-        };
-        const [rRes, resRes] = await Promise.all([
-            fetch(`${SUPABASE_URL}/rest/v1/reports?status=eq.pending&select=id`, { headers }),
-            fetch(`${SUPABASE_URL}/rest/v1/resources?is_approved=eq.false&select=id`, { headers }),
-        ]);
-        const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1]   || '0');
-        const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
+    // Legacy aliases kept so any page using the old names still works
+    window.SUPABASE_URL      = window.SB_URL;
+    window.SUPABASE_ANON_KEY = window.SB_ANON;
+    window.SUPABASE_SVC_KEY  = window.SB_SVC;
 
-        const rb = document.getElementById('sidebarReportBadge');
-        const ab = document.getElementById('sidebarResourceBadge');
-        if (rb)  { rb.textContent = rCount;   rb.style.display = rCount   ? '' : 'none'; }
-        if (ab)  { ab.textContent = resCount; ab.style.display = resCount ? '' : 'none'; }
-    } catch(e) {}
-}
-loadSidebarBadges();
+    async function loadSidebarBadges() {
+        if (!window.SB_URL || !window.SB_ANON) return;
+        try {
+            const headers = {
+                'apikey':        window.SB_ANON,
+                'Authorization': `Bearer ${window.SB_ANON}`,
+                'Prefer':        'count=exact',
+            };
+            const [rRes, resRes] = await Promise.all([
+                fetch(`${window.SB_URL}/rest/v1/reports?status=eq.pending&select=id`, { headers }),
+                fetch(`${window.SB_URL}/rest/v1/resources?is_approved=eq.false&select=id`, { headers }),
+            ]);
+            const rCount   = parseInt(rRes.headers.get('content-range')?.split('/')[1]   || '0');
+            const resCount = parseInt(resRes.headers.get('content-range')?.split('/')[1] || '0');
 
-function activateViewAsUser() {
-    sessionStorage.setItem('admViewAsUser',   '1');
-    sessionStorage.setItem('admDashboardUrl', '{{ route("admin.dashboard") }}');
-    sessionStorage.setItem('admReportsUrl',   '{{ route("admin.reports") }}');
-    sessionStorage.setItem('admResourcesUrl', '{{ route("admin.resources") }}');
-    sessionStorage.setItem('admLogsUrl',      '{{ route("admin.logs") }}');
-    sessionStorage.setItem('admUsersUrl',     '{{ route("admin.users") }}');
-    sessionStorage.setItem('admSettingsUrl',  '{{ route("admin.settings") }}');
-    sessionStorage.setItem('admSbUrl',        '{{ config("services.supabase.url") }}');
-    sessionStorage.setItem('admSbKey',        '{{ config("services.supabase.anon_key") }}');
-}
+            const rb = document.getElementById('sidebarReportBadge');
+            const ab = document.getElementById('sidebarResourceBadge');
+            if (rb)  { rb.textContent = rCount;   rb.style.display = rCount   ? '' : 'none'; }
+            if (ab)  { ab.textContent = resCount; ab.style.display = resCount ? '' : 'none'; }
+        } catch(e) {}
+    }
+    loadSidebarBadges();
+
+    function activateViewAsUser() {
+        sessionStorage.setItem('admViewAsUser',   '1');
+        sessionStorage.setItem('admDashboardUrl', '{{ route("admin.dashboard") }}');
+        sessionStorage.setItem('admReportsUrl',   '{{ route("admin.reports") }}');
+        sessionStorage.setItem('admResourcesUrl', '{{ route("admin.resources") }}');
+        sessionStorage.setItem('admLogsUrl',      '{{ route("admin.logs") }}');
+        sessionStorage.setItem('admUsersUrl',     '{{ route("admin.users") }}');
+        sessionStorage.setItem('admSettingsUrl',  '{{ route("admin.settings") }}');
+        sessionStorage.setItem('admSbUrl',        '{{ config("services.supabase.url") }}');
+        sessionStorage.setItem('admSbKey',        '{{ config("services.supabase.anon_key") }}');
+    }
 </script>

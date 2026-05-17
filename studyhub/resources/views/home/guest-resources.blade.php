@@ -9,64 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
     <link rel="stylesheet" href="{{ asset('css/resources.css') }}">
     <style>
-        /* Toolbar */
-        .g-res-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
-        .g-res-search{flex:1;min-width:200px;position:relative;}
-        .g-res-search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-light);pointer-events:none;}
-        .g-res-search input{width:100%;padding:9px 12px 9px 34px;box-sizing:border-box;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg-card);color:var(--text-primary);}
-        .g-res-search input:focus{outline:none;border-color:var(--primary);}
-        .g-res-select{padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;}
-        .g-res-select:focus{outline:none;border-color:var(--primary);}
-        /* Resource rows */
-        .g-res-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:10px;cursor:pointer;transition:box-shadow 0.2s,transform 0.15s,border-color 0.18s;}
-        .g-res-row:hover{box-shadow:0 3px 14px rgba(0,0,0,0.07);transform:translateY(-1px);border-color:var(--primary);}
-        .g-res-icon{width:44px;height:44px;border-radius:11px;flex-shrink:0;background:rgba(26,95,122,0.07);display:flex;align-items:center;justify-content:center;font-size:20px;}
-        .g-res-body{flex:1;min-width:0;}
-        .g-res-title{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:3px;}
-        .g-res-desc{font-size:12px;color:var(--text-secondary);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .g-res-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-light);}
-        .g-res-tag{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(26,95,122,0.08);color:var(--primary);}
-        .g-res-type{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
-        .g-res-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-        .g-dl-btn{padding:6px 14px;border-radius:8px;border:none;background:var(--primary);color:white;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;transition:opacity 0.18s;display:flex;align-items:center;gap:4px;white-space:nowrap;}
-        .g-dl-btn:hover{opacity:.88;}
-        .g-chevron{color:var(--text-light);font-size:18px;line-height:1;}
-        /* Right widgets */
-        .g-widget{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:16px;}
-        .g-widget-title{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;}
-        /* Detail overlay */
-        .g-detail-overlay{position:fixed;inset:0;background:var(--bg-main,#f5f6fa);z-index:5000;overflow-y:auto;display:none;}
-        .g-detail-topbar{position:sticky;top:0;z-index:10;background:var(--bg-card,white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;height:56px;}
-        .g-detail-back{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--text-secondary);padding:0;}
-        .g-detail-back:hover{color:var(--primary);}
-        .g-detail-back svg{width:18px;height:18px;}
-        .g-detail-body{max-width:1080px;margin:0 auto;padding:32px;display:flex;gap:28px;align-items:flex-start;}
-        .g-detail-main{flex:1;min-width:0;}
-        .g-detail-side{width:260px;flex-shrink:0;}
-        .g-detail-hdr{display:flex;align-items:flex-start;gap:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:20px;}
-        .g-detail-icon{width:64px;height:64px;border-radius:16px;flex-shrink:0;background:rgba(26,95,122,0.08);display:flex;align-items:center;justify-content:center;font-size:28px;}
-        .g-detail-title{font-family:'Crimson Pro',serif;font-size:26px;font-weight:700;color:var(--text-primary);margin-bottom:8px;}
-        .g-detail-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--text-secondary);}
-        .g-section{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:20px 24px;margin-bottom:16px;}
-        .g-section-title{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
-        /* Comments */
-        .g-comment{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
-        .g-comment:last-child{border-bottom:none;}
-        .g-comment-av{width:36px;height:36px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,var(--primary),var(--primary-dark,#144d61));color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-        .g-comment-body{flex:1;min-width:0;}
-        .g-comment-author{font-size:13px;font-weight:600;color:var(--text-primary);}
-        .g-comment-date{font-size:11px;color:var(--text-light);margin-left:6px;}
-        .g-comment-text{font-size:14px;color:var(--text-secondary);line-height:1.6;margin-top:3px;}
-        /* Info card */
-        .g-info-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:14px;}
-        .g-info-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
-        .g-info-row:last-child{border-bottom:none;}
-        .g-info-lbl{color:var(--text-secondary);flex-shrink:0;}
-        .g-info-val{font-weight:600;color:var(--text-primary);text-align:right;}
-        /* Guest comment prompt */
-        .g-comment-prompt{background:rgba(26,95,122,0.04);border:1.5px dashed rgba(26,95,122,0.2);border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:16px;}
-        .g-comment-prompt:hover{background:rgba(26,95,122,0.07);}
-        /* Modal */
+        /* ── Gate modal ── */
         .g-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
         .g-modal-overlay.open{opacity:1;pointer-events:all;}
         .g-modal{background:var(--bg-card,white);border-radius:20px;padding:32px;width:90%;max-width:400px;text-align:center;transform:scale(0.95);transition:transform 0.2s;box-shadow:0 20px 60px rgba(0,0,0,0.18);}
@@ -77,9 +20,17 @@
         .g-modal-btns{display:flex;flex-direction:column;gap:10px;}
         .gm-p{display:block;padding:12px;border-radius:12px;background:var(--primary,#1a5f7a);color:white;font-size:14px;font-weight:700;text-decoration:none;}
         .gm-p:hover{opacity:.88;}
-        .gm-s{display:block;padding:12px;border-radius:12px;border:1.5px solid var(--border,#e5e7eb);background:var(--bg-card,white);font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:none;}
+        .gm-s{display:block;padding:12px;border-radius:12px;border:1.5px solid var(--border);background:var(--bg-card);font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:none;}
         .gm-s:hover{border-color:var(--primary);color:var(--primary);}
         .gm-d{margin-top:10px;font-size:13px;color:var(--text-light);cursor:pointer;background:none;border:none;font-family:inherit;}
+
+        /* ── Comment section inside detail — guest prompt ── */
+        .g-comment-prompt{
+            background:rgba(26,95,122,0.04);border:1.5px dashed rgba(26,95,122,0.2);
+            border-radius:14px;padding:16px;text-align:center;cursor:pointer;
+            transition:all 0.2s;margin-bottom:16px;
+        }
+        .g-comment-prompt:hover{background:rgba(26,95,122,0.07);}
     </style>
 </head>
 <body>
@@ -87,144 +38,297 @@
 @include('layouts.guest-sidebar', ['guestNav' => 'resources'])
 
 <main class="main-content">
+
+    {{-- ══ CENTER COLUMN ══ --}}
     <div class="feed-column">
+
         <header class="page-header">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                 <div>
                     <h1 class="page-title">Resources</h1>
                     <p class="page-subtitle">Study materials, notes, and files shared by the community</p>
                 </div>
-                <button onclick="showModal('upload')" style="display:flex;align-items:center;gap:6px;padding:9px 18px;border-radius:10px;border:none;background:var(--primary);color:white;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;" onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
-                    <svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {{-- Upload button — gated --}}
+                <button class="res-upload-trigger" onclick="showModal('upload')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
                     Upload Resource
                 </button>
             </div>
         </header>
 
-        <div class="g-res-toolbar">
-            <div class="g-res-search">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input type="text" id="resSearch" placeholder="Search resources by title, subject, description…" oninput="filterRes()">
+        {{-- ── Toolbar mirrors registered: search + subject dropdown + visibility filter ── --}}
+        <div class="res-toolbar">
+            <div class="res-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="searchInput"
+                    placeholder="Search resources by title, subject, description…"
+                    oninput="filterResources()">
+                <button class="res-search-clear" id="searchClear" onclick="clearSearch()" style="display:none;">✕</button>
+            </div>
+
+            <div class="res-subject-wrap">
+                <select id="subjectSelect" class="res-subject-select" onchange="setSubjectFromDropdown(this)">
+                    <option value="All">All subjects</option>
+                    <option>Mathematics</option>
+                    <option>Science</option>
+                    <option>Filipino</option>
+                    <option>English</option>
+                    <option>PE</option>
+                    <option>Health</option>
+                    <option>Music</option>
+                    <option>Arts</option>
+                    <option>Social Studies</option>
+                    <option>Computer Science</option>
+                    <option>Values Education</option>
+                    <option>MAPEH</option>
+                    <option>History</option>
+                    <option>Chemistry</option>
+                    <option>Physics</option>
+                    <option>Biology</option>
+                    <option>Economics</option>
+                    <option>Others</option>
+                </select>
+            </div>
+
+            {{-- Visibility filter: Public only for guests, Friends gated --}}
+            <div class="res-filter-group">
+                <button class="res-filter-btn active" id="filterPublic">🌐 Public</button>
+                <button class="res-filter-btn" onclick="showModal('private')">🔒 Friends</button>
             </div>
         </div>
-        <div class="g-res-toolbar" style="margin-top:-4px;">
-            <select class="g-res-select" id="typeFilter" onchange="filterRes()">
-                <option value="">All Types</option>
-                <option value="notes">Notes</option><option value="exercise">Exercises</option>
-                <option value="slides">Slides</option><option value="reviewer">Reviewers</option>
-                <option value="video">Videos</option><option value="image">Images</option>
-                <option value="text">Text</option><option value="link">Links</option>
-            </select>
-            <select class="g-res-select" id="subjectFilter" onchange="filterRes()">
-                <option value="">All Subjects</option>
-                <option>Mathematics</option><option>Science</option><option>Filipino</option>
-                <option>English</option><option>PE</option><option>Health</option>
-                <option>Music</option><option>Arts</option><option>Social Studies</option>
-                <option>Computer Science</option><option>Values Education</option><option>MAPEH</option>
-                <option>History</option><option>Chemistry</option><option>Physics</option>
-                <option>Biology</option><option>Economics</option><option>Others</option>
-            </select>
+
+        {{-- Others subject search (shown when Others selected) --}}
+        <div id="othersSubjectSearch" style="display:none;align-items:center;gap:6px;width:100%;margin-bottom:10px;">
+            <div class="res-others-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="othersSubjectInput"
+                    placeholder="Search custom subjects…"
+                    oninput="filterResources()">
+                <button class="res-search-clear" id="othersClear" onclick="clearOthersSearch()">✕</button>
+            </div>
+        </div>
+
+        {{-- Active filter tag --}}
+        <div class="res-active-filters" id="activeFilters" style="display:none;">
+            <span class="res-filter-tag" id="activeFilterTag"></span>
+            <button onclick="clearCategory()" class="res-clear-filters">Clear filter</button>
         </div>
 
         <div id="resCount" style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Loading resources…</div>
-        <div id="resList"><div class="loading-state">Loading…</div></div>
+
+        {{-- Feed --}}
+        <div id="resourceFeed">
+            <div class="loading-state">Loading resources…</div>
+        </div>
     </div>
 
+    {{-- ══ RIGHT SIDEBAR — mirrors registered ══ --}}
     <aside class="right-sidebar">
-        <div class="g-widget">
-            <div class="g-widget-title">📤 My Uploads</div>
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Sign up to upload and manage your own study materials.</p>
-            <a href="{{ route('signup') }}" style="display:block;text-align:center;padding:9px;border-radius:10px;background:var(--primary);color:white;font-weight:700;font-size:13px;text-decoration:none;" onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">Sign Up Free →</a>
+
+        {{-- Recently Viewed --}}
+        <div class="widget-card">
+            <div class="widget-title">🕐 Recently Viewed</div>
+            <div id="recentlyViewed">
+                <div class="res-empty-small">Nothing viewed yet</div>
+            </div>
         </div>
-        <div class="g-widget">
-            <div class="g-widget-title">📊 Stats</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="background:var(--bg-main);border-radius:10px;padding:12px;text-align:center;">
-                    <div style="font-size:20px;font-weight:700;color:var(--text-primary);" id="statTotal">—</div>
-                    <div style="font-size:11px;color:var(--text-secondary);">Resources</div>
+
+        {{-- Sign up CTA (replaces My Uploads for guest) --}}
+        <div class="widget-card">
+            <div class="widget-title">📤 Upload Resources</div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
+                Sign up to upload and manage your own study materials.
+            </p>
+            <button class="res-upload-btn-sm" onclick="showModal('upload')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     style="width:15px;height:15px;">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                + Upload File
+            </button>
+            <a href="{{ route('signup') }}"
+               style="display:block;text-align:center;margin-top:10px;padding:9px;border-radius:10px;background:var(--primary);color:white;font-weight:700;font-size:13px;text-decoration:none;"
+               onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
+                Sign Up Free →
+            </a>
+        </div>
+
+        {{-- Community Picks --}}
+        <div class="widget-card">
+            <div class="widget-title">⭐ Community Picks</div>
+            <p class="res-widget-sub">Highest rated by the community</p>
+            <div id="topRatedWidget">
+                <div class="res-empty-small">Loading…</div>
+            </div>
+        </div>
+
+        {{-- Stats --}}
+        <div class="widget-card">
+            <div class="widget-title">📊 Stats</div>
+            <div class="res-stats-grid">
+                <div class="res-stat-box">
+                    <span class="res-stat-num" id="totalCount">—</span>
+                    <span class="res-stat-lbl">Resources</span>
                 </div>
-                <div style="background:var(--bg-main);border-radius:10px;padding:12px;text-align:center;">
-                    <div style="font-size:20px;font-weight:700;color:var(--text-primary);" id="statSubjects">—</div>
-                    <div style="font-size:11px;color:var(--text-secondary);">Subjects</div>
+                <div class="res-stat-box">
+                    <span class="res-stat-num" id="subjectCount">—</span>
+                    <span class="res-stat-lbl">Subjects</span>
+                </div>
+                <div class="res-stat-box">
+                    <span class="res-stat-num" id="savedCount">—</span>
+                    <span class="res-stat-lbl">Types</span>
                 </div>
             </div>
         </div>
+
     </aside>
 </main>
 
-{{-- Detail overlay --}}
-<div class="g-detail-overlay" id="resDetailOverlay">
-    <div class="g-detail-topbar">
-        <button class="g-detail-back" onclick="closeDetail()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Back to Resources
-        </button>
-    </div>
-    <div class="g-detail-body">
-        <div class="g-detail-main">
-            <div class="g-detail-hdr">
-                <div class="g-detail-icon" id="dIcon">📄</div>
-                <div style="flex:1;min-width:0;">
-                    <h1 class="g-detail-title" id="dTitle">Loading…</h1>
-                    <div class="g-detail-meta" id="dMeta"></div>
-                    <div id="dRating" style="margin-top:8px;font-size:13px;color:var(--text-light);"></div>
-                </div>
-            </div>
-            <div class="g-section" id="dDescSec" style="display:none;">
-                <div class="g-section-title">Description</div>
-                <div id="dDesc" style="font-size:14px;color:var(--text-secondary);line-height:1.7;"></div>
-            </div>
-            <div class="g-section" id="dContentSec" style="display:none;">
-                <div class="g-section-title">Content</div>
-                <div id="dContent" style="font-size:14px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap;font-family:'DM Sans',sans-serif;"></div>
-            </div>
-            <div class="g-section" id="dFileSec" style="display:none;">
-                <div class="g-section-title">File</div>
-                <a id="dFileBtn" href="#" target="_blank" download style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:var(--primary);color:white;font-weight:700;font-size:14px;text-decoration:none;" onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
-                    <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Download File
-                </a>
-            </div>
-            <div class="g-section" id="dLinkSec" style="display:none;">
-                <div class="g-section-title">Reference Link</div>
-                <a id="dLinkBtn" href="#" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--primary);font-weight:600;font-size:14px;text-decoration:none;">Open Link →</a>
-            </div>
-            <div class="g-section">
-                <div class="g-section-title">
-                    Comments &amp; Ratings
-                    <span id="dCommentCount" style="margin-left:6px;background:var(--bg-main);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text-secondary);">0</span>
-                </div>
-                <div class="g-comment-prompt" onclick="showModal('comment')">
-                    <div style="font-size:22px;margin-bottom:6px;">💬</div>
-                    <div style="font-size:14px;font-weight:600;color:var(--primary);margin-bottom:3px;">Sign in to rate and comment</div>
-                    <div style="font-size:12px;color:var(--text-secondary);">Create a free account to leave feedback on this resource.</div>
-                </div>
-                <div id="dComments"><div style="padding:16px 0;color:var(--text-light);font-size:13px;">Loading comments…</div></div>
+{{-- ══ RESOURCE DETAIL OVERLAY — mirrors registered structure ══ --}}
+<div id="resDetailOverlay" class="res-detail-overlay" style="display:none;">
+    <div class="res-detail-page" id="resDetailPage">
+
+        <div class="res-detail-header">
+            <button class="res-detail-back" onclick="closeDetail()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Back
+            </button>
+            <div class="res-detail-header-actions">
+                {{-- Bookmark gated --}}
+                <button class="res-detail-bk-btn" onclick="showModal('save')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                    </svg>
+                    Save
+                </button>
             </div>
         </div>
-        <div class="g-detail-side">
-            <div class="g-info-card">
-                <div class="g-info-row"><span class="g-info-lbl">Subject</span><span class="g-info-val" id="iSubject">—</span></div>
-                <div class="g-info-row"><span class="g-info-lbl">Type</span><span class="g-info-val" id="iType">—</span></div>
-                <div class="g-info-row"><span class="g-info-lbl">Uploaded by</span><span class="g-info-val" id="iUploader">—</span></div>
-                <div class="g-info-row"><span class="g-info-lbl">Date</span><span class="g-info-val" id="iDate">—</span></div>
-                <div class="g-info-row" id="iViewsRow" style="display:none;"><span class="g-info-lbl">Views</span><span class="g-info-val" id="iViews">—</span></div>
+
+        <div class="res-detail-body">
+            <div>
+                {{-- Inline back bar --}}
+                <div class="res-detail-top-bar">
+                    <button class="res-detail-back-inline" onclick="closeDetail()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"/>
+                        </svg>
+                        Back
+                    </button>
+                </div>
+
+                <div class="res-detail-hero">
+                    <div class="res-detail-icon" id="detailIcon">📄</div>
+                    <div class="res-detail-meta">
+                        <h1 class="res-detail-title" id="detailTitle">Loading…</h1>
+                        <div class="res-detail-submeta" id="detailSubmeta"></div>
+                        <div class="res-stars-row">
+                            <div class="res-stars-display" id="detailStarsDisplay"></div>
+                            <span class="res-rating-count" id="detailRatingCount"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="res-detail-section" id="detailDescSection" style="display:none;">
+                    <div class="res-detail-section-title">Description</div>
+                    <div class="res-detail-desc" id="detailDesc"></div>
+                </div>
+
+                <div class="res-detail-section" id="detailContentSection" style="display:none;">
+                    <div class="res-detail-section-title">Content</div>
+                    <div class="res-detail-content-body" id="detailContent"></div>
+                </div>
+
+                <div class="res-detail-section" id="detailFileSection" style="display:none;">
+                    <div class="res-detail-section-title">File</div>
+                    <a class="res-detail-file-btn" id="detailFileBtn" href="#" target="_blank" download>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download File
+                    </a>
+                </div>
+
+                <div class="res-detail-section" id="detailLinkSection" style="display:none;">
+                    <div class="res-detail-section-title">Reference Link</div>
+                    <a class="res-detail-link-btn" id="detailLinkBtn" href="#" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        Open Link
+                    </a>
+                </div>
+
+                {{-- Rate & Comment — gated for guests --}}
+                <div class="res-detail-section">
+                    <div class="res-detail-section-title">
+                        Rate &amp; Comment
+                        <span class="res-comment-count" id="commentCount">0</span>
+                    </div>
+                    <div class="g-comment-prompt" onclick="showModal('comment')">
+                        <div style="font-size:22px;margin-bottom:6px;">💬</div>
+                        <div style="font-size:14px;font-weight:600;color:var(--primary);margin-bottom:3px;">Sign in to rate and comment</div>
+                        <div style="font-size:12px;color:var(--text-secondary);">Create a free account to leave feedback on this resource.</div>
+                    </div>
+                    <div id="detailComments"><div class="res-loading-sm">Loading comments…</div></div>
+                </div>
             </div>
-            <div class="g-info-card" style="text-align:center;">
-                <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">🎓 Join StudyHub</div>
-                <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;">Sign up to rate, comment, upload resources, and more.</p>
-                <a href="{{ route('signup') }}" style="display:block;padding:9px;border-radius:10px;background:var(--primary);color:white;font-weight:700;font-size:13px;text-decoration:none;margin-bottom:8px;">Sign Up Free →</a>
-                <a href="{{ route('login') }}"  style="display:block;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-weight:600;font-size:13px;text-decoration:none;">Log In</a>
-            </div>
+
+            {{-- Detail sidebar --}}
+            <aside class="res-detail-sidebar">
+                <div class="res-detail-info-card">
+                    <div class="res-info-row"><span class="res-info-label">Subject</span><span class="res-info-val" id="infoSubject">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Type</span><span class="res-info-val" id="infoType">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Uploaded by</span><span class="res-info-val" id="infoUploader">—</span></div>
+                    <div class="res-info-row"><span class="res-info-label">Date</span><span class="res-info-val" id="infoDate">—</span></div>
+                    <div class="res-info-row" id="infoViewsRow" style="display:none;"><span class="res-info-label">Views</span><span class="res-info-val" id="infoViews">—</span></div>
+                </div>
+
+                {{-- Sign up CTA in detail --}}
+                <div class="res-detail-info-card" style="text-align:center;padding:18px 20px;">
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">🎓 Join StudyHub</div>
+                    <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;">
+                        Sign up to rate, comment, save, and upload resources.
+                    </p>
+                    <a href="{{ route('signup') }}"
+                       style="display:block;padding:9px;border-radius:10px;background:var(--primary);color:white;font-weight:700;font-size:13px;text-decoration:none;margin-bottom:8px;"
+                       onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
+                        Sign Up Free →
+                    </a>
+                    <a href="{{ route('login') }}"
+                       style="display:block;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-weight:600;font-size:13px;text-decoration:none;"
+                       onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)';"
+                       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-primary)';">
+                        Log In
+                    </a>
+                </div>
+            </aside>
         </div>
     </div>
 </div>
 
-{{-- Interact modal --}}
+{{-- ══ Gate modal ══ --}}
 <div class="g-modal-overlay" id="resModal" onclick="if(event.target===this)closeModal();">
     <div class="g-modal">
         <div class="g-modal-icon" id="rmIcon"></div>
-        <h3 id="rmTitle"></h3><p id="rmBody"></p>
+        <h3 id="rmTitle"></h3>
+        <p id="rmBody"></p>
         <div class="g-modal-btns">
             <a href="{{ route('signup') }}" class="gm-p">Create Free Account</a>
             <a href="{{ route('login') }}"  class="gm-s">I already have an account</a>
@@ -233,189 +337,401 @@
     </div>
 </div>
 
-{{-- Supabase JS — same CDN as registered resources.blade.php --}}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ── Config ─────────────────────────────────────────────────────
 var SUPABASE_URL      = '{{ env("SUPABASE_URL") }}';
 var SUPABASE_ANON_KEY = '{{ env("SUPABASE_ANON_KEY") }}';
 var _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-var TYPE_ICONS={notes:'📄',exercise:'📝',slides:'📊',reviewer:'📋',video:'🎬',image:'🖼️',link:'🔗',text:'✍️'};
-var TYPE_COLORS={notes:'#3b82f6',exercise:'#8b5cf6',slides:'#f59e42',reviewer:'#10b981',video:'#ef4444',image:'#ec4899',link:'#6b7280',text:'#14b8a6'};
-var allRes=[];
+var TYPE_ICONS  = {notes:'📄',exercise:'📝',slides:'📊',reviewer:'📋',video:'🎬',image:'🖼️',link:'🔗',text:'✍️'};
+var TYPE_COLORS = {notes:'#3b82f6',exercise:'#8b5cf6',slides:'#f59e42',reviewer:'#10b981',video:'#ef4444',image:'#ec4899',link:'#6b7280',text:'#14b8a6'};
 
-// ── Load resources ─────────────────────────────────────────────
-// Mirrors resources.js exactly:
-//   .from('resources')
-//   .select('*, profiles(first_name, last_name, username)')
-//   .eq('is_approved', true)
-//   .order('created_at', { ascending: false })
-// Then client-side filters by visibility === 'public' (same as renderResources()).
-async function loadRes(){
-    try{
-        var result=await _sb
+var allRes     = [];
+var currentRes = null;
+var activeSubject = 'All';
+var othersSearch  = '';
+
+/* ── Load ── */
+async function loadRes() {
+    try {
+        var result = await _sb
             .from('resources')
             .select('*, profiles(first_name, last_name, username)')
-            .eq('is_approved',true)
-            .order('created_at',{ascending:false});
+            .eq('is_approved', true)
+            .order('created_at', { ascending: false });
 
-        if(result.error) throw result.error;
+        if (result.error) throw result.error;
+        var data = result.data || [];
 
-        var data=result.data||[];
-
-        // Client-side filter: only show public resources (same logic as renderResources())
-        allRes=data.filter(function(r){
-            var vis=r.visibility==='private'||r.education_level==='private'?'private':'public';
-            return vis==='public';
+        /* Only public resources for guests (mirrors registered renderResources filter) */
+        allRes = data.filter(function(r) {
+            return r.visibility !== 'private';
         });
 
-        var subjects=new Set(allRes.map(function(r){return r.subject;}).filter(Boolean));
-        document.getElementById('statTotal').textContent=allRes.length;
-        document.getElementById('statSubjects').textContent=subjects.size;
-        filterRes();
-    }catch(err){
-        document.getElementById('resList').innerHTML=
-            '<div style="color:#dc2626;padding:16px;font-size:13px;">Failed to load resources: '+escH(err.message)+'</div>';
+        /* Stats */
+        var subjects = new Set(allRes.map(function(r) { return r.subject; }).filter(Boolean));
+        var types    = new Set(allRes.map(function(r) { return r.file_type; }).filter(Boolean));
+        document.getElementById('totalCount').textContent   = allRes.length;
+        document.getElementById('subjectCount').textContent = subjects.size;
+        document.getElementById('savedCount').textContent   = types.size;
+
+        /* Load community picks */
+        loadTopRated();
+
+        filterResources();
+    } catch(err) {
+        document.getElementById('resourceFeed').innerHTML =
+            '<div style="color:#dc2626;padding:16px;font-size:13px;">Failed to load resources: ' + escH(err.message) + '</div>';
     }
 }
 
-function filterRes(){
-    var q=(document.getElementById('resSearch').value||'').toLowerCase();
-    var t=document.getElementById('typeFilter').value;
-    var s=document.getElementById('subjectFilter').value;
-    var f=allRes.filter(function(r){
-        return(!q||(r.title||'').toLowerCase().includes(q)||(r.description||'').toLowerCase().includes(q))
-            &&(!t||r.file_type===t)&&(!s||r.subject===s);
-    });
-    document.getElementById('resCount').textContent=f.length+' resource'+(f.length!==1?'s':'')+' found';
-    renderRes(f);
+async function loadTopRated() {
+    var el = document.getElementById('topRatedWidget');
+    try {
+        var rr = await _sb.from('resource_ratings').select('resource_id,rating');
+        if (rr.error || !rr.data) { el.innerHTML = '<div class="res-empty-small">No ratings yet</div>'; return; }
+
+        var agg = {};
+        rr.data.forEach(function(row) {
+            if (!agg[row.resource_id]) agg[row.resource_id] = { sum: 0, count: 0 };
+            agg[row.resource_id].sum += row.rating;
+            agg[row.resource_id].count++;
+        });
+
+        var sorted = Object.keys(agg)
+            .map(function(id) { return { id: id, avg: agg[id].sum / agg[id].count, count: agg[id].count }; })
+            .filter(function(r) { return r.count >= 1; })
+            .sort(function(a, b) { return b.avg - a.avg || b.count - a.count; })
+            .slice(0, 5);
+
+        if (!sorted.length) { el.innerHTML = '<div class="res-empty-small">No ratings yet</div>'; return; }
+
+        var RANK_CLS = { 0:'rank-1', 1:'rank-2', 2:'rank-3' };
+        var RANK_LBL = { 0:'🥇', 1:'🥈', 2:'🥉' };
+
+        el.innerHTML = sorted.map(function(item, i) {
+            var res = allRes.find(function(r) { return r.id === item.id; });
+            if (!res) return '';
+            var icon  = TYPE_ICONS[res.file_type] || '📎';
+            var stars = [1,2,3,4,5].map(function(s) {
+                return '<span class="' + (s <= Math.round(item.avg) ? 'res-top-rated-star-filled' : 'res-top-rated-star-empty') + '">★</span>';
+            }).join('');
+            return '<div class="res-top-rated-item" onclick="openDetail(\'' + escH(res.id) + '\')">'
+                + '<div class="res-top-rated-rank ' + (RANK_CLS[i] || 'rank-n') + '">' + (RANK_LBL[i] || (i + 1)) + '</div>'
+                + '<div class="res-recent-icon">' + icon + '</div>'
+                + '<div style="flex:1;min-width:0;">'
+                + '<div class="res-recent-title">' + escH(res.title || 'Untitled') + '</div>'
+                + '<div class="res-top-rated-stars">' + stars
+                + '<span class="res-top-rated-score">' + item.avg.toFixed(1) + '</span>'
+                + '<span class="res-top-rated-count">(' + item.count + ')</span>'
+                + '</div></div></div>';
+        }).join('');
+    } catch(e) { el.innerHTML = '<div class="res-empty-small">Could not load</div>'; }
 }
 
-function renderRes(items){
-    var el=document.getElementById('resList');
-    if(!items.length){
-        el.innerHTML='<div style="padding:48px;text-align:center;color:var(--text-light);"><div style="font-size:36px;margin-bottom:10px;">📭</div><div>No resources match your search.</div></div>';
+/* ── Filter & render ── */
+function filterResources() {
+    var q   = (document.getElementById('searchInput').value || '').toLowerCase();
+    var sub = activeSubject;
+    var oth = othersSearch.toLowerCase();
+
+    document.getElementById('searchClear').style.display = q ? 'block' : 'none';
+
+    var filtered = allRes.filter(function(r) {
+        var matchQ = !q || (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+        var matchS;
+        if (sub === 'All') {
+            matchS = true;
+        } else if (sub === 'Others') {
+            var known = ['Mathematics','Science','Filipino','English','PE','Health','Music','Arts',
+                'Social Studies','Computer Science','Values Education','MAPEH',
+                'History','Chemistry','Physics','Biology','Economics'];
+            matchS = !known.includes(r.subject);
+            if (matchS && oth) matchS = (r.subject || '').toLowerCase().includes(oth);
+        } else {
+            matchS = r.subject === sub;
+        }
+        return matchQ && matchS;
+    });
+
+    /* Active filter tag */
+    var af = document.getElementById('activeFilters');
+    if (sub !== 'All') {
+        af.style.display = 'flex';
+        document.getElementById('activeFilterTag').textContent = sub + (oth ? ': "' + oth + '"' : '');
+    } else {
+        af.style.display = 'none';
+    }
+
+    document.getElementById('resCount').textContent = filtered.length + ' resource' + (filtered.length !== 1 ? 's' : '') + ' found';
+    renderResources(filtered);
+}
+
+function renderResources(items) {
+    var el = document.getElementById('resourceFeed');
+    if (!items.length) {
+        el.innerHTML = '<div class="res-empty"><div class="ei">📭</div><p>No resources match your search.</p></div>';
         return;
     }
-    el.innerHTML=items.map(function(r){
-        var up=r.profiles?((r.profiles.first_name||'')+' '+(r.profiles.last_name||'')).trim()||('@'+(r.profiles.username||'')):'—';
-        var icon=TYPE_ICONS[r.file_type]||'📎';
-        var col=TYPE_COLORS[r.file_type]||'#6b7280';
-        var desc=r.description?r.description.slice(0,80)+(r.description.length>80?'…':''):'';
-        return '<div class="g-res-row" onclick="openDetail(\''+escH(r.id)+'\')">'
-            +'<div class="g-res-icon">'+icon+'</div>'
-            +'<div class="g-res-body">'
-            +'<div class="g-res-title">'+escH(r.title||'Untitled')+'</div>'
-            +(desc?'<div class="g-res-desc">'+escH(desc)+'</div>':'')
-            +'<div class="g-res-meta">'
-            +(r.subject?'<span class="g-res-tag">'+escH(r.subject)+'</span>':'')
-            +(r.file_type?'<span class="g-res-type" style="background:'+col+'18;color:'+col+';">'+escH(r.file_type.toUpperCase())+'</span>':'')
-            +'<span>by '+escH(up)+'</span>'
-            +(r.view_count?'<span>👁 '+r.view_count+'</span>':'')
-            +'</div></div>'
-            +'<div class="g-res-right">'
-            +(r.file_url&&r.file_type!=='link'?'<a href="'+escH(r.file_url)+'" target="_blank" download class="g-dl-btn" onclick="event.stopPropagation()">⬇ Download</a>':'')
-            +(r.file_type==='link'&&r.file_url?'<a href="'+escH(r.file_url)+'" target="_blank" class="g-dl-btn" onclick="event.stopPropagation()">Open</a>':'')
-            +'<span class="g-chevron">›</span>'
-            +'</div></div>';
+
+    el.innerHTML = items.map(function(r) {
+        var up  = r.profiles ? ((r.profiles.first_name || '') + ' ' + (r.profiles.last_name || '')).trim() || ('@' + (r.profiles.username || '')) : '—';
+        var icon = TYPE_ICONS[r.file_type] || '📎';
+        var col  = TYPE_COLORS[r.file_type] || '#6b7280';
+        var desc = r.description ? r.description.slice(0, 80) + (r.description.length > 80 ? '…' : '') : '';
+        var typeClass = r.file_type ? r.file_type : 'others';
+
+        return '<div class="res-card" onclick="openDetail(\'' + escH(r.id) + '\')">'
+            + '<div class="res-card-icon ' + typeClass + '">' + icon + '</div>'
+            + '<div class="res-card-body">'
+            + '<div class="res-card-title">' + escH(r.title || 'Untitled') + '</div>'
+            + (desc ? '<div class="res-card-desc">' + escH(desc) + '</div>' : '')
+            + '<div class="res-card-meta">'
+            + (r.subject ? '<span class="res-type-badge notes">' + escH(r.subject) + '</span>' : '')
+            + (r.file_type ? '<span class="res-type-badge ' + typeClass + '">' + escH(r.file_type.toUpperCase()) + '</span>' : '')
+            + '<span class="dot">·</span><span>by ' + escH(up) + '</span>'
+            + (r.view_count ? '<span class="dot">·</span><span>👁 ' + r.view_count + '</span>' : '')
+            + '</div></div>'
+            + '<div class="res-card-actions">'
+            + (r.file_url && r.file_type !== 'link'
+                ? '<a href="' + escH(r.file_url) + '" target="_blank" download class="res-action-btn primary" onclick="event.stopPropagation()">⬇ Download</a>'
+                : '')
+            + (r.file_type === 'link' && r.file_url
+                ? '<a href="' + escH(r.file_url) + '" target="_blank" class="res-action-btn primary" onclick="event.stopPropagation()">Open</a>'
+                : '')
+            + '</div></div>';
     }).join('');
 }
 
-// ── Open detail ─────────────────────────────────────────────────
-async function openDetail(id){
-    var res=allRes.find(function(r){return r.id===id;});
-    if(!res) return;
-    var overlay=document.getElementById('resDetailOverlay');
-    overlay.style.display='block'; overlay.scrollTop=0;
-    document.body.style.overflow='hidden';
+/* ── Detail overlay ── */
+async function openDetail(id) {
+    var res = allRes.find(function(r) { return r.id === id; });
+    if (!res) return;
+    currentRes = res;
 
-    var icon=TYPE_ICONS[res.file_type]||'📎';
-    var col=TYPE_COLORS[res.file_type]||'#6b7280';
-    var up=res.profiles?((res.profiles.first_name||'')+' '+(res.profiles.last_name||'')).trim()||('@'+(res.profiles.username||'')):'Unknown';
+    var overlay = document.getElementById('resDetailOverlay');
+    overlay.style.display = 'block';
+    overlay.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
 
-    document.getElementById('dIcon').textContent=icon;
-    document.getElementById('dTitle').textContent=res.title||'Untitled';
+    /* Track in recently viewed */
+    trackRecentlyViewed(res);
 
-    var meta='';
-    if(res.subject) meta+='<span class="g-res-tag">'+escH(res.subject)+'</span>';
-    if(res.file_type) meta+='<span class="g-res-type" style="background:'+col+'18;color:'+col+';">'+escH(res.file_type.toUpperCase())+'</span>';
-    meta+='<span>by '+escH(up)+'</span>';
-    document.getElementById('dMeta').innerHTML=meta;
+    var icon = TYPE_ICONS[res.file_type] || '📎';
+    var col  = TYPE_COLORS[res.file_type] || '#6b7280';
+    var up   = res.profiles ? ((res.profiles.first_name || '') + ' ' + (res.profiles.last_name || '')).trim() || ('@' + (res.profiles.username || '')) : 'Unknown';
 
-    var dds=document.getElementById('dDescSec');
-    if(res.description){dds.style.display='block';document.getElementById('dDesc').textContent=res.description;}else{dds.style.display='none';}
-    var dcs=document.getElementById('dContentSec');
-    if(res.content){dcs.style.display='block';document.getElementById('dContent').textContent=res.content;}else{dcs.style.display='none';}
-    var dfs=document.getElementById('dFileSec');
-    if(res.file_url&&res.file_type!=='link'){dfs.style.display='block';document.getElementById('dFileBtn').href=res.file_url;}else{dfs.style.display='none';}
-    var dls=document.getElementById('dLinkSec');
-    if(res.file_type==='link'&&res.file_url){dls.style.display='block';document.getElementById('dLinkBtn').href=res.file_url;}else{dls.style.display='none';}
+    document.getElementById('detailIcon').textContent = icon;
+    document.getElementById('detailTitle').textContent = res.title || 'Untitled';
 
-    document.getElementById('iSubject').textContent=res.subject||'—';
-    document.getElementById('iType').textContent=res.file_type||'—';
-    document.getElementById('iUploader').textContent=up;
-    document.getElementById('iDate').textContent=res.created_at?new Date(res.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):'—';
-    if(res.view_count){document.getElementById('iViewsRow').style.display='flex';document.getElementById('iViews').textContent=res.view_count;}
-    else{document.getElementById('iViewsRow').style.display='none';}
+    var meta = '';
+    if (res.subject) meta += '<span class="res-type-badge notes">' + escH(res.subject) + '</span> ';
+    if (res.file_type) meta += '<span class="res-type-badge ' + (res.file_type || 'others') + '" style="background:' + col + '18;color:' + col + ';">' + escH(res.file_type.toUpperCase()) + '</span> ';
+    meta += '<span class="dot">·</span> by ' + escH(up);
+    document.getElementById('detailSubmeta').innerHTML = meta;
 
-    loadComments(id);
+    /* Desc */
+    var dds = document.getElementById('detailDescSection');
+    if (res.description) { dds.style.display = 'block'; document.getElementById('detailDesc').textContent = res.description; }
+    else { dds.style.display = 'none'; }
 
-    // Increment view count (non-blocking)
-    _sb.from('resources').update({view_count:(res.view_count||0)+1}).eq('id',id).then(function(){});
+    /* Content */
+    var dcs = document.getElementById('detailContentSection');
+    if (res.content) { dcs.style.display = 'block'; document.getElementById('detailContent').textContent = res.content; }
+    else { dcs.style.display = 'none'; }
+
+    /* File */
+    var dfs = document.getElementById('detailFileSection');
+    if (res.file_url && res.file_type !== 'link') { dfs.style.display = 'block'; document.getElementById('detailFileBtn').href = res.file_url; }
+    else { dfs.style.display = 'none'; }
+
+    /* Link */
+    var dls = document.getElementById('detailLinkSection');
+    if (res.file_type === 'link' && res.file_url) { dls.style.display = 'block'; document.getElementById('detailLinkBtn').href = res.file_url; }
+    else { dls.style.display = 'none'; }
+
+    /* Sidebar info */
+    document.getElementById('infoSubject').textContent  = res.subject || '—';
+    document.getElementById('infoType').textContent     = res.file_type || '—';
+    document.getElementById('infoUploader').textContent = up;
+    document.getElementById('infoDate').textContent     = res.created_at
+        ? new Date(res.created_at).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+        : '—';
+    if (res.view_count) {
+        document.getElementById('infoViewsRow').style.display = 'flex';
+        document.getElementById('infoViews').textContent = res.view_count;
+    } else {
+        document.getElementById('infoViewsRow').style.display = 'none';
+    }
+
+    /* Ratings + comments */
+    loadDetailRatings(id);
+
+    /* Increment view count */
+    _sb.from('resources').update({ view_count: (res.view_count || 0) + 1 }).eq('id', id).then(function() {});
 }
 
-async function loadComments(resourceId){
-    var el=document.getElementById('dComments');
-    var badge=document.getElementById('dCommentCount');
-    el.innerHTML='<div style="padding:16px 0;color:var(--text-light);font-size:13px;">Loading comments…</div>';
-    try{
-        // Ratings avg
-        var rr=await _sb.from('resource_ratings').select('rating').eq('resource_id',resourceId);
-        if(!rr.error&&rr.data&&rr.data.length){
-            var avg=rr.data.reduce(function(s,r){return s+r.rating;},0)/rr.data.length;
-            var stars=[1,2,3,4,5].map(function(i){return '<span style="font-size:18px;color:'+(i<=Math.round(avg)?'#f59e0b':'#d1d5db')+';">★</span>';}).join('');
-            document.getElementById('dRating').innerHTML='<div style="display:flex;gap:2px;align-items:center;">'+stars+'<span style="font-size:13px;color:var(--text-secondary);margin-left:6px;">'+avg.toFixed(1)+' ('+rr.data.length+' rating'+(rr.data.length!==1?'s':'')+')</span></div>';
-        }else{
-            document.getElementById('dRating').innerHTML='<span style="font-size:13px;color:var(--text-light);">No ratings yet</span>';
+async function loadDetailRatings(resourceId) {
+    var starsEl = document.getElementById('detailStarsDisplay');
+    var countEl = document.getElementById('detailRatingCount');
+    var commEl  = document.getElementById('detailComments');
+    var badge   = document.getElementById('commentCount');
+
+    starsEl.innerHTML = '';
+    countEl.textContent = '';
+    commEl.innerHTML = '<div class="res-loading-sm">Loading…</div>';
+
+    try {
+        /* Ratings avg */
+        var rr = await _sb.from('resource_ratings').select('rating').eq('resource_id', resourceId);
+        if (!rr.error && rr.data && rr.data.length) {
+            var avg = rr.data.reduce(function(s, r) { return s + r.rating; }, 0) / rr.data.length;
+            starsEl.innerHTML = [1,2,3,4,5].map(function(i) {
+                return '<span class="' + (i <= Math.round(avg) ? 'res-star-filled' : 'res-star-empty') + '">★</span>';
+            }).join('');
+            countEl.textContent = avg.toFixed(1) + ' (' + rr.data.length + ' rating' + (rr.data.length !== 1 ? 's' : '') + ')';
+        } else {
+            countEl.textContent = 'No ratings yet';
         }
-        // Comments
-        var cr=await _sb.from('resource_comments').select('*, profiles(first_name,last_name,username,profile_photo_url)').eq('resource_id',resourceId).order('created_at',{ascending:true});
-        if(cr.error) throw cr.error;
-        var comments=cr.data||[];
-        badge.textContent=comments.length;
-        if(!comments.length){el.innerHTML='<div style="padding:16px 0;color:var(--text-light);font-size:13px;">No comments yet. Be the first!</div>';return;}
-        el.innerHTML=comments.map(function(c){
-            var p=c.profiles||{};
-            var name=((p.first_name||'')+' '+(p.last_name||'')).trim()||p.username||'User';
-            var initials=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase();
-            var stars=c.rating?[1,2,3,4,5].map(function(i){return '<span style="font-size:13px;color:'+(i<=c.rating?'#f59e0b':'#d1d5db')+';">★</span>';}).join(''):'';
-            var av=p.profile_photo_url?'<img src="'+escH(p.profile_photo_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">':initials;
-            return '<div class="g-comment"><div class="g-comment-av">'+av+'</div>'
-                +'<div class="g-comment-body">'
-                +'<div><span class="g-comment-author">'+escH(name)+'</span><span class="g-comment-date">'+timeAgo(c.created_at)+'</span></div>'
-                +(stars?'<div style="display:flex;gap:2px;margin:3px 0;">'+stars+'</div>':'')
-                +(c.comment?'<div class="g-comment-text">'+escH(c.comment)+'</div>':'')
-                +'</div></div>';
+
+        /* Comments */
+        var cr = await _sb
+            .from('resource_comments')
+            .select('*, profiles(first_name,last_name,username,profile_photo_url)')
+            .eq('resource_id', resourceId)
+            .order('created_at', { ascending: true });
+        if (cr.error) throw cr.error;
+
+        var comments = cr.data || [];
+        badge.textContent = comments.length;
+
+        if (!comments.length) {
+            commEl.innerHTML = '<div style="padding:16px 0;color:var(--text-light);font-size:13px;">No comments yet. Sign up to be the first!</div>';
+            return;
+        }
+
+        commEl.innerHTML = comments.map(function(c) {
+            var p = c.profiles || {};
+            var name = ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || p.username || 'User';
+            var initials = ((p.first_name || '?')[0] + (p.last_name || '?')[0]).toUpperCase();
+            var av = p.profile_photo_url
+                ? '<img src="' + escH(p.profile_photo_url) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
+                : initials;
+            var stars = c.rating
+                ? [1,2,3,4,5].map(function(i) { return '<span style="font-size:13px;color:' + (i <= c.rating ? '#f59e0b' : '#d1d5db') + ';">★</span>'; }).join('')
+                : '';
+            return '<div class="res-comment-item">'
+                + '<div class="res-comment-avatar">' + av + '</div>'
+                + '<div class="res-comment-body">'
+                + '<span class="res-comment-name">' + escH(name) + '</span>'
+                + '<span class="res-comment-time">' + timeAgo(c.created_at) + '</span>'
+                + (stars ? '<div style="display:flex;gap:2px;margin:3px 0;">' + stars + '</div>' : '')
+                + (c.comment ? '<div class="res-comment-text">' + escH(c.comment) + '</div>' : '')
+                + '</div></div>';
         }).join('');
-    }catch(e){el.innerHTML='<div style="color:#dc2626;font-size:13px;">Failed to load comments.</div>';}
+    } catch(e) {
+        commEl.innerHTML = '<div style="color:#dc2626;font-size:13px;">Failed to load comments.</div>';
+    }
 }
 
-function closeDetail(){document.getElementById('resDetailOverlay').style.display='none';document.body.style.overflow='';}
+function closeDetail() {
+    document.getElementById('resDetailOverlay').style.display = 'none';
+    document.body.style.overflow = '';
+    currentRes = null;
+}
 
-// ── Interact modal ──────────────────────────────────────────────
-var MODALS={
-    rate:{icon:'⭐',title:'Rate this resource',body:'Sign up or log in to rate and review study materials.'},
-    comment:{icon:'💬',title:'Add a comment',body:'Sign up or log in to leave feedback on resources.'},
-    upload:{icon:'⬆️',title:'Upload resources',body:'Create a free account to share your notes, slides, and study materials.'},
+/* ── Recently viewed (localStorage) ── */
+function trackRecentlyViewed(res) {
+    try {
+        var rv = JSON.parse(localStorage.getItem('sh_guest_rv') || '[]');
+        rv = rv.filter(function(r) { return r.id !== res.id; });
+        rv.unshift({ id: res.id, title: res.title, type: res.file_type });
+        rv = rv.slice(0, 5);
+        localStorage.setItem('sh_guest_rv', JSON.stringify(rv));
+        renderRecentlyViewed(rv);
+    } catch(e) {}
+}
+function renderRecentlyViewed(items) {
+    var el = document.getElementById('recentlyViewed');
+    if (!items || !items.length) { el.innerHTML = '<div class="res-empty-small">Nothing viewed yet</div>'; return; }
+    el.innerHTML = items.map(function(r) {
+        return '<div class="res-recent-item" onclick="openDetail(\'' + escH(r.id) + '\')">'
+            + '<div class="res-recent-icon">' + (TYPE_ICONS[r.type] || '📎') + '</div>'
+            + '<div><div class="res-recent-title">' + escH(r.title || 'Untitled') + '</div>'
+            + '<div class="res-recent-sub">' + escH(r.type || '') + '</div></div></div>';
+    }).join('');
+}
+(function() {
+    try {
+        var rv = JSON.parse(localStorage.getItem('sh_guest_rv') || '[]');
+        renderRecentlyViewed(rv);
+    } catch(e) {}
+})();
+
+/* ── Toolbar helpers (mirror registered) ── */
+function setSubjectFromDropdown(sel) {
+    activeSubject = sel.value;
+    var othersWrap = document.getElementById('othersSubjectSearch');
+    othersWrap.style.display = (activeSubject === 'Others') ? 'flex' : 'none';
+    othersSearch = '';
+    if (document.getElementById('othersSubjectInput')) document.getElementById('othersSubjectInput').value = '';
+    filterResources();
+}
+function clearCategory() {
+    activeSubject = 'All';
+    othersSearch  = '';
+    document.getElementById('subjectSelect').value = 'All';
+    document.getElementById('othersSubjectSearch').style.display = 'none';
+    filterResources();
+}
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    filterResources();
+}
+function clearOthersSearch() {
+    othersSearch = '';
+    if (document.getElementById('othersSubjectInput')) document.getElementById('othersSubjectInput').value = '';
+    filterResources();
+}
+
+/* ── Gate modal ── */
+var MODALS = {
+    upload:  { icon:'⬆️', title:'Upload resources',   body:'Create a free account to share your notes, slides, and study materials.' },
+    save:    { icon:'🔖', title:'Save resources',      body:'Sign up or log in to bookmark and save resources for later.' },
+    comment: { icon:'💬', title:'Add a comment',       body:'Sign up or log in to leave feedback on resources.' },
+    private: { icon:'🔒', title:'Friends Only',        body:'Log in to see resources shared with friends.' },
 };
-function showModal(type){var d=MODALS[type]||{icon:'🔒',title:'Join to continue',body:'Create a free StudyHub account.'};document.getElementById('rmIcon').textContent=d.icon;document.getElementById('rmTitle').textContent=d.title;document.getElementById('rmBody').textContent=d.body;document.getElementById('resModal').classList.add('open');}
-function closeModal(){document.getElementById('resModal').classList.remove('open');}
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();if(document.getElementById('resDetailOverlay').style.display!=='none')closeDetail();}});
+function showModal(type) {
+    var d = MODALS[type] || { icon:'🔒', title:'Join to continue', body:'Create a free StudyHub account.' };
+    document.getElementById('rmIcon').textContent  = d.icon;
+    document.getElementById('rmTitle').textContent = d.title;
+    document.getElementById('rmBody').textContent  = d.body;
+    document.getElementById('resModal').classList.add('open');
+}
+function closeModal() { document.getElementById('resModal').classList.remove('open'); }
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+        if (document.getElementById('resDetailOverlay').style.display !== 'none') closeDetail();
+    }
+});
 
-// ── Helpers ─────────────────────────────────────────────────────
-function timeAgo(ts){var s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)return 'Just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';if(s<604800)return Math.floor(s/86400)+'d ago';return new Date(ts).toLocaleDateString();}
-function escH(t){if(t==null)return '';if(typeof t!=='string')t=String(t);var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+/* ── Helpers ── */
+function timeAgo(ts) {
+    var s = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (s < 60)     return 'Just now';
+    if (s < 3600)   return Math.floor(s / 60) + 'm ago';
+    if (s < 86400)  return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(ts).toLocaleDateString();
+}
+function escH(t) {
+    if (t == null) return '';
+    if (typeof t !== 'string') t = String(t);
+    var d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+}
 
 loadRes();
 </script>

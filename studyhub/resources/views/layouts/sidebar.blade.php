@@ -218,7 +218,16 @@
             <span class="nav-text">Newsfeed</span>
         </a>
 
-        {{-- 5. Study Groups --}}
+        {{-- 5. Announcements --}}
+        <a href="{{ route('announcements') }}" class="nav-item {{ $activeNav === 'announcements' ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+            </svg>
+            <span class="nav-text">Announcements</span>
+        </a>
+
+        {{-- 6. Study Groups --}}
         <a href="{{ route('study-groups') }}" class="nav-item {{ $activeNav === 'study-groups' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -228,7 +237,7 @@
             <span class="nav-text">Study Groups</span>
         </a>
 
-        {{-- 6. Resources --}}
+        {{-- 7. Resources --}}
         <a href="{{ route('resources') }}" class="nav-item {{ $activeNav === 'resources' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" />
@@ -237,7 +246,7 @@
             <span class="nav-text">Resources</span>
         </a>
 
-        {{-- 7. Focus Mode --}}
+        {{-- 8. Focus Mode --}}
         <a href="{{ route('focus-mode') }}" class="nav-item {{ $activeNav === 'focus-mode' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10" />
@@ -247,7 +256,7 @@
             <span class="nav-text">Focus Mode</span>
         </a>
 
-        {{-- 8. Messages --}}
+        {{-- 9. Messages --}}
         <a href="{{ route('messages') }}" class="nav-item {{ $activeNav === 'messages' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -255,7 +264,7 @@
             <span class="nav-text">Messages</span>
         </a>
 
-        {{-- 9. Friends --}}
+        {{-- 10. Friends --}}
         <a href="{{ route('friends') }}" class="nav-item {{ $activeNav === 'friends' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -265,7 +274,7 @@
             <span class="nav-text">Friends</span>
         </a>
 
-        {{-- 10. Friend Requests --}}
+        {{-- 11. Friend Requests --}}
         <a href="{{ route('friend-requests') }}"
             class="nav-item {{ $activeNav === 'friend-requests' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -277,7 +286,7 @@
             <span class="nav-text">Friend Requests</span>
         </a>
 
-        {{-- 11. Settings --}}
+        {{-- 12. Settings --}}
         <a href="{{ route('settings') }}" class="nav-item {{ $activeNav === 'settings' ? 'active' : '' }}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3" />

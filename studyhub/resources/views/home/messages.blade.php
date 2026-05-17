@@ -351,7 +351,10 @@
             display: none;
             flex-direction: column;
             position: absolute;
-            inset: 0;
+            top: 0;
+            left: 0;
+            width: 390px;
+            height: 100%;
             background: #ffffff;
             z-index: 40;
         }
@@ -779,222 +782,6 @@
                 padding: 16px;
             }
         }
-
-        /* FORCE BIGGER MESSAGE UI - put at VERY BOTTOM */
-        .messages-layout {
-            font-size: 16px !important;
-        }
-
-        .friends-panel {
-            width: 420px !important;
-            min-width: 420px !important;
-        }
-
-        .friend-item {
-            padding: 18px 24px !important;
-            min-height: 82px !important;
-            gap: 16px !important;
-        }
-
-        .friend-avatar {
-            width: 58px !important;
-            height: 58px !important;
-        }
-
-        .friend-name {
-            font-size: 1.08rem !important;
-            font-weight: 700 !important;
-        }
-
-        .friend-last-msg {
-            font-size: 0.95rem !important;
-            line-height: 1.45 !important;
-        }
-
-        .friend-time {
-            font-size: 0.82rem !important;
-        }
-
-        .unread-badge {
-            min-width: 25px !important;
-            height: 25px !important;
-            font-size: 0.8rem !important;
-        }
-
-        .chat-header {
-            padding: 22px 32px !important;
-        }
-
-        .chat-header-avatar {
-            width: 56px !important;
-            height: 56px !important;
-        }
-
-        .chat-header-info h3 {
-            font-size: 1.15rem !important;
-        }
-
-        .chat-header-info span {
-            font-size: 0.9rem !important;
-        }
-
-        .messages-area {
-            padding: 32px 38px !important;
-            gap: 10px !important;
-        }
-
-        .msg-bubble {
-            max-width: 78% !important;
-            padding: 15px 20px !important;
-            font-size: 1.05rem !important;
-            line-height: 1.65 !important;
-            border-radius: 24px !important;
-        }
-
-        .msg-time {
-            font-size: 0.78rem !important;
-        }
-
-        .chat-input-area {
-            padding: 22px 32px !important;
-        }
-
-        .chat-input-wrapper {
-            padding: 12px 18px !important;
-            border-radius: 18px !important;
-        }
-
-        #messageInput {
-            font-size: 1.08rem !important;
-            line-height: 1.6 !important;
-            min-height: 30px !important;
-        }
-
-        .send-btn {
-            width: 54px !important;
-            height: 54px !important;
-            border-radius: 16px !important;
-        }
-
-        /* FINAL FORCE SCALE FIX */
-        body .main-content-simple .messages-layout .friends-panel {
-            width: 460px !important;
-            min-width: 460px !important;
-        }
-
-        body .main-content-simple .messages-layout .friend-item {
-            padding: 22px 26px !important;
-            min-height: 92px !important;
-        }
-
-        body .main-content-simple .messages-layout .friend-avatar {
-            width: 66px !important;
-            height: 66px !important;
-        }
-
-        body .main-content-simple .messages-layout .friend-name {
-            font-size: 20px !important;
-        }
-
-        body .main-content-simple .messages-layout .friend-last-msg {
-            font-size: 17px !important;
-        }
-
-        body .main-content-simple .messages-layout .chat-header {
-            padding: 26px 36px !important;
-        }
-
-        body .main-content-simple .messages-layout .chat-header-avatar {
-            width: 66px !important;
-            height: 66px !important;
-        }
-
-        body .main-content-simple .messages-layout .chat-header-info h3 {
-            font-size: 22px !important;
-        }
-
-        body .main-content-simple .messages-layout .messages-area {
-            padding: 40px 48px !important;
-        }
-
-        body .main-content-simple .messages-layout .msg-bubble {
-            font-size: 22px !important;
-            padding: 20px 26px !important;
-            max-width: 82% !important;
-            line-height: 1.7 !important;
-        }
-
-        body .main-content-simple .messages-layout .msg-time {
-            font-size: 14px !important;
-        }
-
-        body .main-content-simple .messages-layout #messageInput {
-            font-size: 22px !important;
-            min-height: 42px !important;
-        }
-
-        body .main-content-simple .messages-layout .chat-input-wrapper {
-            padding: 16px 22px !important;
-        }
-
-        body .main-content-simple .messages-layout .send-btn {
-            width: 64px !important;
-            height: 64px !important;
-        }
-
-        /* FULL WIDTH MESSENGER LAYOUT - ACCOUNT FOR LEFT SIDEBAR */
-        .messages-fullscreen {
-            margin-left: var(--sidebar-width, 260px) !important;
-            width: calc(100vw - var(--sidebar-width, 260px)) !important;
-            max-width: calc(100vw - var(--sidebar-width, 260px)) !important;
-            height: 100vh !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-        }
-
-        .messages-layout {
-            width: 100% !important;
-            height: 100vh !important;
-            display: flex !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .friends-panel {
-            width: 360px !important;
-            min-width: 360px !important;
-            max-width: 360px !important;
-            flex-shrink: 0 !important;
-        }
-
-        .chat-panel {
-            flex: 1 !important;
-            width: 100% !important;
-            min-width: 0 !important;
-        }
-
-        /* REMOVE CENTERED CONTAINER EFFECT */
-        .main-content-simple,
-        .main-content,
-        .content-wrapper,
-        .page-container,
-        .container {
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-
-        /* FORCE CHAT TO REACH EDGE */
-        .messages-fullscreen,
-        .messages-layout,
-        .chat-panel,
-        .messages-area,
-        .chat-header,
-        .chat-input-area {
-            box-sizing: border-box !important;
-        }
     </style>
 </head>
 
@@ -1002,7 +789,7 @@
 
     @include('layouts.sidebar')
 
-    <main class="main-content-simple messages-fullscreen">
+    <main class="messages-fullscreen" style="margin-left:70px;">
         <div class="messages-layout">
 
             {{-- ── Friends Panel ── --}}
@@ -1066,7 +853,7 @@
                             </div>
                             <div class="friend-meta">
                                 <span class="friend-time" id="lastTime-{{ $friend->id }}">{{ $timeStr }}</span>
-                                @if (!$friend->is_muted && $friend->unread_count > 0)
+                                @if (!($friend->is_muted ?? false) && $friend->unread_count > 0)
                                     <span class="unread-badge"
                                         id="badge-{{ $friend->id }}">{{ $friend->unread_count }}</span>
                                 @else
@@ -1079,7 +866,7 @@
                             </button>
                             <div class="friend-menu">
                                 <button onclick="event.stopPropagation(); archiveConversation('{{ $friend->id }}')">Archive</button>
-                                @if ($friend->is_muted)
+                                @if ($friend->is_muted ?? false)
                                     <button onclick="event.stopPropagation(); unmuteConversation('{{ $friend->id }}')">Unmute</button>
                                 @else
                                     <button onclick="event.stopPropagation(); muteConversation('{{ $friend->id }}')">Mute</button>
@@ -1151,7 +938,7 @@
 
                 {{-- Active conversation (hidden until a friend is selected) --}}
                 <div id="chatActive"
-                    style="display:none; flex-direction:column; flex:1; overflow:hidden; display:none;">
+                    style="display:none; flex-direction:column; flex:1; overflow:hidden;">
                     <div class="chat-header" id="chatHeader">
                         <div class="chat-header-avatar" id="chatHeaderAvatar"></div>
                         <div class="chat-header-info">
@@ -1600,21 +1387,30 @@
         }
 
         async function archiveConversation(friendId) {
-            await fetch(`/messages/${friendId}/archive`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': CSRF_TOKEN,
-                    'Accept': 'application/json',
-                },
-            });
 
-            const item = document.querySelector(`.friend-item[data-friend-id="${friendId}"]`);
-            if (item) item.remove();
+            try {
 
-            if (String(activeFriendId) === String(friendId)) {
-                activeFriendId = null;
-                document.getElementById('chatActive').style.display = 'none';
-                document.getElementById('chatEmpty').style.display = 'flex';
+                const response = await fetch(`/messages/${friendId}/archive`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'Accept': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+
+                    // FULL PAGE REFRESH
+                    location.reload();
+
+                }
+
+            } catch (err) {
+
+                console.error(err);
+
             }
         }
 

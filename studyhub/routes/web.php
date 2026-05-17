@@ -413,6 +413,16 @@ Route::get('/signup', function () {
     return view('auth.signup');
 })->name('signup');
 
+// GET  — the page Supabase redirects users to after clicking
+//        the verification link in their email
+Route::get('/auth/verify-email', [AuthController::class, 'showEmailVerification'])
+    ->name('auth.verify-email');
+
+// POST — called by the JS on that page to exchange tokens for
+//        a Laravel session, then redirect to the dashboard
+Route::post('/auth/verify-callback', [AuthController::class, 'emailVerificationCallback'])
+    ->name('auth.verify-callback');
+
 // Forgot Password Routes
 Route::get('/forgot-password',  [AuthController::class, 'showForgotPassword'])->name('forgot-password');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.forgot');
@@ -558,12 +568,22 @@ Route::get('/settings', function () {
     return view('home.settings', ['activeNav' => 'settings']);
 })->name('settings');
 
+Route::get('/announcements', function () {
+    if ($r = requireAuth()) return $r;
+    return app(AnnouncementController::class)->studentIndex();
+})->name('announcements');
+
+
 // ── MESSAGES ──────────────────────────────────────────────────
 Route::get('/messages', [MessageController::class, 'index'])->name('messages');
 Route::get('/messages/conversation/{friendId}', [MessageController::class, 'conversation'])->name('messages.conversation');
 Route::post('/messages/send', [MessageController::class, 'send'])->name('messages.send');
 Route::get('/messages/poll/{friendId}', [MessageController::class, 'poll'])->name('messages.poll');
 Route::get('/messages/unread-counts', [MessageController::class, 'unreadCounts'])->name('messages.unread');
+Route::post('/messages/{friend}/archive', [MessageController::class, 'archive']);
+Route::post('/messages/{friend}/unarchive', [MessageController::class, 'unarchive']);
+Route::post('/messages/{friend}/mute', [MessageController::class, 'mute']);
+Route::post('/messages/{friend}/unmute', [MessageController::class, 'unmute']);
 
 // ── FRIENDS ───────────────────────────────────────────────────
 Route::get('/friends', function () {
