@@ -431,6 +431,7 @@
         }
 
         function rowHTML(n, i) {
+
             const ago    = timeAgo(new Date(n.created_at));
             const unread = !(n.read || n.is_read);
 
@@ -440,7 +441,6 @@
 
             const urgent = level === 'urgent';
             const important = level === 'important';
-            const normal = level === 'normal';
 
             const icon = notifIcon(
                 n.notification_type ||
@@ -470,40 +470,96 @@
             else {
                 tagUrgent = `<span class="nr-tag normal">Normal</span>`;
             }
-            const tagType     = n.notification_type
-                ? `<span class="nr-tag ${esc(n.notification_type)}">${esc(n.notification_type)}</span>`
+
+            const tagType = n.notification_type
+                ? `<span class="nr-tag ${esc(n.notification_type)}">
+                    ${esc(n.notification_type)}
+                </span>`
                 : '';
-            const udot = unread ? `<div class="udot"></div>` : '';
+
+            const udot = unread
+                ? `<div class="udot"></div>`
+                : '';
+
+            // ✨ CHECK IF ANNOUNCEMENT
+            const isAnnouncement =
+                n.notification_type === 'announcement' ||
+                n.source_type === 'announcement';
+
+            // ✨ REDIRECT URL
+            const redirectUrl = isAnnouncement
+                ? `/announcements?open=${n.related_id}`
+                : '#';
 
             return `
-            <div class="nr ${readClass} ${priorityClass}" id="nr-${n.id}"
-                 style="animation-delay: ${Math.min(i * 25, 300)}ms"
-                 onclick="markRead('${n.id}')">
-                <div class="nr-icon-wrap">${icon}</div>
+
+            ${isAnnouncement ? `
+            <a href="${redirectUrl}"
+            class="notif-link"
+            onclick="markRead('${n.id}')">
+            ` : ''}
+
+            <div class="nr ${readClass} ${priorityClass}"
+                id="nr-${n.id}"
+                style="animation-delay: ${Math.min(i * 25, 300)}ms"
+                ${!isAnnouncement
+                    ? `onclick="markRead('${n.id}')"`
+                    : ''
+                }>
+
+                <div class="nr-icon-wrap">
+                    ${icon}
+                </div>
+
                 <div class="nr-body">
-                    <div class="nr-title">${esc(n.title)}</div>
-                    ${n.message ? `<div class="nr-sub">${esc(n.message)}</div>` : ''}
-                    <div class="nr-meta">
-                        <span class="nr-time">${ago}</span>
-                        ${tagUrgent}
-                        ${tagType}
+
+                    <div class="nr-title">
+                        ${esc(n.title)}
                     </div>
+
+                    ${n.message
+                        ? `
+                            <div class="nr-sub">
+                                ${esc(n.message)}
+                            </div>
+                        `
+                        : ''
+                    }
+
+                    <div class="nr-meta">
+
+                        <span class="nr-time">
+                            ${ago}
+                        </span>
+
+                        ${tagUrgent}
+
+                        ${tagType}
+
+                    </div>
+
                 </div>
+
                 <div class="nr-right">
+
                     ${udot}
-                    <button class="nr-del"
-                            onclick="event.stopPropagation(); deleteOne('${n.id}')"
-                            title="Delete notification">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                             stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6l-1 14H6L5 6"/>
-                            <path d="M10 11v6M14 11v6"/>
-                            <path d="M9 6V4h6v2"/>
-                        </svg>
+
+                    <button
+                        class="nr-del"
+                        onclick="event.stopPropagation();
+                                deleteOne('${n.id}')"
+                        title="Delete notification"
+                    >
+                        🗑️
                     </button>
+
                 </div>
-            </div>`;
+
+            </div>
+
+            ${isAnnouncement ? `</a>` : ''}
+
+            `;
         }
 
         /* ── ACTIONS ────────────────────────────────────────────── */

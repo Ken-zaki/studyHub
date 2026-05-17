@@ -659,3 +659,16 @@
         padding: 20px 20px 0;
     }
 }
+
+/* ── CLICKABLE NOTIFICATIONS ───────────────────────────── */
+
+.notif-link{
+    text-decoration:none;
+    color:inherit;
+    display:block;
+}
+
+.notif-link:hover .nr{
+    transform:translateY(-1px);
+    box-shadow:0 4px 14px rgba(0,0,0,.08);
+}

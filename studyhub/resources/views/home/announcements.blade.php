@@ -167,8 +167,213 @@
             border-radius: 16px; margin-bottom: 14px;
             animation: annPulse 1.4s ease-in-out infinite;
         }
+        .ann-file-card{
+            width:100%;
+            border:1px solid var(--border,#e5e7eb);
+            border-radius:12px;
+            padding:14px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:14px;
+            background:#fff;
+        }
+
+        .ann-file-main{
+            display:flex;
+            align-items:center;
+            gap:12px;
+            min-width:0;
+        }
+
+        .ann-file-icon{
+            font-size:24px;
+        }
+
+        .ann-file-info{
+            min-width:0;
+        }
+
+        .ann-file-name{
+            font-size:13px;
+            font-weight:700;
+            color:var(--text-primary,#111827);
+            word-break:break-word;
+        }
+
+        .ann-file-size{
+            font-size:11px;
+            color:var(--text-light,#9ca3af);
+            margin-top:2px;
+        }
+
+        .ann-file-actions{
+            display:flex;
+            gap:8px;
+            flex-shrink:0;
+        }
+
+        .ann-view-btn,
+        .ann-download-btn{
+            padding:8px 12px;
+            border-radius:8px;
+            text-decoration:none;
+            font-size:12px;
+            font-weight:700;
+            transition:0.2s;
+        }
+
+        .ann-view-btn{
+            background:var(--primary,#1a5f7a);
+            color:white;
+        }
+
+        .ann-view-btn:hover{
+            opacity:.9;
+        }
+
+        .ann-download-btn{
+            border:1px solid var(--border,#e5e7eb);
+            color:var(--text-secondary,#374151);
+        }
+
+        .ann-download-btn:hover{
+            border-color:var(--primary,#1a5f7a);
+            color:var(--primary,#1a5f7a);
+        }
         @keyframes annPulse { 0%,100%{opacity:1} 50%{opacity:.45} }
         @keyframes annFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+        /* ── MODERN ATTACHMENTS ───────────────────────── */
+        .ann-file-card.modern{
+            display:flex;
+            gap:14px;
+            align-items:center;
+
+            padding:14px;
+
+            border:1px solid var(--border,#e5e7eb);
+            border-radius:14px;
+
+            background:#fff;
+
+            transition:
+                transform .2s ease,
+                box-shadow .2s ease,
+                border-color .2s ease;
+
+            margin-top:8px;
+        }
+
+        .ann-file-card.modern:hover{
+            transform:translateY(-2px);
+
+            box-shadow:
+                0 8px 20px rgba(0,0,0,.08);
+
+            border-color:
+                rgba(26,95,122,.25);
+        }
+
+        .ann-file-preview{
+            width:72px;
+            height:72px;
+
+            border-radius:12px;
+
+            overflow:hidden;
+
+            flex-shrink:0;
+
+            background:#f3f4f6;
+
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+
+        .ann-preview-image{
+            width:100%;
+            height:100%;
+            object-fit:cover;
+        }
+
+        .ann-file-fallback{
+            font-size:34px;
+        }
+
+        .ann-file-main{
+            flex:1;
+
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+
+            gap:12px;
+        }
+
+        .ann-file-info{
+            min-width:0;
+        }
+
+        .ann-file-name{
+            font-size:14px;
+            font-weight:700;
+
+            color:var(--text-primary,#111827);
+
+            word-break:break-word;
+        }
+
+        .ann-file-size{
+            margin-top:4px;
+
+            font-size:12px;
+
+            color:var(--text-light,#9ca3af);
+        }
+
+        .ann-file-actions{
+            display:flex;
+            gap:8px;
+
+            flex-shrink:0;
+        }
+
+        .ann-view-btn,
+        .ann-download-btn{
+            padding:8px 14px;
+
+            border-radius:10px;
+
+            text-decoration:none;
+
+            font-size:12px;
+            font-weight:700;
+
+            transition:.2s;
+        }
+
+        .ann-view-btn{
+            background:var(--primary,#1a5f7a);
+            color:white;
+        }
+
+        .ann-view-btn:hover{
+            opacity:.9;
+        }
+
+        .ann-download-btn{
+            border:1px solid var(--border,#e5e7eb);
+
+            color:var(--text-secondary,#374151);
+        }
+
+        .ann-download-btn:hover{
+            border-color:var(--primary,#1a5f7a);
+
+            color:var(--primary,#1a5f7a);
+        }
     </style>
 </head>
 <body>
@@ -198,6 +403,8 @@
             <button class="ann-tab" onclick="setFilter('urgent', this)">🚨 Urgent</button>
             <button class="ann-tab" onclick="setFilter('important', this)">⚠️ Important</button>
             <button class="ann-tab" onclick="setFilter('normal', this)">📢 Normal</button>
+            <button class="ann-tab" onclick="sortAnnouncements('latest')">Latest</button>
+            <button class="ann-tab" onclick="sortAnnouncements('relevant')">Relevancy</button>
         </div>
 
         {{-- ── LIST ── --}}
@@ -295,25 +502,117 @@
             });
 
             const filesHtml = files.length ? `
-                <div class="ann-files-label">📎 Attachments</div>
-                <div class="ann-files-grid">
-                    ${files.map(f => `
-                        <a class="ann-file-chip"
-                           href="${esc(f.file_url)}"
-                           target="_blank" rel="noopener"
-                           download="${esc(f.file_name)}">
-                            <span class="ann-file-chip-icon">${fileIcon(f.file_name)}</span>
-                            <span class="ann-file-chip-info">
-                                <span class="ann-file-chip-name">${esc(f.file_name)}</span>
-                                ${f.file_size ? `<span class="ann-file-chip-size">${formatSize(f.file_size)}</span>` : ''}
-                            </span>
-                            <span class="ann-file-chip-dl">⬇</span>
-                        </a>`).join('')}
-                </div>` : '';
 
+                <div class="ann-files-label">
+                    📎 Attachments
+                </div>
+
+                <div class="ann-files-grid">
+
+                    ${files.map(file => {
+
+                        const ext =
+                            file.file_name.split('.').pop().toLowerCase();
+
+                        let icon = '📎';
+
+                        if(['pdf'].includes(ext)) icon = '📄';
+                        else if(['png','jpg','jpeg','gif','webp'].includes(ext)) icon = '🖼️';
+                        else if(['doc','docx'].includes(ext)) icon = '📝';
+                        else if(['xls','xlsx'].includes(ext)) icon = '📊';
+                        else if(['ppt','pptx'].includes(ext)) icon = '📽️';
+                        else if(['zip','rar'].includes(ext)) icon = '🗜️';
+
+                        const isImage =
+                            ['png','jpg','jpeg','gif','webp']
+                            .includes(ext);
+
+                        let previewHtml = '';
+
+                        if(isImage){
+
+                            previewHtml = `
+                                <img
+                                    src="${file.file_url}"
+                                    class="ann-preview-image"
+                                    alt="${file.file_name}"
+                                >
+                            `;
+
+                        }else{
+
+                            previewHtml = `
+                                <div class="ann-file-fallback">
+                                    ${icon}
+                                </div>
+                            `;
+                        }
+
+                        return `
+
+                        <div class="ann-file-card modern">
+
+                            <div class="ann-file-preview">
+                                ${previewHtml}
+                            </div>
+
+                            <div class="ann-file-main">
+
+                                <div class="ann-file-info">
+
+                                    <div class="ann-file-name">
+                                        ${file.file_name}
+                                    </div>
+
+                                    ${
+                                        file.file_size
+                                        ? `
+                                            <div class="ann-file-size">
+                                                ${(file.file_size / 1024).toFixed(1)} KB
+                                            </div>
+                                        `
+                                        : ''
+                                    }
+
+                                </div>
+
+                                <div class="ann-file-actions">
+
+                                    <a
+                                        href="${file.file_url}"
+                                        target="_blank"
+                                        class="ann-view-btn"
+                                    >
+                                        Preview
+                                    </a>
+
+                                    <a
+                                        href="${file.file_url}"
+                                        download
+                                        class="ann-download-btn"
+                                    >
+                                        Download
+                                    </a>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                        `;
+
+                    }).join('')}
+
+                </div>
+
+            ` : '';
             return `
-            <div class="ann-card ${esc(priority)}"
-                 style="animation-delay:${Math.min(i * 50, 400)}ms">
+            <div
+                id="announcement-${a.id}"
+                class="ann-card ${esc(priority)}"
+                data-priority="${esc(priority)}"
+                data-time="${new Date(a.created_at).getTime()}"
+                style="animation-delay:${Math.min(i * 50, 400)}ms">
                 <div class="ann-card-header">
                     <div class="ann-card-title">${esc(a.title)}</div>
                     <span class="ann-badge ${esc(priority)}">${esc(badgeLabel)}</span>
@@ -347,6 +646,90 @@
     }
 
     document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<script>
+
+/* ── AUTO OPEN ANNOUNCEMENT ───────────────────────── */
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    const params = new URLSearchParams(window.location.search);
+
+    const openId = params.get('open');
+
+    if(openId){
+
+        setTimeout(() => {
+
+            const target =
+                document.getElementById(
+                    'announcement-' + openId
+                );
+
+            if(target){
+
+                target.scrollIntoView({
+                    behavior:'smooth',
+                    block:'center'
+                });
+
+                target.style.transition =
+                    'all .3s ease';
+
+                target.style.boxShadow =
+                    '0 0 0 3px rgba(26,95,122,.25)';
+
+            }
+
+        }, 500);
+    }
+
+});
+
+
+/* ── SORT ANNOUNCEMENTS ───────────────────────────── */
+
+function sortAnnouncements(mode){
+
+    const cards =
+        [...document.querySelectorAll('.ann-card')];
+
+    const parent =
+        cards[0]?.parentNode;
+
+    if(!parent) return;
+
+    if(mode === 'latest'){
+
+        cards.sort((a,b)=>
+            Number(b.dataset.time) -
+            Number(a.dataset.time)
+        );
+
+    }else{
+
+        const priorityRank = {
+            urgent:3,
+            important:2,
+            normal:1
+        };
+
+        cards.sort((a,b)=>
+            priorityRank[
+                b.dataset.priority
+            ] -
+            priorityRank[
+                a.dataset.priority
+            ]
+        );
+    }
+
+    cards.forEach(card =>
+        parent.appendChild(card)
+    );
+}
+
 </script>
 
 </body>
