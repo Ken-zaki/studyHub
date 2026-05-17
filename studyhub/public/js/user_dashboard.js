@@ -198,6 +198,13 @@ function todayMidnight() {
     return d;
 }
 
+function localDateStr(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
 /** Days from today (negative = past). */
 function daysFromToday(dateStr) {
     const d = new Date(dateStr + "T00:00:00");
@@ -372,7 +379,7 @@ function renderTodaySchedule() {
     const el = document.getElementById("todayScheduleList");
     if (!el) return;
 
-    const todayStr = todayMidnight().toISOString().split("T")[0];
+    const todayStr = localDateStr();
 
     const sessions = expanded
         .filter((e) => e.idate === todayStr && e.category !== "deadline")
