@@ -11,6 +11,190 @@
     <meta name="data-supabase-url" content="{{ env('SUPABASE_URL') }}">
     <meta name="data-supabase-key" content="{{ env('SUPABASE_ANON_KEY') }}">
     <style>
+        .post-actions-bar{
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:10px;
+            padding:14px 16px 16px;
+            border-top:1px solid var(--border);
+            margin-top:12px;
+        }
+
+        .post-action-btn{
+            border:none;
+            background:var(--bg-main);
+            color:var(--text-secondary);
+            border-radius:14px;
+            padding:12px 10px;
+            font-size:14px;
+            font-weight:700;
+            font-family:'DM Sans',sans-serif;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+            cursor:pointer;
+            transition:all .22s ease;
+        }
+
+        .post-action-btn:hover{
+            transform:translateY(-2px);
+            background:white;
+            box-shadow:0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        .action-icon{
+            width:28px;
+            height:28px;
+            border-radius:10px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:15px;
+            background:rgba(0,0,0,0.04);
+        }
+
+        .like-btn:hover{
+            color:#e11d48;
+        }
+
+        .like-btn:hover .action-icon{
+            background:rgba(225,29,72,0.10);
+        }
+
+        .comment-btn:hover{
+            color:#1a5f7a;
+        }
+
+        .comment-btn:hover .action-icon{
+            background:rgba(26,95,122,0.10);
+        }
+
+        .share-btn:hover{
+            color:#16a34a;
+        }
+
+        .share-btn:hover .action-icon{
+            background:rgba(22,163,74,0.10);
+        }
+
+        @media(max-width:600px){
+            .post-actions-bar{
+                gap:8px;
+                padding:12px;
+            }
+
+            .post-action-btn{
+                font-size:13px;
+                padding:10px 6px;
+            }
+
+            .action-icon{
+                width:24px;
+                height:24px;
+                font-size:13px;
+            }
+        }
+            .feed-tabs{
+                display:flex;
+                gap:14px;
+                margin-bottom:22px;
+                padding:6px;
+                background:rgba(255,255,255,0.7);
+                border:1px solid rgba(0,0,0,0.06);
+                border-radius:22px;
+                backdrop-filter:blur(12px);
+                overflow-x:auto;
+            }
+
+            .feed-tabs::-webkit-scrollbar{
+                display:none;
+            }
+
+            .feed-tab{
+                flex:1;
+                min-width:180px;
+                display:flex;
+                align-items:center;
+                gap:14px;
+                padding:14px 18px;
+                border:none;
+                border-radius:18px;
+                background:transparent;
+                cursor:pointer;
+                transition:all .25s ease;
+                position:relative;
+                font-family:'DM Sans',sans-serif;
+            }
+
+            .feed-tab:hover{
+                background:rgba(26,95,122,0.08);
+                transform:translateY(-2px);
+            }
+
+            .feed-tab.active{
+                background:linear-gradient(135deg,#1a5f7a,#2f89a8);
+                box-shadow:
+                    0 10px 25px rgba(26,95,122,0.25),
+                    inset 0 1px 0 rgba(255,255,255,0.15);
+            }
+
+            .feed-tab.active .tab-icon,
+            .feed-tab.active strong,
+            .feed-tab.active small{
+                color:white;
+            }
+
+            .tab-icon{
+                width:48px;
+                height:48px;
+                border-radius:16px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:20px;
+                background:rgba(26,95,122,0.10);
+                color:#1a5f7a;
+                flex-shrink:0;
+                transition:all .25s ease;
+            }
+
+            .feed-tab.active .tab-icon{
+                background:rgba(255,255,255,0.15);
+            }
+
+            .tab-text{
+                display:flex;
+                flex-direction:column;
+                align-items:flex-start;
+                text-align:left;
+            }
+
+            .tab-text strong{
+                font-size:15px;
+                color:var(--text-primary);
+                line-height:1.1;
+            }
+
+            .tab-text small{
+                font-size:12px;
+                color:var(--text-secondary);
+                margin-top:4px;
+                font-weight:500;
+            }
+
+            @media(max-width:768px){
+                .feed-tab{
+                    min-width:160px;
+                    padding:12px 14px;
+                }
+
+                .tab-icon{
+                    width:42px;
+                    height:42px;
+                    font-size:18px;
+                }
+            }
         .g-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
         .g-modal-overlay.open{opacity:1;pointer-events:all;}
         .g-modal{background:var(--bg-card,white);border-radius:20px;padding:32px;width:90%;max-width:400px;text-align:center;transform:scale(0.95);transition:transform 0.2s;box-shadow:0 20px 60px rgba(0,0,0,0.18);}
@@ -58,9 +242,29 @@
         </div>
 
         <div class="feed-tabs">
-            <button class="feed-tab active">✨ For You</button>
-            <button class="feed-tab" onclick="showModal('tab')">👁 Following</button>
-            <button class="feed-tab" onclick="showModal('tab')">👥 Friends</button>
+            <button class="feed-tab active">
+                <span class="tab-icon">✨</span>
+                <span class="tab-text">
+                    <strong>For You</strong>
+                    <small>Recommended posts</small>
+                </span>
+            </button>
+
+            <button class="feed-tab" onclick="showModal('tab')">
+                <span class="tab-icon">👁</span>
+                <span class="tab-text">
+                    <strong>Following</strong>
+                    <small>People you follow</small>
+                </span>
+            </button>
+
+            <button class="feed-tab" onclick="showModal('tab')">
+                <span class="tab-icon">👥</span>
+                <span class="tab-text">
+                    <strong>Friends</strong>
+                    <small>Your connections</small>
+                </span>
+            </button>
         </div>
 
         <div id="guestFeed"><div class="loading-state">Loading posts…</div></div>
@@ -254,12 +458,20 @@ function postCard(post,likeCount){
         +(post.content?'<div class="post-body"><div class="post-text">'+esc(post.content)+'</div></div>':'')
         +mediaHTML+filesHTML+linkHTML+countsHTML
         +'<div class="post-actions-bar">'
-        +'<button class="post-action-btn" onclick="showModal(\'like\')">'
-        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>Like</button>'
-        +'<button class="post-action-btn" onclick="showModal(\'comment\')">'
-        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Comment</button>'
-        +'<button class="post-action-btn" onclick="showModal(\'share\')">'
-        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share</button>'
+            +'<button class="post-action-btn like-btn" onclick="showModal(\'like\')">'
+                +'<span class="action-icon">❤️</span>'
+                +'<span>Like</span>'
+            +'</button>'
+
+            +'<button class="post-action-btn comment-btn" onclick="showModal(\'comment\')">'
+                +'<span class="action-icon">💬</span>'
+                +'<span>Comment</span>'
+            +'</button>'
+
+            +'<button class="post-action-btn share-btn" onclick="showModal(\'share\')">'
+                +'<span class="action-icon">↗</span>'
+                +'<span>Share</span>'
+            +'</button>'
         +'</div></div>';
 }
 
