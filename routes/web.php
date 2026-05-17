@@ -942,3 +942,81 @@ Route::prefix('admin')->group(function () {
     })->name('admin.settings');
 
 });
+
+Route::get('/profile/{userId}', function ($userId) {
+    if ($r = requireAuth()) return $r;
+
+    $userId = (string) trim($userId);
+    if ($userId === '' || $userId === session('user_id')) {
+        return redirect(route('profile'));
+    }
+
+    $currentUserId = (string) session('user_id', '');
+    $provider = new SupabaseServiceProvider();
+    
+    // Try to get profile by ID first
+    $viewedProfile = $provider->getProfileById($userId);
+
+    // If not found (userId might be a username), try by username
+    if (empty($viewedProfile) || !isset($viewedProfile['id'])) {
+        $viewedProfile = $provider->getProfileByUsername($userId);
+    }
+
+    // Resolve to actual UUID — never use raw $userId after this point
+    $resolvedUserId = (string) ($viewedProfile['id'] ?? '');
+
+    // If still no UUID found, abort
+    if ($resolvedUserId === '') {
+        abort(404, 'User not found.');
+    }
+
+    $relationshipState = 'none';
+    $pendingRequestId = null;
+
+    if (Friendship::areFriends($currentUserId, $resolvedUserId)) {
+        $relationshipState = 'friends';
+    } else {
+        $pendingRequest = FriendRequest::query()
+            ->between($currentUserId, $resolvedUserId)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($pendingRequest) {
+            $pendingRequestId = $pendingRequest->id;
+            $relationshipState = $pendingRequest->sender_id === $currentUserId
+                ? 'pending_outgoing'
+                : 'pending_incoming';
+        }
+    }
+
+    $friendRows = Friendship::query()
+        ->where('user_id', $resolvedUserId)
+        ->orWhere('friend_id', $resolvedUserId)
+        ->get(['user_id', 'friend_id']);
+
+    $friendIds = [];
+    foreach ($friendRows as $row) {
+        $candidate = (string) ($row->user_id === $resolvedUserId ? $row->friend_id : $row->user_id);
+        if ($candidate !== '' && $candidate !== $resolvedUserId) {
+            $friendIds[$candidate] = true;
+        }
+    }
+
+    $friendProfiles = [];
+    if (!empty($friendIds)) {
+        foreach (array_keys($friendIds) as $friendId) {
+            $friendProfiles[] = resolveFriendProfileEntry($provider, $friendId);
+        }
+    }
+
+    return view('home.profile-view', [
+        'userId' => $resolvedUserId, // always pass the UUID, not the slug
+        'profileData' => [
+            'friends' => $friendProfiles,
+            'profile' => $viewedProfile,
+        ],
+        'relationshipState' => $relationshipState,
+        'pendingRequestId'  => $pendingRequestId,
+        'activeNav'         => 'profile',
+    ]);
+})->name('profile.view');

@@ -9,27 +9,15 @@ class Friendship extends Model
 {
     use HasUuids;
 
-    protected $table    = 'friends';
-    protected $keyType  = 'string';
+    protected $table     = 'friends';
+    protected $keyType   = 'string';
     public $incrementing = false;
-    public $timestamps = false;
+    public $timestamps   = false;
 
-    // NOTE: 'friends' table has no accepted_at column per schema.
-    // Columns: id, user_id, friend_id, created_at
     protected $fillable = [
         'user_id',
         'friend_id',
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function friend()
-    {
-        return $this->belongsTo(User::class, 'friend_id');
-    }
 
     public function scopeBetween($query, string $userA, string $userB)
     {
@@ -43,10 +31,6 @@ class Friendship extends Model
 
     public static function areFriends(string $userA, string $userB): bool
     {
-        // If they're not UUIDs, look up the user IDs
-        $userAId = User::where('username', $userA)->value('id') ?? $userA;
-        $userBId = User::where('username', $userB)->value('id') ?? $userB;
-
-        return static::between($userAId, $userBId)->exists();
+        return static::between($userA, $userB)->exists();
     }
 }

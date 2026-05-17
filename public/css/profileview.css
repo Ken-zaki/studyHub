@@ -168,6 +168,11 @@ body {
 }
 .top-bar-btn:hover { background: var(--bg-main); color: var(--primary); border-color: var(--primary); }
 .top-bar-btn svg { width: 20px; height: 20px; }
+.profile-back-btn {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+}
 .notif-dot {
     position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
     background: var(--accent); border-radius: 50%; border: 2px solid white;

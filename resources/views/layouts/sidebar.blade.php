@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        [ 'study-groups', 'resources', 'messages', 'friends', 'calendar', 'notifications'],
+        ['friends'],
         true,
     );
 
@@ -308,6 +308,18 @@
 </aside>
 
 <div class="top-bar">
+    @if (!empty($showProfileBackBtn))
+        <button type="button"
+            id="profileBackBtn"
+            class="top-bar-btn profile-back-btn"
+            title="Back"
+            aria-label="Back to previous page"
+            onclick="window.history.length > 1 ? window.history.back() : (window.location.href='{{ route('dashboard') }}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6" />
+            </svg>
+        </button>
+    @endif
     @if ($activeNav === 'focus-mode')
         <button id="focusTopBackBtn" class="top-bar-btn focus-top-back-btn hidden" aria-label="Back to Focus Mode menu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

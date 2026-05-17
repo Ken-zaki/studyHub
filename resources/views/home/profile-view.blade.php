@@ -25,6 +25,7 @@
 
 <body>
 
+    @php $showProfileBackBtn = true; @endphp
     @include('layouts.sidebar', ['activeNav' => 'profile'])
 
     <main class="main-content">

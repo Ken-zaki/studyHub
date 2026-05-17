@@ -164,6 +164,8 @@ class MessageController extends Controller
                 'profile_photo_url' => $friendProfile['profile_photo_url'] ?? '',
                 'last_message'      => $lastMessage ? (object) $lastMessage : null,
                 'unread_count'      => $unreadCount,
+                'is_muted'          => false,  // ← add this
+                'is_archived'       => false,  // ← add this too (used elsewhere in the view)
             ];
         }
 
