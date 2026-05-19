@@ -900,6 +900,9 @@ Route::get('/profile/{userId}', function ($userId) {
     ]);
 })->name('profile.view');
 
+// FRIEND SEARCH BAR
+Route::get('/search/users', [SearchController::class, 'users']);
+
 // ── FOCUS MODE ────────────────────────────────────────────────
 
 Route::get('/focus-mode',                              [FocusModeController::class, 'index'])->name('focus-mode');

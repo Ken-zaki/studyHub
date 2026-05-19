@@ -366,10 +366,9 @@ body {
 /* Simple pages without top bar content (coming soon) */
 .main-content-simple {
     margin-left: var(--sidebar-collapsed);
-    margin-top: var(--topbar-height);
-    min-height: calc(100vh - var(--topbar-height));
+    min-height: 100vh;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
 }
 
@@ -605,6 +604,7 @@ body {
     justify-content: flex-end;
 }
 
+
 .sidebar-footer {
     padding: 16px;
     border-top: 1px solid var(--border);
@@ -624,9 +624,7 @@ body {
     align-items: center;
     gap: 16px;
     width: 100%;
-    transition:
-        background 0.2s,
-        color 0.2s;
+    transition: background 0.2s, color 0.2s;
     font-family: "DM Sans", sans-serif;
     font-size: 15px;
     font-weight: 500;

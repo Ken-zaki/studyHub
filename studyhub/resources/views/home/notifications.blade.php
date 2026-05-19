@@ -648,6 +648,18 @@
         document.addEventListener('DOMContentLoaded', load);
     </script>
 
+
+@include('layouts.admin_bar')
+
+<script>
+    window.UID = @json(session('user_id'));
+    window.SB_URL = @json(config('services.supabase.url'));
+    window.SB_ANON = @json(config('services.supabase.anon_key'));
+    window.SB_SVC = @json(config('services.supabase.service_key'));
+</script>
+
+<script src="{{ asset('js/notifications.js') }}"></script>
+
 </body>
 
 </html>

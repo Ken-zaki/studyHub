@@ -85,95 +85,147 @@
     </div>
 
     <style>
-        .global-search-wrap {
-            padding: 8px 12px 4px;
-            position: relative;
-        }
-
-        .global-search-input-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--bg-hover, rgba(0, 0, 0, 0.05));
-            border: 1.5px solid transparent;
-            border-radius: 12px;
-            padding: 8px 10px;
-            transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
-        }
-
-        .global-search-input-wrap:focus-within {
-            border-color: var(--primary, #1a5f7a);
-            background: var(--bg-card, #fff);
-            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1a5f7a) 12%, transparent);
-        }
-
-        .global-search-icon {
-            width: 15px;
-            height: 15px;
-            flex-shrink: 0;
-            color: var(--text-light, #9ca3af);
-            transition: color 0.18s;
-        }
-
-        .global-search-input-wrap:focus-within .global-search-icon {
-            color: var(--primary, #1a5f7a);
-        }
-
-        #globalUserSearch {
-            flex: 1;
-            border: none;
-            outline: none;
-            background: transparent;
-            font-size: 13px;
-            color: var(--text-primary, #1a1a1a);
-            font-family: inherit;
-            min-width: 0;
-        }
-
-        #globalUserSearch::placeholder {
-            color: var(--text-light, #9ca3af);
-        }
-
-        .global-search-clear {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
-            background: var(--text-light, #9ca3af);
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            padding: 0;
-            transition: background 0.15s;
-        }
-
-        .global-search-clear:hover {
-            background: var(--primary, #1a5f7a);
-        }
-
-        .global-search-clear svg {
-            width: 9px;
-            height: 9px;
-            stroke: white;
-        }
-
-        .global-search-results {
-            display: none;
-            position: absolute;
-            top: calc(100% - 2px);
-            left: 12px;
-            right: 12px;
-            background: var(--bg-card, #fff);
-            border: 1.5px solid var(--border, #e5e7eb);
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            z-index: 999;
-            overflow: hidden;
-            max-height: 280px;
-            overflow-y: auto;
-        }
+    .global-search-wrap {
+        padding: 8px 12px 4px;
+        position: relative;
+    }
+    .global-search-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-hover, rgba(0,0,0,0.05));
+        border: 1.5px solid transparent;
+        border-radius: 12px;
+        padding: 8px 10px;
+        transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+    }
+    .global-search-input-wrap:focus-within {
+        border-color: var(--primary, #1a5f7a);
+        background: var(--bg-card, #fff);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #1a5f7a) 12%, transparent);
+    }
+    .global-search-icon {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        color: var(--text-light, #9ca3af);
+        transition: color 0.18s;
+    }
+    .global-search-input-wrap:focus-within .global-search-icon {
+        color: var(--primary, #1a5f7a);
+    }
+    #globalUserSearch {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 13px;
+        color: var(--text-primary, #1a1a1a);
+        font-family: inherit;
+        min-width: 0;
+    }
+    #globalUserSearch::placeholder {
+        color: var(--text-light, #9ca3af);
+    }
+    .global-search-clear {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        background: var(--text-light, #9ca3af);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.15s;
+    }
+    .global-search-clear:hover {
+        background: var(--primary, #1a5f7a);
+    }
+    .global-search-clear svg {
+        width: 9px;
+        height: 9px;
+        stroke: white;
+    }
+    .global-search-results {
+        display: none;
+        position: absolute;
+        top: calc(100% - 2px);
+        left: 12px;
+        right: 12px;
+        background: var(--bg-card, #fff);
+        border: 1.5px solid var(--border, #e5e7eb);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        z-index: 999;
+        overflow: hidden;
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    .global-search-result {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid var(--border, #e5e7eb);
+        transition: background 0.18s ease;
+    }
+    .global-search-result:hover {
+        background: var(--bg-main, #fafbfc);
+    }
+    .global-search-result:last-child {
+        border-bottom: none;
+    }
+    .global-search-result img,
+    .global-search-avatar {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        overflow: hidden;
+        background: linear-gradient(135deg, var(--primary, #1a5f7a), var(--secondary, #f59e42));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .global-search-result > div {
+        flex: 1;
+        min-width: 0;
+    }
+    .global-search-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary, #1a1a1a);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .global-search-username {
+        font-size: 12px;
+        color: var(--text-light, #9ca3af);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .global-search-badge {
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(26, 95, 122, 0.1);
+        color: var(--primary, #1a5f7a);
+        flex-shrink: 0;
+    }
     </style>
 
     <nav class="sidebar-nav">
@@ -381,66 +433,62 @@
 @endif
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const input = document.getElementById('globalUserSearch');
-        const box = document.getElementById('globalSearchResults');
-        const clear = document.getElementById('globalSearchClear');
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('globalUserSearch');
+    const box   = document.getElementById('globalSearchResults');
+    const clear = document.getElementById('globalSearchClear');
 
-        if (!input || !box) return;
+    if (!input || !box) return;
 
-        let timer = null;
+    let timer = null;
 
-        function toggleClear() {
-            if (clear) clear.style.display = input.value.length ? 'flex' : 'none';
-        }
+    function toggleClear() {
+        if (clear) clear.style.display = input.value.length ? 'flex' : 'none';
+    }
 
-        if (clear) {
-            clear.addEventListener('click', function() {
-                input.value = '';
-                box.style.display = 'none';
-                box.innerHTML = '';
-                toggleClear();
-                input.focus();
-            });
-        }
-
-        input.addEventListener('input', function() {
+    if (clear) {
+        clear.addEventListener('click', function () {
+            input.value = '';
+            box.style.display = 'none';
+            box.innerHTML = '';
             toggleClear();
-            const q = this.value.trim();
+            input.focus();
+        });
+    }
 
-            clearTimeout(timer);
+    input.addEventListener('input', function () {
+        toggleClear();
+        const q = this.value.trim();
 
-            if (q.length < 2) {
-                box.style.display = 'none';
-                box.innerHTML = '';
-                return;
-            }
+        clearTimeout(timer);
 
-            timer = setTimeout(async function() {
-                try {
-                    const res = await fetch(
-                    `/api/search/users?q=${encodeURIComponent(q)}`, {
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
+        if (q.length < 2) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
 
-                    const data = await res.json();
-                    const users = data.users || [];
+        timer = setTimeout(async function () {
+            try {
+                const res = await fetch(`/search/users?q=${encodeURIComponent(q)}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
 
-                    if (!users.length) {
-                        box.innerHTML =
-                            `<div style="padding:12px;color:#999;font-size:13px;">No users found.</div>`;
-                        box.style.display = 'block';
-                        return;
-                    }
+                const data  = await res.json();
+                const users = data.users || [];
 
-                    box.innerHTML = users.map(user => {
-                        const avatar = user.photo ?
-                            `<img src="${user.photo}" alt="">` :
-                            `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
+                if (!users.length) {
+                    box.innerHTML = `<div style="padding:12px;color:#999;font-size:13px;">No users found.</div>`;
+                    box.style.display = 'block';
+                    return;
+                }
 
-                        return `
+                box.innerHTML = users.map(user => {
+                    const avatar = user.photo
+                        ? `<img src="${user.photo}" alt="" class="global-search-avatar-image">`
+                        : `<div class="global-search-avatar">${user.name.substring(0, 2).toUpperCase()}</div>`;
+
+                    return `
                         <a href="${user.url}" class="global-search-result">
                             ${avatar}
                             <div>
@@ -450,21 +498,20 @@
                             ${user.is_friend ? `<span class="global-search-badge">Friend</span>` : ''}
                         </a>
                     `;
-                    }).join('');
+                }).join('');
 
-                    box.style.display = 'block';
-                } catch (e) {
-                    box.innerHTML =
-                        `<div style="padding:12px;color:#d33;font-size:13px;">Search failed.</div>`;
-                    box.style.display = 'block';
-                }
-            }, 250);
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.global-search-wrap')) {
-                box.style.display = 'none';
+                box.style.display = 'block';
+            } catch (e) {
+                box.innerHTML = `<div style="padding:12px;color:#d33;font-size:13px;">Search failed.</div>`;
+                box.style.display = 'block';
             }
-        });
+        }, 250);
     });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.global-search-wrap')) {
+            box.style.display = 'none';
+        }
+    });
+});
 </script>
