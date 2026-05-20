@@ -2415,13 +2415,13 @@
                                         ${eventCount === 0 ?
                                             `<div style="text-align: center; color: #4b5563; padding: 20px;">No events shared</div>` :
                                             `<div style="display: flex; flex-direction: column; gap: 6px;">
-                                                                ${(cal.events || []).map(e => `
+                                                                        ${(cal.events || []).map(e => `
                                                     <div style="padding: 8px; background: #161820; border-left: 3px solid #6c63ff; border-radius: 4px;">
                                                         <div style="font-size: 0.9rem; color: #e8e6e1; font-weight: 500;">${e.title}</div>
                                                         <div style="font-size: 0.8rem; color: #6b7280; margin-top: 2px;">${e.event_date} ${e.event_time || ''}</div>
                                                     </div>
                                                 `).join('')}
-                                                            </div>`
+                                                                    </div>`
                                         }
                                     </div>
                                 </div>
@@ -2458,7 +2458,7 @@
         <script>
             document.addEventListener('DOMContentLoaded', () => initNotifications());
         </script>
-
+        @include('layouts.admin_bar')
     </body>
 
     </html>

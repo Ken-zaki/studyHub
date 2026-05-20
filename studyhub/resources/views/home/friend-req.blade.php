@@ -148,13 +148,13 @@
     <script src="{{ asset('js/notifications.js') }}"></script>
     <script src="{{ asset('js/friend-req.js') }}"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        if (typeof initNotifications === 'function') {
-            initNotifications();
-        }
-    });
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof initNotifications === 'function') {
+                initNotifications();
+            }
+        });
     </script>
-
+    @include('layouts.admin_bar')
 </body>
 
 </html>

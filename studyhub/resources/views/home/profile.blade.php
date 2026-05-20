@@ -204,5 +204,7 @@
 </script>
 <script src="{{ asset('js/notifications.js') }}"></script>
 <script src="{{ asset('js/profile.js') }}"></script>
+
+@include('layouts.admin_bar')
 </body>
 </html>

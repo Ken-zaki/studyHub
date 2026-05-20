@@ -52,7 +52,8 @@
                         @foreach ($friends as $friend)
                             <div class="friend-card">
 
-                                <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}" class="friend-card-main">
+                                <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}"
+                                    class="friend-card-main">
 
                                     <div class="friend-avatar">
                                         @if ($friend['photo'])
@@ -79,7 +80,8 @@
                                 </a>
 
                                 <div class="friend-actions">
-                                    <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}" class="friend-btn view">
+                                    <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}"
+                                        class="friend-btn view">
                                         View
                                     </a>
 
@@ -113,7 +115,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => initNotifications());
     </script>
-
+    @include('layouts.admin_bar')
 </body>
 
 </html>

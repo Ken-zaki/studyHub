@@ -708,7 +708,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => initNotifications());
     </script>
-
+    @include('layouts.admin_bar')
 </body>
 
 </html>
