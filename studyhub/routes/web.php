@@ -212,6 +212,28 @@ Route::delete('/study-groups/{groupId}',       [StudyGroupController::class, 'de
 Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])   ->name('study-groups.messages');
 Route::post('/study-groups/{groupId}/messages',[StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
 
+// ── NEW: Threaded Replies ──
+Route::get('/study-groups/{groupId}/messages/{messageId}/replies',  [StudyGroupController::class, 'getReplies'])   ->name('study-groups.replies.index');
+Route::post('/study-groups/{groupId}/messages/{messageId}/replies', [StudyGroupController::class, 'sendReply'])    ->name('study-groups.replies.store');
+
+// ── NEW: Tasks ──
+Route::get('/study-groups/{groupId}/tasks',               [StudyGroupController::class, 'getTasks'])              ->name('study-groups.tasks.index');
+Route::post('/study-groups/{groupId}/tasks',              [StudyGroupController::class, 'createTask'])            ->name('study-groups.tasks.store');
+Route::patch('/study-groups/{groupId}/tasks/{taskId}',    [StudyGroupController::class, 'updateTask'])            ->name('study-groups.tasks.update');
+Route::delete('/study-groups/{groupId}/tasks/{taskId}',   [StudyGroupController::class, 'deleteTask'])            ->name('study-groups.tasks.destroy');
+
+// ── NEW: Resources (file sharing + pinning) ──
+Route::get('/study-groups/{groupId}/resources',           [StudyGroupController::class, 'getResources'])          ->name('study-groups.resources.index');
+Route::post('/study-groups/{groupId}/resources',          [StudyGroupController::class, 'uploadResources'])       ->name('study-groups.resources.store');
+Route::patch('/study-groups/{groupId}/resources/{resourceId}/pin', [StudyGroupController::class, 'pinResource'])  ->name('study-groups.resources.pin');
+Route::delete('/study-groups/{groupId}/resources/{resourceId}',    [StudyGroupController::class, 'deleteResource'])->name('study-groups.resources.destroy');
+
+// ── NEW: Notes (shared/co-edit) ──
+Route::get('/study-groups/{groupId}/notes',               [StudyGroupController::class, 'getNotes'])              ->name('study-groups.notes.index');
+Route::post('/study-groups/{groupId}/notes',              [StudyGroupController::class, 'createNote'])            ->name('study-groups.notes.store');
+Route::patch('/study-groups/{groupId}/notes/{noteId}',    [StudyGroupController::class, 'updateNote'])            ->name('study-groups.notes.update');
+Route::delete('/study-groups/{groupId}/notes/{noteId}',   [StudyGroupController::class, 'deleteNote'])            ->name('study-groups.notes.destroy');
+
 // ── CALENDAR SHARING ───────────────────────────────────────────
 Route::get('/calendar/sharing/friends',           [CalendarShareController::class, 'getFriendsForSharing'])->name('calendar.sharing.friends');
 Route::post('/calendar/sharing/request/{friendId}', [CalendarShareController::class, 'requestShare'])     ->name('calendar.sharing.request');

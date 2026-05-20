@@ -629,6 +629,9 @@ class StudyGroupController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
+        // Safely check if reply_count column exists to avoid 500 on fresh installs
+        $hasReplyCount = \Schema::hasColumn('group_messages', 'reply_count');
+
         $rows = DB::table('group_messages')
             ->where('group_id', $groupId)
             ->orderBy('created_at')
@@ -637,7 +640,7 @@ class StudyGroupController extends Controller
         $provider     = new SupabaseServiceProvider();
         $profileCache = [];
 
-        $messages = $rows->map(function ($row) use ($provider, &$profileCache) {
+        $messages = $rows->map(function ($row) use ($provider, &$profileCache, $hasReplyCount) {
             $senderId = (string) ($row->user_id ?? '');
 
             if ($senderId !== '' && !isset($profileCache[$senderId])) {
@@ -651,6 +654,7 @@ class StudyGroupController extends Controller
                 'user_id'      => $row->user_id,
                 'message'      => $row->message,
                 'created_at'   => $row->created_at,
+                'reply_count'  => $hasReplyCount ? ($row->reply_count ?? 0) : 0,
                 'sender_first' => $profile['first_name'] ?? null,
                 'sender_last'  => $profile['last_name']  ?? null,
                 'sender_photo' => $profile['profile_photo_url']
@@ -792,5 +796,441 @@ class StudyGroupController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('Failed to insert notifications: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * GET replies for a specific message (thread).
+     */
+    public function getReplies(string $groupId, string $messageId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $rows = DB::table('group_message_replies')
+            ->where('message_id', $messageId)
+            ->orderBy('created_at')
+            ->get();
+
+        $provider     = new SupabaseServiceProvider();
+        $profileCache = [];
+
+        $replies = $rows->map(function ($row) use ($provider, &$profileCache) {
+            $senderId = (string) ($row->user_id ?? '');
+            if ($senderId !== '' && !isset($profileCache[$senderId])) {
+                $profileCache[$senderId] = $provider->getProfileById($senderId);
+            }
+            $profile = $profileCache[$senderId] ?? null;
+            return [
+                'id'           => $row->id,
+                'message_id'   => $row->message_id,
+                'user_id'      => $row->user_id,
+                'message'      => $row->message,
+                'created_at'   => $row->created_at,
+                'sender_first' => $profile['first_name'] ?? null,
+                'sender_last'  => $profile['last_name']  ?? null,
+                'sender_photo' => $profile['profile_photo_url'] ?? $profile['avatar_url'] ?? null,
+            ];
+        });
+
+        return response()->json(['replies' => $replies]);
+    }
+
+    /**
+     * POST a reply to a thread.
+     */
+    public function sendReply(Request $request, string $groupId, string $messageId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $request->validate(['message' => 'required|string|max:5000']);
+
+        $replyId = (string) Str::uuid();
+
+        DB::table('group_message_replies')->insert([
+            'id'         => $replyId,
+            'message_id' => $messageId,
+            'group_id'   => $groupId,
+            'user_id'    => $userId,
+            'message'    => $request->input('message'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Update reply_count on parent message (denormalised count for fast rendering)
+        DB::table('group_messages')
+            ->where('id', $messageId)
+            ->increment('reply_count');
+
+        return response()->json(['ok' => true, 'reply_id' => $replyId]);
+    }
+
+    /* ──────────────────────────────────────────
+       TASKS
+    ────────────────────────────────────────── */
+
+    /**
+     * GET all tasks for a group.
+     */
+    public function getTasks(string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $tasks = DB::table('group_tasks')
+            ->where('group_id', $groupId)
+            ->orderByRaw("CASE WHEN completed = 0 THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json(['tasks' => $tasks]);
+    }
+
+    /**
+     * POST create a task.
+     */
+    public function createTask(Request $request, string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $request->validate([
+            'title'       => 'required|string|max:500',
+            'priority'    => 'nullable|in:low,medium,high',
+            'due_date'    => 'nullable|date',
+            'assigned_to' => 'nullable|string|max:255',
+        ]);
+
+        $taskId = (string) Str::uuid();
+
+        DB::table('group_tasks')->insert([
+            'id'          => $taskId,
+            'group_id'    => $groupId,
+            'created_by'  => $userId,
+            'title'       => $request->input('title'),
+            'priority'    => $request->input('priority', 'medium'),
+            'due_date'    => $request->input('due_date'),
+            'assigned_to' => $request->input('assigned_to'),
+            'completed'   => false,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'task_id' => $taskId]);
+    }
+
+    /**
+     * PATCH update a task (toggle completion, edit fields).
+     */
+    public function updateTask(Request $request, string $groupId, string $taskId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $task = DB::table('group_tasks')->where('id', $taskId)->where('group_id', $groupId)->first();
+        if (!$task) return response()->json(['error' => 'Task not found.'], 404);
+
+        $updates = array_filter([
+            'title'       => $request->input('title'),
+            'priority'    => $request->input('priority'),
+            'due_date'    => $request->input('due_date'),
+            'assigned_to' => $request->input('assigned_to'),
+        ], fn($v) => $v !== null);
+
+        if ($request->has('completed')) {
+            $updates['completed'] = (bool) $request->input('completed');
+        }
+
+        $updates['updated_at'] = now();
+
+        DB::table('group_tasks')->where('id', $taskId)->update($updates);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * DELETE a task (creator or admin only).
+     */
+    public function deleteTask(string $groupId, string $taskId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $member = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->first();
+        if (!$member) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $task = DB::table('group_tasks')->where('id', $taskId)->where('group_id', $groupId)->first();
+        if (!$task) return response()->json(['error' => 'Task not found.'], 404);
+
+        // Only creator or group admin can delete
+        if ($task->created_by !== $userId && $member->role !== 'admin') {
+            return response()->json(['error' => 'Only the task creator or a group admin can delete this task.'], 403);
+        }
+
+        DB::table('group_tasks')->where('id', $taskId)->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /* ──────────────────────────────────────────
+       RESOURCES (file sharing + pinning)
+    ────────────────────────────────────────── */
+
+    /**
+     * GET all resources for a group.
+     */
+    public function getResources(string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $rows = DB::table('group_resources')
+            ->where('group_id', $groupId)
+            ->orderByDesc('pinned')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $provider     = new SupabaseServiceProvider();
+        $profileCache = [];
+
+        $resources = $rows->map(function ($row) use ($provider, &$profileCache) {
+            $uid = (string) ($row->uploaded_by ?? '');
+            if ($uid !== '' && !isset($profileCache[$uid])) {
+                $profileCache[$uid] = $provider->getProfileById($uid);
+            }
+            $profile = $profileCache[$uid] ?? null;
+            $firstName = trim((string) ($profile['first_name'] ?? ''));
+            $lastName  = trim((string) ($profile['last_name']  ?? ''));
+            $name = trim($firstName . ' ' . $lastName) ?: ($profile['username'] ?? '');
+
+            return [
+                'id'            => $row->id,
+                'file_name'     => $row->file_name,
+                'file_url'      => $row->file_url,
+                'file_size'     => $row->file_size,
+                'type'          => $row->attachment_type ?? 'file',
+                'pinned'        => (bool) $row->pinned,
+                'uploaded_by'   => $row->uploaded_by,
+                'uploader_name' => $name,
+                'created_at'    => $row->created_at,
+            ];
+        });
+
+        return response()->json(['resources' => $resources]);
+    }
+
+    /**
+     * POST upload resource files.
+     */
+    public function uploadResources(Request $request, string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $request->validate([
+            'files'   => 'required|array|max:10',
+            'files.*' => 'file|max:51200',
+        ]);
+
+        $uploaded = [];
+        foreach ($request->file('files', []) as $file) {
+            $isImage = str_starts_with($file->getMimeType(), 'image/');
+            $folder  = $isImage ? 'group_images' : 'group_files';
+            $path    = $file->store($folder, 'public');
+            $url     = asset('storage/' . $path);
+            $resId   = (string) Str::uuid();
+
+            DB::table('group_resources')->insert([
+                'id'              => $resId,
+                'group_id'        => $groupId,
+                'uploaded_by'     => $userId,
+                'file_name'       => $file->getClientOriginalName(),
+                'file_url'        => $url,
+                'file_size'       => $file->getSize(),
+                'attachment_type' => $isImage ? 'image' : 'file',
+                'storage_path'    => $path,
+                'pinned'          => false,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+            $uploaded[] = $resId;
+        }
+
+        return response()->json(['ok' => true, 'uploaded' => count($uploaded)]);
+    }
+
+    /**
+     * PATCH pin/unpin a resource.
+     */
+    public function pinResource(Request $request, string $groupId, string $resourceId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $member = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->first();
+        if (!$member) return response()->json(['error' => 'Forbidden.'], 403);
+
+        // Only admins can pin; members can only pin their own uploads
+        $resource = DB::table('group_resources')->where('id', $resourceId)->where('group_id', $groupId)->first();
+        if (!$resource) return response()->json(['error' => 'Resource not found.'], 404);
+
+        if ($resource->uploaded_by !== $userId && $member->role !== 'admin') {
+            return response()->json(['error' => 'Only the uploader or a group admin can pin/unpin files.'], 403);
+        }
+
+        DB::table('group_resources')
+            ->where('id', $resourceId)
+            ->update(['pinned' => (bool) $request->input('pinned', false), 'updated_at' => now()]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * DELETE a resource.
+     */
+    public function deleteResource(string $groupId, string $resourceId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $member = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->first();
+        if (!$member) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $resource = DB::table('group_resources')->where('id', $resourceId)->where('group_id', $groupId)->first();
+        if (!$resource) return response()->json(['error' => 'Resource not found.'], 404);
+
+        if ($resource->uploaded_by !== $userId && $member->role !== 'admin') {
+            return response()->json(['error' => 'Only the uploader or a group admin can delete this file.'], 403);
+        }
+
+        if (!empty($resource->storage_path)) {
+            Storage::disk('public')->delete($resource->storage_path);
+        }
+        DB::table('group_resources')->where('id', $resourceId)->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /* ──────────────────────────────────────────
+       NOTES (shared/co-edit)
+    ────────────────────────────────────────── */
+
+    /**
+     * GET all notes for a group.
+     */
+    public function getNotes(string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $notes = DB::table('group_notes')
+            ->where('group_id', $groupId)
+            ->orderByDesc('updated_at')
+            ->get(['id', 'title', 'content', 'created_by', 'created_at', 'updated_at']);
+
+        return response()->json(['notes' => $notes]);
+    }
+
+    /**
+     * POST create a new note.
+     */
+    public function createNote(Request $request, string $groupId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $request->validate([
+            'title'   => 'nullable|string|max:500',
+            'content' => 'nullable|string',
+        ]);
+
+        $noteId = (string) Str::uuid();
+
+        DB::table('group_notes')->insert([
+            'id'         => $noteId,
+            'group_id'   => $groupId,
+            'created_by' => $userId,
+            'title'      => $request->input('title', 'Untitled Note'),
+            'content'    => $request->input('content', ''),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'note_id' => $noteId]);
+    }
+
+    /**
+     * PATCH update a note (any member can edit — it's shared).
+     */
+    public function updateNote(Request $request, string $groupId, string $noteId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $isMember = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->exists();
+        if (!$isMember) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $note = DB::table('group_notes')->where('id', $noteId)->where('group_id', $groupId)->first();
+        if (!$note) return response()->json(['error' => 'Note not found.'], 404);
+
+        $updates = ['updated_at' => now(), 'last_edited_by' => $userId];
+
+        if ($request->has('title'))   $updates['title']   = $request->input('title');
+        if ($request->has('content')) $updates['content'] = $request->input('content');
+
+        DB::table('group_notes')->where('id', $noteId)->update($updates);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * DELETE a note (creator or admin only).
+     */
+    public function deleteNote(string $groupId, string $noteId)
+    {
+        $userId = $this->currentUserId();
+        if ($userId === '') return response()->json(['error' => 'Unauthenticated.'], 401);
+
+        $member = StudyGroupMember::where('group_id', $groupId)->where('user_id', $userId)->first();
+        if (!$member) return response()->json(['error' => 'Forbidden.'], 403);
+
+        $note = DB::table('group_notes')->where('id', $noteId)->where('group_id', $groupId)->first();
+        if (!$note) return response()->json(['error' => 'Note not found.'], 404);
+
+        if ($note->created_by !== $userId && $member->role !== 'admin') {
+            return response()->json(['error' => 'Only the note creator or a group admin can delete notes.'], 403);
+        }
+
+        DB::table('group_notes')->where('id', $noteId)->delete();
+
+        return response()->json(['ok' => true]);
     }
 }
