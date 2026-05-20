@@ -420,12 +420,19 @@
                 username: _cfg.username,
                 profile_photo_url: _cfg.profilePhoto,
             };
+
+            // Required by studyhub-core.js and notifications.js
+            window.SB_URL = _cfg.supabaseUrl;
+            window.SB_ANON = _cfg.supabaseAnonKey;
+            window.SB_SVC = _cfg.supabaseAnonKey;
+            window.UID = _cfg.userId;
         })();
     </script>
     <script src="{{ asset('js/newsfeed.js') }}"></script>
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => initNotifications());
+        initNotifications();
     </script>
     @include('layouts.admin_bar')
 </body>

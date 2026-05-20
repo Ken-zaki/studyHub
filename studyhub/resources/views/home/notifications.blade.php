@@ -497,10 +497,10 @@
             return `
 
             ${isAnnouncement ? `
-                <a href="${redirectUrl}"
-                class="notif-link"
-                onclick="markRead('${n.id}')">
-                ` : ''}
+                    <a href="${redirectUrl}"
+                    class="notif-link"
+                    onclick="markRead('${n.id}')">
+                    ` : ''}
 
             <div class="nr ${readClass} ${priorityClass}"
                 id="nr-${n.id}"
@@ -522,10 +522,10 @@
 
                     ${n.message
                         ? `
-                                <div class="nr-sub">
-                                    ${esc(n.message)}
-                                </div>
-                            `
+                                    <div class="nr-sub">
+                                        ${esc(n.message)}
+                                    </div>
+                                `
                         : ''
                     }
 
@@ -668,6 +668,7 @@
         window.SB_SVC = @json(config('services.supabase.service_key'));
     </script>
 
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
     @include('layouts.admin_bar')

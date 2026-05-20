@@ -216,7 +216,7 @@
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
         const UID = '{{ session('user_id') }}';
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
     <script>

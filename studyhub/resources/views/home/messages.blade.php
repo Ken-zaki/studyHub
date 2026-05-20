@@ -1087,7 +1087,7 @@
                 document.querySelectorAll('#friendsList > .friend-item').forEach(item => {
                     const name = (item.dataset.friendName || '').toLowerCase();
                     const lastMsg = item.querySelector('.friend-last-msg')?.textContent
-                    .toLowerCase() || '';
+                        .toLowerCase() || '';
 
                     item.style.display = name.includes(q) || lastMsg.includes(q) ? 'flex' : 'none';
                 });
@@ -1472,7 +1472,7 @@
         const SB_SVC = '{{ config('services.supabase.service_key') }}';
         const UID = '{{ session('user_id') }}';
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
     <script>

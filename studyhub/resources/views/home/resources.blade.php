@@ -701,7 +701,7 @@
             photoUrl: '{{ session('profile_photo_url', '') }}',
         };
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
     <script src="{{ asset('js/resources.js') }}"></script>
 

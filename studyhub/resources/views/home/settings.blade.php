@@ -627,7 +627,7 @@
         const SB_SVC = '{{ config('services.supabase.service_key') }}';
         const UID = '{{ session('user_id') }}';
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
     <script src="{{ asset('js/settings.js') }}"></script>
 
