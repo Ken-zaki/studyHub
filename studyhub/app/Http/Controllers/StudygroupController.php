@@ -90,7 +90,11 @@ class StudyGroupController extends Controller
             ];
         }
 
-        return view('home.study-groups', compact('groups', 'friends'));
+        return view('home.study-groups', [
+            'groups' => $groups,
+            'friends' => $friends,
+            'activeNav' => 'study-groups',
+        ]);
     }
 
     /**

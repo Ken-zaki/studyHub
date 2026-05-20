@@ -14,153 +14,8 @@
         rel="stylesheet">
 
     <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/friends.css') }}">
 
-    <style>
-        .friend-status-banner {
-            margin-bottom: 16px;
-            padding: 14px 16px;
-            border-radius: 14px;
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-        }
-
-        .friends-section {
-            margin-bottom: 18px;
-        }
-
-        .friends-grid {
-            display: grid;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .friend-card {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            padding: 12px 14px;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            background: #fff;
-            transition: 0.2s ease;
-        }
-
-        .friend-card:hover {
-            border-color: #d1d5db;
-            background: #fafafa;
-        }
-
-        .friend-card-main {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 0;
-            text-decoration: none;
-            color: inherit;
-            flex: 1;
-        }
-
-        .friend-card-text {
-            min-width: 0;
-        }
-
-        .friend-card-name {
-            font-weight: 700;
-            color: var(--text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .friend-card-sub {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-
-        .friend-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-
-        .friend-btn {
-            border: none;
-            border-radius: 10px;
-            padding: 7px 13px;
-            font: 700 13px/1 'DM Sans', sans-serif;
-            cursor: pointer;
-            transition: 0.2s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .friend-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .friend-btn.view {
-            background: #111;
-            color: #fff;
-        }
-
-        .friend-btn.remove {
-            background: #f3f4f6;
-            color: #374151;
-        }
-
-        .friend-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            border-radius: 999px;
-            padding: 5px 10px;
-            font-size: 12px;
-            font-weight: 700;
-            margin-top: 6px;
-            width: fit-content;
-        }
-
-        .friend-badge.online {
-            background: #ecfdf5;
-            color: #047857;
-        }
-
-        .friend-badge.offline {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-
-        .friend-badge-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .friends-empty {
-            margin-top: 10px;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        @media (max-width: 640px) {
-            .friend-card {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .friend-actions {
-                width: 100%;
-                justify-content: flex-end;
-            }
-        }
-    </style>
 </head>
 
 <body>
@@ -197,8 +52,7 @@
                         @foreach ($friends as $friend)
                             <div class="friend-card">
 
-                                <a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}"
-                                    class="friend-card-main">
+                                <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}" class="friend-card-main">
 
                                     <div class="friend-avatar">
                                         @if ($friend['photo'])
@@ -225,8 +79,7 @@
                                 </a>
 
                                 <div class="friend-actions">
-                                    <a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}"
-                                        class="friend-btn view">
+                                    <a href="{{ route('profile.view', ['userId' => $friend['id']]) }}" class="friend-btn view">
                                         View
                                     </a>
 
@@ -262,100 +115,5 @@
     </script>
 
 </body>
-
-</html><!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Friends - StudyHub</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/studyhub.css') }}">
-</head>
-
-<body>
-
-    @include('layouts.sidebar', ['activeNav' => 'friends'])
-
-    <main class="main-content">
-        <div class="feed-column">
-            <header class="page-header">
-                <h1 class="page-title">Friends</h1>
-                <p class="page-subtitle">People you are connected with. Online friends appear in the right sidebar.</p>
-            </header>
-
-            @if (session('status'))
-                <div class="friend-status-banner">{{ session('status') }}</div>
-            @endif
-
-            @if ($errors->any())
-                <div class="friend-status-banner" style="background:#fef2f2;color:#991b1b;border-color:#fecaca;">
-                    {{ $errors->first() }}
-                </div>
-            @endif
-
-            <div class="widget-card">
-                <div class="widget-title">Your Friends</div>
-                @if (empty($friends))
-                    <p class="page-subtitle">You do not have any friends yet.</p>
-                @else
-                    <div class="friends-list" style="margin-top:12px;">
-                        @foreach ($friends as $friend)
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 8px; transition: background 0.2s ease;">
-                                <a href="{{ route('profile.view', ['userId' => $friend['id'], 'name' => $friend['name'], 'photo' => $friend['photo']]) }}"
-                                    class="friend-item"
-                                    style="flex: 1; margin: 0; padding: 0; border-radius: 0; border: none;">
-                                    <div class="friend-avatar">
-                                        @if ($friend['photo'])
-                                            <img src="{{ $friend['photo'] }}" alt="{{ $friend['name'] }}">
-                                        @else
-                                            {{ $friend['initials'] }}
-                                        @endif
-                                    </div>
-                                    <div class="friend-meta">
-                                        <div class="friend-name">{{ $friend['name'] }}</div>
-                                        <div class="friend-status-row">
-                                            <span
-                                                class="friend-status-dot {{ $friend['is_active'] ? 'online' : 'offline' }}"></span>
-                                            <span
-                                                class="friend-status-text">{{ $friend['is_active'] ? 'Online' : 'Offline' }}</span>
-                                        </div>
-                                    </div>
-                                </a>
-                                <form method="POST"
-                                    action="{{ route('friends.remove', ['friendId' => $friend['id']]) }}"
-                                    style="margin-left: 12px;">
-                                    @csrf
-                                    <button type="submit" class="profile-upload-btn profile-add-friend-btn"
-                                        style="background:#f3f4f6;color:#374151; padding: 8px 16px; font-size: 13px;">Remove</button>
-                                </form>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        </div>
-    </main>
-
-</body>
-
-<script>
-    const SB_URL = '{{ config('services.supabase.url') }}';
-    const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-    const SB_SVC = '{{ config('services.supabase.service_key') }}';
-    const UID = '{{ session('user_id') }}';
-</script>
-
-<script src="{{ asset('js/notifications.js') }}"></script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => initNotifications());
-</script>
 
 </html>

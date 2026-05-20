@@ -68,7 +68,9 @@ class ResourceController extends Controller
             return redirect()->route('login');
         }
 
-        return view('home.resources');
+        return view('home.resources', [
+            'activeNav' => 'resources',
+        ]);
     }
 
     // ── List / search ─────────────────────────────────────────

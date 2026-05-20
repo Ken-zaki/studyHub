@@ -220,6 +220,7 @@ class MessageController extends Controller
         return view('home.messages', [
             'friends' => collect($friends),
             'archivedFriends' => collect($archivedFriends),
+            'activeNav' => 'messages',
         ]);
     }
 

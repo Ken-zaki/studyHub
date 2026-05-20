@@ -26,7 +26,7 @@
     $currentRoute = \Illuminate\Support\Facades\Route::currentRouteName() ?? '';
     $showFriendRail = in_array(
         $currentRoute,
-        ['friends'],
+        [],
         true,
     );
 
