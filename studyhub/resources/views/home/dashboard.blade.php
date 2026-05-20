@@ -331,8 +331,8 @@
 
     {{-- ── JS files ──────────────────────────────────────────────────── --}}
     <script src="{{ asset('js/studyhub-core.js') }}"></script>
-    <script src="{{ asset('js/user_dashboard.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
+    <script src="{{ asset('js/user_dashboard.js') }}"></script>
 
     {{-- ── Progress period toggle helper (FR-2.5) ─────────────────── --}}
     {{--

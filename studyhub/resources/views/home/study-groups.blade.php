@@ -80,8 +80,14 @@
                 padding: 10px 8px;
             }
 
-            .sg-group-list::-webkit-scrollbar { width: 3px; }
-            .sg-group-list::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 4px; }
+            .sg-group-list::-webkit-scrollbar {
+                width: 3px;
+            }
+
+            .sg-group-list::-webkit-scrollbar-thumb {
+                background: #2a2d3e;
+                border-radius: 4px;
+            }
 
             .sg-group-item {
                 display: flex;
@@ -94,7 +100,9 @@
                 border-left: 3px solid transparent;
             }
 
-            .sg-group-item:hover { background: #1e2030; }
+            .sg-group-item:hover {
+                background: #1e2030;
+            }
 
             .sg-group-item.active {
                 background: #1e2030;
@@ -162,15 +170,15 @@
             }
 
             .privacy-badge.public {
-                background: rgba(34,197,94,.12);
+                background: rgba(34, 197, 94, .12);
                 color: #4ade80;
-                border: 1px solid rgba(34,197,94,.2);
+                border: 1px solid rgba(34, 197, 94, .2);
             }
 
             .privacy-badge.private {
-                background: rgba(251,191,36,.1);
+                background: rgba(251, 191, 36, .1);
                 color: #fbbf24;
-                border: 1px solid rgba(251,191,36,.18);
+                border: 1px solid rgba(251, 191, 36, .18);
             }
 
             /* ══════════════════════════════════════════
@@ -194,8 +202,13 @@
                 gap: 12px;
             }
 
-            .sg-empty-icon { font-size: 3rem; }
-            .sg-empty p { font-size: 0.9rem; }
+            .sg-empty-icon {
+                font-size: 3rem;
+            }
+
+            .sg-empty p {
+                font-size: 0.9rem;
+            }
 
             /* ── CHAT HEADER ── */
             .sg-chat-header {
@@ -230,7 +243,9 @@
                 border-radius: 10px;
             }
 
-            .sg-chat-header-info { flex: 1; }
+            .sg-chat-header-info {
+                flex: 1;
+            }
 
             .sg-chat-header-name {
                 font-weight: 600;
@@ -241,7 +256,10 @@
                 gap: 6px;
             }
 
-            .sg-chat-header-members { font-size: 0.74rem; color: #6b7280; }
+            .sg-chat-header-members {
+                font-size: 0.74rem;
+                color: #6b7280;
+            }
 
             .header-privacy-badge {
                 font-size: 0.62rem;
@@ -251,15 +269,15 @@
             }
 
             .header-privacy-badge.public {
-                background: rgba(34,197,94,.12);
+                background: rgba(34, 197, 94, .12);
                 color: #4ade80;
-                border: 1px solid rgba(34,197,94,.2);
+                border: 1px solid rgba(34, 197, 94, .2);
             }
 
             .header-privacy-badge.private {
-                background: rgba(251,191,36,.1);
+                background: rgba(251, 191, 36, .1);
                 color: #fbbf24;
-                border: 1px solid rgba(251,191,36,.18);
+                border: 1px solid rgba(251, 191, 36, .18);
             }
 
             /* ── SETTINGS BUTTON & DROPDOWN ── */
@@ -305,7 +323,7 @@
                 background: #161820;
                 border: 1px solid #252830;
                 border-radius: 16px;
-                box-shadow: 0 20px 50px rgba(0,0,0,.55);
+                box-shadow: 0 20px 50px rgba(0, 0, 0, .55);
                 z-index: 50;
                 overflow: hidden;
 
@@ -313,7 +331,7 @@
                 opacity: 0;
                 transform: translateY(-14px) scale(.97);
                 pointer-events: none;
-                transition: opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+                transition: opacity .22s ease, transform .22s cubic-bezier(.34, 1.56, .64, 1);
             }
 
             .settings-dropdown.open {
@@ -368,7 +386,7 @@
             .sd-avatar-overlay {
                 position: absolute;
                 inset: 0;
-                background: rgba(0,0,0,.55);
+                background: rgba(0, 0, 0, .55);
                 border-radius: 14px;
                 display: flex;
                 align-items: center;
@@ -378,8 +396,13 @@
                 transition: opacity .2s;
             }
 
-            .sd-avatar-wrap:hover .sd-avatar-overlay { opacity: 1; }
-            .sd-avatar-wrap:hover .sd-avatar { filter: brightness(.7); }
+            .sd-avatar-wrap:hover .sd-avatar-overlay {
+                opacity: 1;
+            }
+
+            .sd-avatar-wrap:hover .sd-avatar {
+                filter: brightness(.7);
+            }
 
             .sd-avatar-hint {
                 font-size: 0.68rem;
@@ -413,7 +436,9 @@
                 border-bottom: 1px solid #1c1e2b;
             }
 
-            .sd-section:last-child { border-bottom: none; }
+            .sd-section:last-child {
+                border-bottom: none;
+            }
 
             .sd-section-label {
                 font-size: 0.67rem;
@@ -444,7 +469,9 @@
                 transition: border-color .2s;
             }
 
-            .sd-rename-input:focus { border-color: #6c63ff; }
+            .sd-rename-input:focus {
+                border-color: #6c63ff;
+            }
 
             .btn-sd-rename {
                 padding: 7px 12px;
@@ -459,7 +486,9 @@
                 transition: background .2s;
             }
 
-            .btn-sd-rename:hover { background: #5a52e0; }
+            .btn-sd-rename:hover {
+                background: #5a52e0;
+            }
 
             /* members list inside dropdown */
             .sd-members-list {
@@ -470,8 +499,14 @@
                 overflow-y: auto;
             }
 
-            .sd-members-list::-webkit-scrollbar { width: 3px; }
-            .sd-members-list::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+            .sd-members-list::-webkit-scrollbar {
+                width: 3px;
+            }
+
+            .sd-members-list::-webkit-scrollbar-thumb {
+                background: #2a2d3e;
+                border-radius: 3px;
+            }
 
             .sd-member-row {
                 display: flex;
@@ -481,7 +516,9 @@
                 border-radius: 8px;
             }
 
-            .sd-member-row:hover { background: #1e2030; }
+            .sd-member-row:hover {
+                background: #1e2030;
+            }
 
             .sd-member-avatar {
                 width: 28px;
@@ -498,17 +535,30 @@
                 flex-shrink: 0;
             }
 
-            .sd-member-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+            .sd-member-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 50%;
+            }
 
-            .sd-member-name { font-size: 0.8rem; color: #d1cfe8; flex: 1; }
-            .sd-member-you { font-size: 0.68rem; color: #6b7280; }
+            .sd-member-name {
+                font-size: 0.8rem;
+                color: #d1cfe8;
+                flex: 1;
+            }
+
+            .sd-member-you {
+                font-size: 0.68rem;
+                color: #6b7280;
+            }
 
             /* delete group inside dropdown */
             .btn-sd-delete {
                 width: 100%;
                 padding: 9px;
-                background: rgba(239,68,68,.08);
-                border: 1px solid rgba(239,68,68,.2);
+                background: rgba(239, 68, 68, .08);
+                border: 1px solid rgba(239, 68, 68, .2);
                 border-radius: 9px;
                 color: #f87171;
                 font-size: 0.82rem;
@@ -522,8 +572,8 @@
             }
 
             .btn-sd-delete:hover {
-                background: rgba(239,68,68,.18);
-                border-color: rgba(239,68,68,.4);
+                background: rgba(239, 68, 68, .18);
+                border-color: rgba(239, 68, 68, .4);
             }
 
             /* ══════════════════════════════════════════
@@ -538,8 +588,14 @@
                 gap: 14px;
             }
 
-            .sg-messages::-webkit-scrollbar { width: 4px; }
-            .sg-messages::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 4px; }
+            .sg-messages::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            .sg-messages::-webkit-scrollbar-thumb {
+                background: #2a2d3e;
+                border-radius: 4px;
+            }
 
             .date-sep {
                 text-align: center;
@@ -549,7 +605,8 @@
                 margin: 4px 0;
             }
 
-            .date-sep::before, .date-sep::after {
+            .date-sep::before,
+            .date-sep::after {
                 content: '';
                 position: absolute;
                 top: 50%;
@@ -558,8 +615,13 @@
                 background: #252830;
             }
 
-            .date-sep::before { left: 0; }
-            .date-sep::after { right: 0; }
+            .date-sep::before {
+                left: 0;
+            }
+
+            .date-sep::after {
+                right: 0;
+            }
 
             .msg-row {
                 display: flex;
@@ -567,7 +629,9 @@
                 align-items: flex-end;
             }
 
-            .msg-row.own { flex-direction: row-reverse; }
+            .msg-row.own {
+                flex-direction: row-reverse;
+            }
 
             .msg-avatar {
                 width: 32px;
@@ -584,9 +648,16 @@
                 overflow: hidden;
             }
 
-            .msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+            .msg-avatar img {
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                object-fit: cover;
+            }
 
-            .msg-body { max-width: 68%; }
+            .msg-body {
+                max-width: 68%;
+            }
 
             .msg-sender {
                 font-size: 0.72rem;
@@ -595,7 +666,10 @@
                 padding-left: 2px;
             }
 
-            .msg-row.own .msg-sender { text-align: right; padding-right: 2px; }
+            .msg-row.own .msg-sender {
+                text-align: right;
+                padding-right: 2px;
+            }
 
             .msg-bubble {
                 background: #1e2030;
@@ -620,7 +694,10 @@
                 padding-left: 2px;
             }
 
-            .msg-row.own .msg-time { text-align: right; padding-right: 2px; }
+            .msg-row.own .msg-time {
+                text-align: right;
+                padding-right: 2px;
+            }
 
             .msg-image {
                 max-width: 220px;
@@ -646,10 +723,25 @@
                 transition: background .15s;
             }
 
-            .msg-file:hover { background: #2e3040; }
-            .msg-file-icon { font-size: 1.2rem; }
-            .msg-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .msg-file-size { color: #4b5563; font-size: 0.72rem; }
+            .msg-file:hover {
+                background: #2e3040;
+            }
+
+            .msg-file-icon {
+                font-size: 1.2rem;
+            }
+
+            .msg-file-name {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .msg-file-size {
+                color: #4b5563;
+                font-size: 0.72rem;
+            }
 
             /* ══════════════════════════════════════════
             INPUT AREA
@@ -685,7 +777,9 @@
                 overflow-y: auto;
             }
 
-            .sg-input-toolbar textarea::placeholder { color: #4b5563; }
+            .sg-input-toolbar textarea::placeholder {
+                color: #4b5563;
+            }
 
             .sg-attach-btn {
                 width: 32px;
@@ -702,7 +796,10 @@
                 transition: color .15s, background .15s;
             }
 
-            .sg-attach-btn:hover { color: #a78bfa; background: #1e2030; }
+            .sg-attach-btn:hover {
+                color: #a78bfa;
+                background: #1e2030;
+            }
 
             .sg-send-btn {
                 width: 34px;
@@ -720,8 +817,16 @@
                 flex-shrink: 0;
             }
 
-            .sg-send-btn:hover { background: #5a52e0; transform: scale(1.05); }
-            .sg-send-btn:disabled { background: #2a2d3e; cursor: not-allowed; transform: none; }
+            .sg-send-btn:hover {
+                background: #5a52e0;
+                transform: scale(1.05);
+            }
+
+            .sg-send-btn:disabled {
+                background: #2a2d3e;
+                cursor: not-allowed;
+                transform: none;
+            }
 
             .sg-upload-preview {
                 display: flex;
@@ -742,10 +847,32 @@
                 max-width: 180px;
             }
 
-            .sg-preview-item img { width: 30px; height: 30px; border-radius: 5px; object-fit: cover; }
-            .sg-preview-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .sg-preview-remove { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 0.9rem; padding: 0; margin-left: 2px; }
-            .sg-preview-remove:hover { color: #ef4444; }
+            .sg-preview-item img {
+                width: 30px;
+                height: 30px;
+                border-radius: 5px;
+                object-fit: cover;
+            }
+
+            .sg-preview-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sg-preview-remove {
+                background: none;
+                border: none;
+                color: #6b7280;
+                cursor: pointer;
+                font-size: 0.9rem;
+                padding: 0;
+                margin-left: 2px;
+            }
+
+            .sg-preview-remove:hover {
+                color: #ef4444;
+            }
 
             /* ══════════════════════════════════════════
             CREATE GROUP MODAL
@@ -753,7 +880,7 @@
             .sg-modal-backdrop {
                 position: fixed;
                 inset: 0;
-                background: rgba(0,0,0,.65);
+                background: rgba(0, 0, 0, .65);
                 backdrop-filter: blur(4px);
                 z-index: 100;
                 display: none;
@@ -761,7 +888,9 @@
                 justify-content: center;
             }
 
-            .sg-modal-backdrop.open { display: flex; }
+            .sg-modal-backdrop.open {
+                display: flex;
+            }
 
             .sg-modal {
                 background: #161820;
@@ -770,7 +899,7 @@
                 padding: 28px 26px;
                 width: 460px;
                 max-width: 95vw;
-                box-shadow: 0 24px 60px rgba(0,0,0,.5);
+                box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
             }
 
             .sg-modal h3 {
@@ -805,9 +934,13 @@
                 transition: border-color .2s;
             }
 
-            .sg-modal input[type="text"]:focus { border-color: #6c63ff; }
+            .sg-modal input[type="text"]:focus {
+                border-color: #6c63ff;
+            }
 
-            .sg-field { margin-bottom: 18px; }
+            .sg-field {
+                margin-bottom: 18px;
+            }
 
             /* privacy toggle */
             .privacy-toggle-wrap {
@@ -832,23 +965,31 @@
                 user-select: none;
             }
 
-            .privacy-opt:hover { border-color: #4b5563; color: #9ca3af; background: #1a1c25; }
+            .privacy-opt:hover {
+                border-color: #4b5563;
+                color: #9ca3af;
+                background: #1a1c25;
+            }
 
             .privacy-opt.selected-public {
-                border-color: rgba(34,197,94,.4);
-                background: rgba(34,197,94,.06);
+                border-color: rgba(34, 197, 94, .4);
+                background: rgba(34, 197, 94, .06);
                 color: #4ade80;
             }
 
             .privacy-opt.selected-private {
-                border-color: rgba(251,191,36,.35);
-                background: rgba(251,191,36,.06);
+                border-color: rgba(251, 191, 36, .35);
+                background: rgba(251, 191, 36, .06);
                 color: #fbbf24;
             }
 
-            .privacy-opt input[type="radio"] { display: none; }
+            .privacy-opt input[type="radio"] {
+                display: none;
+            }
 
-            .privacy-opt-icon { font-size: 1rem; }
+            .privacy-opt-icon {
+                font-size: 1rem;
+            }
 
             /* friend list in modal */
             .friend-list {
@@ -859,8 +1000,14 @@
                 overflow-y: auto;
             }
 
-            .friend-list::-webkit-scrollbar { width: 3px; }
-            .friend-list::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+            .friend-list::-webkit-scrollbar {
+                width: 3px;
+            }
+
+            .friend-list::-webkit-scrollbar-thumb {
+                background: #2a2d3e;
+                border-radius: 3px;
+            }
 
             .friend-item {
                 display: flex;
@@ -873,8 +1020,15 @@
                 user-select: none;
             }
 
-            .friend-item:hover { background: #1e2030; }
-            .friend-item input[type="checkbox"] { accent-color: #6c63ff; width: 15px; height: 15px; }
+            .friend-item:hover {
+                background: #1e2030;
+            }
+
+            .friend-item input[type="checkbox"] {
+                accent-color: #6c63ff;
+                width: 15px;
+                height: 15px;
+            }
 
             .friend-avatar {
                 width: 34px;
@@ -891,9 +1045,21 @@
                 flex-shrink: 0;
             }
 
-            .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
-            .friend-name { font-size: 0.87rem; color: #e8e6e1; }
-            .friend-username { font-size: 0.74rem; color: #6b7280; }
+            .friend-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .friend-name {
+                font-size: 0.87rem;
+                color: #e8e6e1;
+            }
+
+            .friend-username {
+                font-size: 0.74rem;
+                color: #6b7280;
+            }
 
             .sg-modal-actions {
                 display: flex;
@@ -913,7 +1079,9 @@
                 transition: background .15s;
             }
 
-            .btn-cancel:hover { background: #1e2030; }
+            .btn-cancel:hover {
+                background: #1e2030;
+            }
 
             .btn-create {
                 padding: 9px 22px;
@@ -927,7 +1095,9 @@
                 transition: background .2s;
             }
 
-            .btn-create:hover { background: #5a52e0; }
+            .btn-create:hover {
+                background: #5a52e0;
+            }
 
             /* ══════════════════════════════════════════
             LIGHTBOX
@@ -935,15 +1105,22 @@
             .lightbox {
                 position: fixed;
                 inset: 0;
-                background: rgba(0,0,0,.88);
+                background: rgba(0, 0, 0, .88);
                 z-index: 200;
                 display: none;
                 align-items: center;
                 justify-content: center;
             }
 
-            .lightbox.open { display: flex; }
-            .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+            .lightbox.open {
+                display: flex;
+            }
+
+            .lightbox img {
+                max-width: 90vw;
+                max-height: 90vh;
+                border-radius: 10px;
+            }
 
             .lightbox-close {
                 position: absolute;
@@ -969,7 +1146,7 @@
             .members-modal-backdrop {
                 position: fixed;
                 inset: 0;
-                background: rgba(0,0,0,.65);
+                background: rgba(0, 0, 0, .65);
                 backdrop-filter: blur(4px);
                 z-index: 150;
                 display: none;
@@ -977,7 +1154,9 @@
                 justify-content: center;
             }
 
-            .members-modal-backdrop.open { display: flex; }
+            .members-modal-backdrop.open {
+                display: flex;
+            }
 
             .members-modal {
                 background: #161820;
@@ -986,7 +1165,7 @@
                 padding: 24px 22px;
                 width: 380px;
                 max-width: 95vw;
-                box-shadow: 0 24px 60px rgba(0,0,0,.5);
+                box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
             }
 
             .members-modal-header {
@@ -1013,7 +1192,9 @@
                 transition: color .15s;
             }
 
-            .btn-close-modal:hover { color: #e8e6e1; }
+            .btn-close-modal:hover {
+                color: #e8e6e1;
+            }
 
             .members-full-list {
                 display: flex;
@@ -1023,8 +1204,14 @@
                 overflow-y: auto;
             }
 
-            .members-full-list::-webkit-scrollbar { width: 3px; }
-            .members-full-list::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+            .members-full-list::-webkit-scrollbar {
+                width: 3px;
+            }
+
+            .members-full-list::-webkit-scrollbar-thumb {
+                background: #2a2d3e;
+                border-radius: 3px;
+            }
 
             .member-full-row {
                 display: flex;
@@ -1035,7 +1222,9 @@
                 transition: background .15s;
             }
 
-            .member-full-row:hover { background: #1e2030; }
+            .member-full-row:hover {
+                background: #1e2030;
+            }
 
             .member-full-avatar {
                 width: 38px;
@@ -1052,9 +1241,24 @@
                 flex-shrink: 0;
             }
 
-            .member-full-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-            .member-full-name { font-size: 0.87rem; color: #e8e6e1; font-weight: 500; flex: 1; }
-            .member-full-username { font-size: 0.73rem; color: #6b7280; }
+            .member-full-avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 50%;
+            }
+
+            .member-full-name {
+                font-size: 0.87rem;
+                color: #e8e6e1;
+                font-weight: 500;
+                flex: 1;
+            }
+
+            .member-full-username {
+                font-size: 0.73rem;
+                color: #6b7280;
+            }
 
             .member-tag {
                 font-size: 0.65rem;
@@ -1064,15 +1268,15 @@
             }
 
             .member-tag.owner {
-                background: rgba(108,99,255,.15);
+                background: rgba(108, 99, 255, .15);
                 color: #a78bfa;
-                border: 1px solid rgba(108,99,255,.25);
+                border: 1px solid rgba(108, 99, 255, .25);
             }
 
             .member-tag.you {
-                background: rgba(34,197,94,.1);
+                background: rgba(34, 197, 94, .1);
                 color: #4ade80;
-                border: 1px solid rgba(34,197,94,.2);
+                border: 1px solid rgba(34, 197, 94, .2);
             }
 
             /* STUDY GROUP FULL WIDTH FIX - ACCOUNT FOR LEFT SIDEBAR */
@@ -1150,7 +1354,7 @@
                                 data-privacy="{{ $group->is_private ? 'private' : 'public' }}"
                                 onclick="openGroup('{{ $group->id }}', this)">
                                 <div class="sg-group-avatar">
-                                    @if($group->photo)
+                                    @if ($group->photo)
                                         <img src="{{ $group->photo }}" alt="">
                                     @else
                                         {{ strtoupper(substr($group->name, 0, 2)) }}
@@ -1159,7 +1363,8 @@
                                 <div class="sg-group-item-wrap">
                                     <div class="sg-group-name">{{ $group->name }}</div>
                                     <div class="sg-group-meta">
-                                        <span class="sg-group-subject">{{ $group->subject ?? 'General' }} · {{ $group->members_count }} members</span>
+                                        <span class="sg-group-subject">{{ $group->subject ?? 'General' }} ·
+                                            {{ $group->members_count }} members</span>
                                         <span class="privacy-badge {{ $group->is_private ? 'private' : 'public' }}">
                                             {{ $group->is_private ? '🔒 Private' : '🌐 Public' }}
                                         </span>
@@ -1167,7 +1372,8 @@
                                 </div>
                             </div>
                         @empty
-                            <div class="no-msg" style="margin-top:24px;">No groups yet.<br>Hit <strong>+</strong> to create one!</div>
+                            <div class="no-msg" style="margin-top:24px;">No groups yet.<br>Hit <strong>+</strong> to
+                                create one!</div>
                         @endforelse
                     </div>
                 </aside>
@@ -1191,13 +1397,16 @@
 
                         {{-- !! SETTINGS BUTTON + DROPDOWN !! --}}
                         <div class="sg-settings-wrap" id="settingsWrap">
-                            <button class="btn-settings" id="btnSettings" onclick="toggleSettings(event)" title="Group settings">!</button>
+                            <button class="btn-settings" id="btnSettings" onclick="toggleSettings(event)"
+                                title="Group settings">!</button>
 
                             <div class="settings-dropdown" id="settingsDropdown">
 
                                 {{-- Group banner: avatar + name display --}}
                                 <div class="sd-group-banner">
-                                    <div class="sd-avatar-wrap" onclick="document.getElementById('groupPhotoInput').click()" title="Change group photo">
+                                    <div class="sd-avatar-wrap"
+                                        onclick="document.getElementById('groupPhotoInput').click()"
+                                        title="Change group photo">
                                         <div class="sd-avatar" id="sdAvatar"></div>
                                         <div class="sd-avatar-overlay">📷</div>
                                         <input type="file" id="groupPhotoInput" accept="image/*">
@@ -1212,16 +1421,20 @@
                                 <div class="sd-section">
                                     <div class="sd-section-label">Rename Group</div>
                                     <div class="sd-rename-row">
-                                        <input type="text" class="sd-rename-input" id="sdRenameInput" placeholder="New group name…">
+                                        <input type="text" class="sd-rename-input" id="sdRenameInput"
+                                            placeholder="New group name…">
                                         <button class="btn-sd-rename" onclick="renameGroup()">Save</button>
                                     </div>
                                 </div>
 
                                 {{-- Members --}}
                                 <div class="sd-section">
-                                    <div class="sd-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <div class="sd-section-label"
+                                        style="display:flex;align-items:center;justify-content:space-between;">
                                         <span>Members</span>
-                                        <button onclick="openMembersModal()" style="background:none;border:none;color:#6c63ff;font-size:0.72rem;cursor:pointer;font-weight:600;">See all →</button>
+                                        <button onclick="openMembersModal()"
+                                            style="background:none;border:none;color:#6c63ff;font-size:0.72rem;cursor:pointer;font-weight:600;">See
+                                            all →</button>
                                     </div>
                                     <div class="sd-members-list" id="sdMembersList">
                                         <div style="color:#4b5563;font-size:0.78rem;padding:4px 6px;">Loading…</div>
@@ -1240,14 +1453,20 @@
                     </div>
 
                     {{-- VIEW TABS --}}
-                    <div style="display: flex; gap: 0; border-bottom: 1px solid #252830; background: #0f1117; padding: 0;">
-                        <button onclick="switchGroupView('messages')" id="tabMessages" style="flex: 1; padding: 12px; background: #161820; color: #6c63ff; border: none; border-bottom: 2px solid #6c63ff; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: 'DM Sans';">💬 Messages</button>
-                        <button onclick="switchGroupView('calendars')" id="tabCalendars" style="flex: 1; padding: 12px; background: #0f1117; color: #6b7280; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: 'DM Sans';">📅 Shared Calendars</button>
+                    <div
+                        style="display: flex; gap: 0; border-bottom: 1px solid #252830; background: #0f1117; padding: 0;">
+                        <button onclick="switchGroupView('messages')" id="tabMessages"
+                            style="flex: 1; padding: 12px; background: #161820; color: #6c63ff; border: none; border-bottom: 2px solid #6c63ff; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: 'DM Sans';">💬
+                            Messages</button>
+                        <button onclick="switchGroupView('calendars')" id="tabCalendars"
+                            style="flex: 1; padding: 12px; background: #0f1117; color: #6b7280; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: 'DM Sans';">📅
+                            Shared Calendars</button>
                     </div>
 
                     <div class="sg-messages" id="messagesBox" style="display:none;"></div>
 
-                    <div id="calendarsBox" style="display: none; flex: 1; overflow-y: auto; padding: 20px; background: #0f1117;">
+                    <div id="calendarsBox"
+                        style="display: none; flex: 1; overflow-y: auto; padding: 20px; background: #0f1117;">
                         <div style="text-align: center; color: #6b7280; padding: 40px 20px;">
                             <div style="font-size: 2rem; margin-bottom: 10px;">📅</div>
                             <p>Loading shared calendars…</p>
@@ -1258,9 +1477,11 @@
                         <div id="uploadPreview" class="sg-upload-preview"></div>
                         <div class="sg-input-toolbar">
                             <input type="file" id="imageInput" accept="image/*" multiple style="display:none">
-                            <button class="sg-attach-btn" onclick="document.getElementById('imageInput').click()" title="Send image">🖼️</button>
+                            <button class="sg-attach-btn" onclick="document.getElementById('imageInput').click()"
+                                title="Send image">🖼️</button>
                             <input type="file" id="fileInput" multiple style="display:none">
-                            <button class="sg-attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach file">📎</button>
+                            <button class="sg-attach-btn" onclick="document.getElementById('fileInput').click()"
+                                title="Attach file">📎</button>
                             <textarea id="msgInput" rows="1" placeholder="Message…" onkeydown="handleEnter(event)"></textarea>
                             <button class="sg-send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
                         </div>
@@ -1299,7 +1520,8 @@
                         </label>
                     </div>
                     <div style="font-size: 0.75rem; color: #6b7280; margin-top: 6px;">
-                        <div id="publicDesc" style="display: block;">🌐 Anyone can discover and request to join this group</div>
+                        <div id="publicDesc" style="display: block;">🌐 Anyone can discover and request to join this
+                            group</div>
                         <div id="privateDesc" style="display: none;">🔒 Only invited members can join this group</div>
                     </div>
                 </div>
@@ -1356,14 +1578,14 @@
 
         <script>
             const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-            const ME   = @json(session('user_id'));
+            const ME = @json(session('user_id'));
 
-            let activeGroupId   = null;
+            let activeGroupId = null;
             let activeGroupData = {}; // { name, subject, privacy, photo }
-            let pollInterval    = null;
-            let pendingFiles    = [];
-            let lastMsgCount    = 0;
-            let settingsOpen    = false;
+            let pollInterval = null;
+            let pendingFiles = [];
+            let lastMsgCount = 0;
+            let settingsOpen = false;
 
             // ══════════════════════════════════════════
             // OPEN GROUP
@@ -1371,39 +1593,45 @@
             function openGroup(groupId, el) {
                 document.querySelectorAll('.sg-group-item').forEach(i => i.classList.remove('active'));
                 el.classList.add('active');
-                activeGroupId  = groupId;
-                lastMsgCount   = 0;
-                settingsOpen   = false;
+                activeGroupId = groupId;
+                lastMsgCount = 0;
+                settingsOpen = false;
                 document.getElementById('settingsDropdown').classList.remove('open');
                 document.getElementById('btnSettings').classList.remove('active');
 
-                const name    = el.querySelector('.sg-group-name').textContent.trim();
+                const name = el.querySelector('.sg-group-name').textContent.trim();
                 const subject = el.querySelector('.sg-group-subject').textContent.trim();
                 const privacy = el.dataset.privacy || 'public';
                 const avatarEl = el.querySelector('.sg-group-avatar img');
-                const photo   = avatarEl ? avatarEl.src : null;
+                const photo = avatarEl ? avatarEl.src : null;
 
-                activeGroupData = { name, subject, privacy, photo };
+                activeGroupData = {
+                    name,
+                    subject,
+                    privacy,
+                    photo
+                };
 
                 // show panels
-                document.getElementById('chatEmpty').style.display   = 'none';
-                document.getElementById('chatHeader').style.display  = 'flex';
+                document.getElementById('chatEmpty').style.display = 'none';
+                document.getElementById('chatHeader').style.display = 'flex';
                 document.getElementById('messagesBox').style.display = 'flex';
-                document.getElementById('inputArea').style.display   = 'block';
+                document.getElementById('inputArea').style.display = 'block';
 
                 // header avatar
                 const hAvatar = document.getElementById('chatAvatar');
                 if (photo) {
-                    hAvatar.innerHTML = `<img src="${escHtml(photo)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+                    hAvatar.innerHTML =
+                        `<img src="${escHtml(photo)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
                 } else {
                     hAvatar.textContent = name.substring(0, 2).toUpperCase();
                     hAvatar.style.background = 'linear-gradient(135deg,#6c63ff,#a78bfa)';
                 }
 
                 // header name + badge
-                const privBadge = privacy === 'private'
-                    ? `<span class="header-privacy-badge private">🔒 Private</span>`
-                    : `<span class="header-privacy-badge public">🌐 Public</span>`;
+                const privBadge = privacy === 'private' ?
+                    `<span class="header-privacy-badge private">🔒 Private</span>` :
+                    `<span class="header-privacy-badge public">🌐 Public</span>`;
                 document.getElementById('chatGroupName').innerHTML = escHtml(name) + ' ' + privBadge;
                 document.getElementById('chatGroupMembers').textContent = subject;
 
@@ -1417,10 +1645,14 @@
 
             // Sync dropdown state to active group
             function syncSettingsDropdown() {
-                const { name, subject, photo } = activeGroupData;
+                const {
+                    name,
+                    subject,
+                    photo
+                } = activeGroupData;
                 document.getElementById('sdGroupName').textContent = name || '—';
-                document.getElementById('sdGroupSub').textContent  = subject || '—';
-                document.getElementById('sdRenameInput').value     = name || '';
+                document.getElementById('sdGroupSub').textContent = subject || '—';
+                document.getElementById('sdRenameInput').value = name || '';
 
                 const sdAvatar = document.getElementById('sdAvatar');
                 if (photo) {
@@ -1472,11 +1704,13 @@
                         console.log('Members data received:', data);
                         const members = data.members || [];
                         if (!members.length) {
-                            list.innerHTML = '<div style="color:#4b5563;font-size:0.78rem;padding:8px 6px;">No members found.</div>';
+                            list.innerHTML =
+                                '<div style="color:#4b5563;font-size:0.78rem;padding:8px 6px;">No members found.</div>';
                             return;
                         }
                         // show all members in table format
-                        let html = '<div style="display: flex; flex-direction: column; gap: 0; max-height: 300px; overflow-y: auto;">';
+                        let html =
+                            '<div style="display: flex; flex-direction: column; gap: 0; max-height: 300px; overflow-y: auto;">';
                         members.forEach(m => {
                             html += memberRowHtml(m, 'table');
                         });
@@ -1485,19 +1719,20 @@
                     })
                     .catch(err => {
                         console.error('Failed to load members:', err);
-                        list.innerHTML = `<div style="color:#f87171;font-size:0.78rem;padding:8px 6px;">Error: ${err.message}</div>`;
+                        list.innerHTML =
+                            `<div style="color:#f87171;font-size:0.78rem;padding:8px 6px;">Error: ${err.message}</div>`;
                     });
             }
 
             function memberRowHtml(m, type) {
-                const isMe   = ME && String(m.id) === String(ME);
+                const isMe = ME && String(m.id) === String(ME);
                 const initials = (m.first_name || m.name || '?').charAt(0).toUpperCase();
-                const avatar = m.photo
-                    ? `<img src="${escHtml(m.photo)}" alt="">`
-                    : initials;
+                const avatar = m.photo ?
+                    `<img src="${escHtml(m.photo)}" alt="">` :
+                    initials;
                 const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.name || 'Member';
-                const tag  = isMe ? `<span class="member-tag you">You</span>` :
-                            m.is_owner ? `<span class="member-tag owner">Owner</span>` : '';
+                const tag = isMe ? `<span class="member-tag you">You</span>` :
+                    m.is_owner ? `<span class="member-tag owner">Owner</span>` : '';
 
                 if (type === 'table') {
                     return `<div style="display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid #252830; font-size: 0.78rem;">
@@ -1554,14 +1789,16 @@
                         console.log('Full members data received:', data);
                         const members = data.members || [];
                         if (!members.length) {
-                            full.innerHTML = '<div style="color:#4b5563;font-size:0.83rem;text-align:center;padding:16px;">No members.</div>';
+                            full.innerHTML =
+                                '<div style="color:#4b5563;font-size:0.83rem;text-align:center;padding:16px;">No members.</div>';
                             return;
                         }
                         full.innerHTML = members.map(m => memberRowHtml(m, 'full')).join('');
                     })
                     .catch(err => {
                         console.error('Failed to load members modal:', err);
-                        full.innerHTML = `<div style="color:#f87171;font-size:0.83rem;text-align:center;padding:16px;">Failed to load members: ${err.message}</div>`;
+                        full.innerHTML =
+                            `<div style="color:#f87171;font-size:0.83rem;text-align:center;padding:16px;">Failed to load members: ${err.message}</div>`;
                     });
             }
 
@@ -1579,41 +1816,50 @@
             function renameGroup() {
                 if (!activeGroupId) return;
                 const newName = document.getElementById('sdRenameInput').value.trim();
-                if (!newName) { alert('Please enter a group name.'); return; }
+                if (!newName) {
+                    alert('Please enter a group name.');
+                    return;
+                }
 
                 fetch(`/study-groups/${activeGroupId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                    body: JSON.stringify({ name: newName })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success || data.group) {
-                        activeGroupData.name = newName;
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': CSRF
+                        },
+                        body: JSON.stringify({
+                            name: newName
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success || data.group) {
+                            activeGroupData.name = newName;
 
-                        // update sidebar item
-                        const el = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-name`);
-                        if (el) el.textContent = newName;
+                            // update sidebar item
+                            const el = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-name`);
+                            if (el) el.textContent = newName;
 
-                        // update header
-                        const privacy = activeGroupData.privacy === 'private'
-                            ? `<span class="header-privacy-badge private">🔒 Private</span>`
-                            : `<span class="header-privacy-badge public">🌐 Public</span>`;
-                        document.getElementById('chatGroupName').innerHTML = escHtml(newName) + ' ' + privacy;
+                            // update header
+                            const privacy = activeGroupData.privacy === 'private' ?
+                                `<span class="header-privacy-badge private">🔒 Private</span>` :
+                                `<span class="header-privacy-badge public">🌐 Public</span>`;
+                            document.getElementById('chatGroupName').innerHTML = escHtml(newName) + ' ' + privacy;
 
-                        // update dropdown
-                        document.getElementById('sdGroupName').textContent = newName;
+                            // update dropdown
+                            document.getElementById('sdGroupName').textContent = newName;
 
-                        // update sidebar avatar initials (if no photo)
-                        const sideEl = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-avatar`);
-                        if (sideEl && !sideEl.querySelector('img')) sideEl.textContent = newName.substring(0, 2).toUpperCase();
+                            // update sidebar avatar initials (if no photo)
+                            const sideEl = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-avatar`);
+                            if (sideEl && !sideEl.querySelector('img')) sideEl.textContent = newName.substring(0, 2)
+                                .toUpperCase();
 
-                        alert('Group renamed successfully!');
-                    } else {
-                        alert(data.error || 'Failed to rename group.');
-                    }
-                })
-                .catch(() => alert('Failed to rename group.'));
+                            alert('Group renamed successfully!');
+                        } else {
+                            alert(data.error || 'Failed to rename group.');
+                        }
+                    })
+                    .catch(() => alert('Failed to rename group.'));
             }
 
             // ══════════════════════════════════════════
@@ -1627,31 +1873,33 @@
                 form.append('photo', file);
 
                 fetch(`/study-groups/${activeGroupId}/photo`, {
-                    method: 'POST',
-                    body: form
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.photo_url) {
-                        const url = data.photo_url;
-                        activeGroupData.photo = url;
+                        method: 'POST',
+                        body: form
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.photo_url) {
+                            const url = data.photo_url;
+                            activeGroupData.photo = url;
 
-                        // update dropdown avatar
-                        const sdAvatar = document.getElementById('sdAvatar');
-                        sdAvatar.innerHTML = `<img src="${escHtml(url)}" alt="">`;
+                            // update dropdown avatar
+                            const sdAvatar = document.getElementById('sdAvatar');
+                            sdAvatar.innerHTML = `<img src="${escHtml(url)}" alt="">`;
 
-                        // update chat header avatar
-                        const hAvatar = document.getElementById('chatAvatar');
-                        hAvatar.innerHTML = `<img src="${escHtml(url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+                            // update chat header avatar
+                            const hAvatar = document.getElementById('chatAvatar');
+                            hAvatar.innerHTML =
+                                `<img src="${escHtml(url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
 
-                        // update sidebar avatar
-                        const sideAvatar = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-avatar`);
-                        if (sideAvatar) sideAvatar.innerHTML = `<img src="${escHtml(url)}" alt="">`;
-                    } else {
-                        alert(data.error || 'Failed to update photo.');
-                    }
-                })
-                .catch(() => alert('Failed to upload photo.'));
+                            // update sidebar avatar
+                            const sideAvatar = document.querySelector(
+                                `[data-group-id="${activeGroupId}"] .sg-group-avatar`);
+                            if (sideAvatar) sideAvatar.innerHTML = `<img src="${escHtml(url)}" alt="">`;
+                        } else {
+                            alert(data.error || 'Failed to update photo.');
+                        }
+                    })
+                    .catch(() => alert('Failed to upload photo.'));
 
                 this.value = '';
             });
@@ -1684,20 +1932,26 @@
                 let lastDate = '';
 
                 messages.forEach(m => {
-                    const d    = new Date(m.created_at);
-                    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const d = new Date(m.created_at);
+                    const date = d.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                    });
                     if (date !== lastDate) {
                         html += `<div class="date-sep">${date}</div>`;
                         lastDate = date;
                     }
 
-                    const isOwn   = ME && String(m.user_id) === String(ME);
+                    const isOwn = ME && String(m.user_id) === String(ME);
                     const initials = (m.sender_first || '?').charAt(0).toUpperCase();
-                    const name     = isOwn ? 'You' : `${m.sender_first || ''} ${m.sender_last || ''}`.trim();
-                    const time     = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                    const avatar   = m.sender_photo
-                        ? `<img src="${escHtml(m.sender_photo)}" alt="">`
-                        : initials;
+                    const name = isOwn ? 'You' : `${m.sender_first || ''} ${m.sender_last || ''}`.trim();
+                    const time = d.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const avatar = m.sender_photo ?
+                        `<img src="${escHtml(m.sender_photo)}" alt="">` :
+                        initials;
 
                     let content = '';
 
@@ -1733,10 +1987,11 @@
 
                     (m.attachments || []).forEach(a => {
                         if (a.type === 'image') {
-                            content += `<img class="msg-image" src="${escHtml(a.url)}" alt="${escHtml(a.name)}" onclick="openLightbox('${escHtml(a.url)}')">`;
+                            content +=
+                                `<img class="msg-image" src="${escHtml(a.url)}" alt="${escHtml(a.name)}" onclick="openLightbox('${escHtml(a.url)}')">`;
                         } else {
                             const ext = a.name.split('.').pop().toUpperCase();
-                            const sz  = a.size ? formatBytes(a.size) : '';
+                            const sz = a.size ? formatBytes(a.size) : '';
                             content += `<a class="msg-file" href="${escHtml(a.url)}" target="_blank" download>
                                 <span class="msg-file-icon">${fileIcon(ext)}</span>
                                 <span class="msg-file-name">${escHtml(a.name)}</span>
@@ -1781,32 +2036,34 @@
                 console.log('Files count:', pendingFiles.length);
 
                 fetch(`/study-groups/${activeGroupId}/messages`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(r => {
-                    console.log('Response status:', r.status, r.statusText);
-                    if (!r.ok) {
-                        return r.json().then(data => {
-                            throw new Error(`HTTP ${r.status}: ${data.error || data.message || r.statusText}`);
-                        }).catch(() => {
-                            throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-                        });
-                    }
-                    return r.json();
-                })
-                .then(data => {
-                    console.log('Message sent successfully:', data);
-                    document.getElementById('msgInput').value = '';
-                    pendingFiles = [];
-                    document.getElementById('uploadPreview').innerHTML = '';
-                    loadMessages(true);
-                })
-                .catch(err => {
-                    console.error('Failed to send message:', err);
-                    alert(`Failed to send message:\n${err.message}`);
-                })
-                .finally(() => { btn.disabled = false; });
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(r => {
+                        console.log('Response status:', r.status, r.statusText);
+                        if (!r.ok) {
+                            return r.json().then(data => {
+                                throw new Error(`HTTP ${r.status}: ${data.error || data.message || r.statusText}`);
+                            }).catch(() => {
+                                throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                            });
+                        }
+                        return r.json();
+                    })
+                    .then(data => {
+                        console.log('Message sent successfully:', data);
+                        document.getElementById('msgInput').value = '';
+                        pendingFiles = [];
+                        document.getElementById('uploadPreview').innerHTML = '';
+                        loadMessages(true);
+                    })
+                    .catch(err => {
+                        console.error('Failed to send message:', err);
+                        alert(`Failed to send message:\n${err.message}`);
+                    })
+                    .finally(() => {
+                        btn.disabled = false;
+                    });
             }
 
             function handleEnter(e) {
@@ -1820,26 +2077,34 @@
             // FILE PICKERS
             // ══════════════════════════════════════════
             document.getElementById('imageInput').addEventListener('change', function() {
-                addFiles(this.files, 'image'); this.value = '';
+                addFiles(this.files, 'image');
+                this.value = '';
             });
             document.getElementById('fileInput').addEventListener('change', function() {
-                addFiles(this.files, 'file'); this.value = '';
+                addFiles(this.files, 'file');
+                this.value = '';
             });
 
             function addFiles(fileList, type) {
                 Array.from(fileList).forEach(f => {
                     const id = Math.random().toString(36).slice(2);
-                    const pf = { file: f, type, id };
+                    const pf = {
+                        file: f,
+                        type,
+                        id
+                    };
                     if (type === 'image') pf.previewUrl = URL.createObjectURL(f);
                     pendingFiles.push(pf);
                     const div = document.createElement('div');
                     div.className = 'sg-preview-item';
                     div.id = 'prev_' + id;
                     if (type === 'image') {
-                        div.innerHTML = `<img src="${pf.previewUrl}" alt=""><span class="sg-preview-name">${escHtml(f.name)}</span><button class="sg-preview-remove" onclick="removeFile('${id}')">✕</button>`;
+                        div.innerHTML =
+                            `<img src="${pf.previewUrl}" alt=""><span class="sg-preview-name">${escHtml(f.name)}</span><button class="sg-preview-remove" onclick="removeFile('${id}')">✕</button>`;
                     } else {
                         const ext = f.name.split('.').pop().toUpperCase();
-                        div.innerHTML = `<span>${fileIcon(ext)}</span><span class="sg-preview-name">${escHtml(f.name)}</span><button class="sg-preview-remove" onclick="removeFile('${id}')">✕</button>`;
+                        div.innerHTML =
+                            `<span>${fileIcon(ext)}</span><span class="sg-preview-name">${escHtml(f.name)}</span><button class="sg-preview-remove" onclick="removeFile('${id}')">✕</button>`;
                     }
                     document.getElementById('uploadPreview').appendChild(div);
                 });
@@ -1855,14 +2120,14 @@
             // CREATE GROUP MODAL
             // ══════════════════════════════════════════
             document.getElementById('btnOpenModal').onclick = () => {
-                document.getElementById('groupNameInput').value    = '';
+                document.getElementById('groupNameInput').value = '';
                 document.getElementById('groupSubjectInput').value = '';
                 document.querySelectorAll('#friendList input[type="checkbox"]').forEach(c => c.checked = false);
                 // reset privacy to public
                 document.getElementById('radioPublic').checked = true;
                 document.getElementById('optPublic').classList.add('selected-public');
                 document.getElementById('optPublic').classList.remove('selected-private');
-                document.getElementById('optPrivate').classList.remove('selected-public','selected-private');
+                document.getElementById('optPrivate').classList.remove('selected-public', 'selected-private');
                 // Hide friends field for public (default)
                 document.getElementById('friendsField').style.display = 'none';
                 document.getElementById('publicDesc').style.display = 'block';
@@ -1875,8 +2140,10 @@
             // Privacy toggle styling and friends field visibility
             document.querySelectorAll('input[name="groupPrivacy"]').forEach(radio => {
                 radio.addEventListener('change', function() {
-                    document.getElementById('optPublic').classList.remove('selected-public','selected-private');
-                    document.getElementById('optPrivate').classList.remove('selected-public','selected-private');
+                    document.getElementById('optPublic').classList.remove('selected-public',
+                        'selected-private');
+                    document.getElementById('optPrivate').classList.remove('selected-public',
+                        'selected-private');
 
                     const isPrivate = this.value === '1';
 
@@ -1907,9 +2174,9 @@
                             return;
                         }
                         friendListDiv.innerHTML = data.friends.map(f => {
-                            const photoHtml = f.photo
-                                ? `<img src="${escHtml(f.photo)}" alt="">`
-                                : f.initials;
+                            const photoHtml = f.photo ?
+                                `<img src="${escHtml(f.photo)}" alt="">` :
+                                f.initials;
                             return `<label class="friend-item" for="friend_${f.id}">
                                 <input type="checkbox" id="friend_${f.id}" value="${f.id}">
                                 <div class="friend-avatar">${photoHtml}</div>
@@ -1934,10 +2201,13 @@
             });
 
             function createGroup() {
-                const name      = document.getElementById('groupNameInput').value.trim();
-                const subject   = document.getElementById('groupSubjectInput').value.trim();
+                const name = document.getElementById('groupNameInput').value.trim();
+                const subject = document.getElementById('groupSubjectInput').value.trim();
                 const isPrivate = document.querySelector('input[name="groupPrivacy"]:checked').value;
-                if (!name) { alert('Please enter a group name.'); return; }
+                if (!name) {
+                    alert('Please enter a group name.');
+                    return;
+                }
 
                 // Only collect members for private groups
                 const members = isPrivate === '1' ? Array.from(
@@ -1945,28 +2215,36 @@
                 ).map(c => c.value) : [];
 
                 fetch('/study-groups', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                    body: JSON.stringify({ name, subject, members, is_private: isPrivate })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.group) {
-                        closeModal();
-                        const noMsg = document.querySelector('#groupList .no-msg');
-                        if (noMsg) noMsg.remove();
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': CSRF
+                        },
+                        body: JSON.stringify({
+                            name,
+                            subject,
+                            members,
+                            is_private: isPrivate
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.group) {
+                            closeModal();
+                            const noMsg = document.querySelector('#groupList .no-msg');
+                            if (noMsg) noMsg.remove();
 
-                        const privacy  = isPrivate === '1' ? 'private' : 'public';
-                        const badgeHtml = privacy === 'private'
-                            ? `<span class="privacy-badge private">🔒 Private</span>`
-                            : `<span class="privacy-badge public">🌐 Public</span>`;
+                            const privacy = isPrivate === '1' ? 'private' : 'public';
+                            const badgeHtml = privacy === 'private' ?
+                                `<span class="privacy-badge private">🔒 Private</span>` :
+                                `<span class="privacy-badge public">🌐 Public</span>`;
 
-                        const div = document.createElement('div');
-                        div.className       = 'sg-group-item';
-                        div.dataset.groupId = data.group.id;
-                        div.dataset.privacy = privacy;
-                        div.setAttribute('onclick', `openGroup('${data.group.id}', this)`);
-                        div.innerHTML = `
+                            const div = document.createElement('div');
+                            div.className = 'sg-group-item';
+                            div.dataset.groupId = data.group.id;
+                            div.dataset.privacy = privacy;
+                            div.setAttribute('onclick', `openGroup('${data.group.id}', this)`);
+                            div.innerHTML = `
                             <div class="sg-group-avatar">${data.group.name.substring(0,2).toUpperCase()}</div>
                             <div class="sg-group-item-wrap">
                                 <div class="sg-group-name">${escHtml(data.group.name)}</div>
@@ -1975,13 +2253,13 @@
                                     ${badgeHtml}
                                 </div>
                             </div>`;
-                        document.getElementById('groupList').prepend(div);
-                        openGroup(data.group.id, div);
-                    } else {
-                        alert(data.error || 'Failed to create group.');
-                    }
-                })
-                .catch(() => alert('Failed to create group.'));
+                            document.getElementById('groupList').prepend(div);
+                            openGroup(data.group.id, div);
+                        } else {
+                            alert(data.error || 'Failed to create group.');
+                        }
+                    })
+                    .catch(() => alert('Failed to create group.'));
             }
 
             // ══════════════════════════════════════════
@@ -1992,36 +2270,38 @@
                 if (!confirm('Are you sure you want to delete this group? This cannot be undone.')) return;
 
                 fetch(`/study-groups/${activeGroupId}`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRF-TOKEN': CSRF }
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        const groupEl = document.querySelector(`[data-group-id="${activeGroupId}"]`);
-                        if (groupEl) groupEl.remove();
-
-                        activeGroupId = null;
-                        clearInterval(pollInterval);
-                        closeSettings();
-
-                        document.getElementById('chatEmpty').style.display   = 'flex';
-                        document.getElementById('chatHeader').style.display  = 'none';
-                        document.getElementById('messagesBox').style.display = 'none';
-                        document.getElementById('inputArea').style.display   = 'none';
-
-                        if (!document.querySelectorAll('.sg-group-item').length) {
-                            const noMsg = document.createElement('div');
-                            noMsg.className      = 'no-msg';
-                            noMsg.style.marginTop = '24px';
-                            noMsg.innerHTML = 'No groups yet. Hit <strong>+</strong> to create one!';
-                            document.getElementById('groupList').appendChild(noMsg);
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': CSRF
                         }
-                    } else {
-                        alert(data.error || 'Failed to delete group.');
-                    }
-                })
-                .catch(() => alert('Failed to delete group.'));
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            const groupEl = document.querySelector(`[data-group-id="${activeGroupId}"]`);
+                            if (groupEl) groupEl.remove();
+
+                            activeGroupId = null;
+                            clearInterval(pollInterval);
+                            closeSettings();
+
+                            document.getElementById('chatEmpty').style.display = 'flex';
+                            document.getElementById('chatHeader').style.display = 'none';
+                            document.getElementById('messagesBox').style.display = 'none';
+                            document.getElementById('inputArea').style.display = 'none';
+
+                            if (!document.querySelectorAll('.sg-group-item').length) {
+                                const noMsg = document.createElement('div');
+                                noMsg.className = 'no-msg';
+                                noMsg.style.marginTop = '24px';
+                                noMsg.innerHTML = 'No groups yet. Hit <strong>+</strong> to create one!';
+                                document.getElementById('groupList').appendChild(noMsg);
+                            }
+                        } else {
+                            alert(data.error || 'Failed to delete group.');
+                        }
+                    })
+                    .catch(() => alert('Failed to delete group.'));
             }
 
             function closeSettings() {
@@ -2046,7 +2326,8 @@
             // HELPERS
             // ══════════════════════════════════════════
             function escHtml(str) {
-                return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g,
+                    '&quot;');
             }
 
             function formatBytes(b) {
@@ -2056,7 +2337,19 @@
             }
 
             function fileIcon(ext) {
-                const m = { PDF:'📄',DOC:'📝',DOCX:'📝',XLS:'📊',XLSX:'📊',PPT:'📑',PPTX:'📑',ZIP:'🗜️',RAR:'🗜️',MP4:'🎥',MP3:'🎵' };
+                const m = {
+                    PDF: '📄',
+                    DOC: '📝',
+                    DOCX: '📝',
+                    XLS: '📊',
+                    XLSX: '📊',
+                    PPT: '📑',
+                    PPTX: '📑',
+                    ZIP: '🗜️',
+                    RAR: '🗜️',
+                    MP4: '🎥',
+                    MP3: '🎵'
+                };
                 return m[ext] || '📁';
             }
 
@@ -2122,13 +2415,13 @@
                                         ${eventCount === 0 ?
                                             `<div style="text-align: center; color: #4b5563; padding: 20px;">No events shared</div>` :
                                             `<div style="display: flex; flex-direction: column; gap: 6px;">
-                                                ${(cal.events || []).map(e => `
+                                                                ${(cal.events || []).map(e => `
                                                     <div style="padding: 8px; background: #161820; border-left: 3px solid #6c63ff; border-radius: 4px;">
                                                         <div style="font-size: 0.9rem; color: #e8e6e1; font-weight: 500;">${e.title}</div>
                                                         <div style="font-size: 0.8rem; color: #6b7280; margin-top: 2px;">${e.event_date} ${e.event_time || ''}</div>
                                                     </div>
                                                 `).join('')}
-                                            </div>`
+                                                            </div>`
                                         }
                                     </div>
                                 </div>
@@ -2156,10 +2449,10 @@
 
         {{-- ── NOTIFICATIONS ── --}}
         <script>
-            const SB_URL  = '{{ config('services.supabase.url') }}';
+            const SB_URL = '{{ config('services.supabase.url') }}';
             const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-            const SB_SVC  = '{{ config('services.supabase.service_key') }}';
-            const UID     = '{{ session('user_id') }}';
+            const SB_SVC = '{{ config('services.supabase.service_key') }}';
+            const UID = '{{ session('user_id') }}';
         </script>
         <script src="{{ asset('js/notifications.js') }}"></script>
         <script>
@@ -2167,4 +2460,5 @@
         </script>
 
     </body>
+
     </html>

@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadViewedUserPosts();
     loadFollowCounts();
     loadFollowState();
+    initNotifications?.();
 
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeFollowModal();

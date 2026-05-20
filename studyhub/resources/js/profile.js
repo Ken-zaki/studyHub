@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderUserUI();
     loadProfilePosts();
     loadFollowCounts();
+    initNotifications?.();
 
     const photoBtn   = document.getElementById('profilePhotoButton');
     const photoInput = document.getElementById('profilePhotoInput');

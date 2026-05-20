@@ -467,8 +467,8 @@
 
     {{-- ── JS files ──────────────────────────────────────────────────── --}}
     <script src="{{ asset('js/studyhub-core.js') }}"></script>
-    <script src="{{ asset('js/tasks.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
+    <script src="{{ asset('js/tasks.js') }}"></script>
 
     {{-- ── Status tab strip sync ─────────────────────────────────────── --}}
     {{--
