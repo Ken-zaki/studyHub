@@ -1,12 +1,12 @@
-
-    (function() {
+(function () {
     'use strict';
+
     const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-    const ME = window.studyGroupData.userId;
+    const ME   = window.studyGroupData.userId;
 
     let activeGroupId   = null;
     let activeGroupData = {};
-    let isGroupAdmin    = false;   // FIX: track admin/owner status for current group
+    let isGroupAdmin    = false;
     let pollInterval    = null;
     let pendingFiles    = [];
     let lastMsgCount    = 0;
@@ -14,9 +14,9 @@
     let currentTab      = 'messages';
 
     // Thread state
-    let activeThreadMsgId   = null;
-    let threadPollInterval  = null;
-    let lastThreadCount     = 0;
+    let activeThreadMsgId  = null;
+    let threadPollInterval = null;
+    let lastThreadCount    = 0;
 
     // Notes state
     let currentNoteId   = null;
@@ -24,27 +24,25 @@
     let notesList       = [];
 
     // Resources state
-    let allResources    = [];
-    let resourceFilter  = 'all';
+    let allResources   = [];
+    let resourceFilter = 'all';
 
     /* ══════════════════════════════════════════
        HELPERS
     ══════════════════════════════════════════ */
     function escHtml(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
     function formatBytes(b) {
         b = parseInt(b, 10) || 0;
         if (b < 1024) return b + ' B';
-        if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
-        return (b/1048576).toFixed(1) + ' MB';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(1) + ' MB';
     }
     function fileIcon(ext) {
-        const m = { PDF:'📄', DOC:'📝', DOCX:'📝', XLS:'📊', XLSX:'📊', PPT:'📑', PPTX:'📑',
-                    ZIP:'🗜️', RAR:'🗜️', MP4:'🎥', MP3:'🎵', PNG:'🖼️', JPG:'🖼️', JPEG:'🖼️', GIF:'🖼️' };
-        return m[(ext||'').toUpperCase()] || '📁';
+        const m = { PDF: '📄', DOC: '📝', DOCX: '📝', XLS: '📊', XLSX: '📊', PPT: '📑', PPTX: '📑', ZIP: '🗜️', RAR: '🗜️', MP4: '🎥', MP3: '🎵', PNG: '🖼️', JPG: '🖼️', JPEG: '🖼️', GIF: '🖼️' };
+        return m[(ext || '').toUpperCase()] || '📁';
     }
-    // FIX: auto-resize textarea
     function autoResize(el) {
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -72,11 +70,11 @@
         currentTab    = 'messages';
         closeSettingsDropdown();
 
-        const name    = el.querySelector('.sg-group-name').textContent.trim();
-        const subject = el.querySelector('.sg-group-subject').textContent.trim();
-        const privacy = el.dataset.privacy || 'public';
+        const name     = el.querySelector('.sg-group-name').textContent.trim();
+        const subject  = el.querySelector('.sg-group-subject').textContent.trim();
+        const privacy  = el.dataset.privacy || 'public';
         const avatarEl = el.querySelector('.sg-group-avatar img');
-        const photo   = avatarEl ? avatarEl.src : null;
+        const photo    = avatarEl ? avatarEl.src : null;
         activeGroupData = { name, subject, privacy, photo };
 
         // Show panels
@@ -89,30 +87,29 @@
         if (photo) {
             hAvatar.innerHTML = `<img src="${escHtml(photo)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
         } else {
-            hAvatar.textContent = name.substring(0,2).toUpperCase();
+            hAvatar.textContent  = name.substring(0, 2).toUpperCase();
             hAvatar.style.background = 'linear-gradient(135deg,#6c63ff,#a78bfa)';
         }
 
         const privBadge = privacy === 'private'
             ? `<span class="header-privacy-badge private">🔒 Private</span>`
             : `<span class="header-privacy-badge public">🌐 Public</span>`;
-        document.getElementById('chatGroupName').innerHTML    = escHtml(name) + ' ' + privBadge;
+        document.getElementById('chatGroupName').innerHTML     = escHtml(name) + ' ' + privBadge;
         document.getElementById('chatGroupMembers').textContent = subject;
 
-        // Determine admin status, then sync UI
+        // Determine admin status then sync UI
         determineAdminStatus().then(() => {
             syncAdminUI();
             syncSettingsDropdown();
         });
 
         switchTab('messages');
-
         clearInterval(pollInterval);
         clearInterval(threadPollInterval);
     }
 
     /* ══════════════════════════════════════════
-       DETERMINE ADMIN / OWNER STATUS
+       ADMIN STATUS
     ══════════════════════════════════════════ */
     async function determineAdminStatus() {
         isGroupAdmin = false;
@@ -122,29 +119,27 @@
             if (!r.ok) return;
             const data = await r.json();
             const me = (data.members || []).find(m => String(m.id) === String(ME));
-            if (me) {
-                isGroupAdmin = me.is_owner || me.role === 'admin';
-            }
-        } catch(e) {}
+            if (me) isGroupAdmin = me.is_owner || me.role === 'admin';
+        } catch (e) { /* silent */ }
     }
 
     function syncAdminUI() {
-        // Show/hide admin tab
         const adminTab = document.getElementById('tabAdmin');
+        // FIX: toggle 'visible' class so CSS display:flex kicks in
         adminTab.classList.toggle('visible', isGroupAdmin);
-        // Show/hide admin-only settings sections
+
         const renameSection = document.getElementById('sdRenameSection');
         const deleteSection = document.getElementById('sdDeleteSection');
         const sdAvatarWrap  = document.getElementById('sdAvatarWrap');
         if (renameSection) renameSection.style.display = isGroupAdmin ? '' : 'none';
         if (deleteSection) deleteSection.style.display = isGroupAdmin ? '' : 'none';
         if (sdAvatarWrap)  sdAvatarWrap.style.cursor   = isGroupAdmin ? 'pointer' : 'default';
-        // Pre-fill admin rename input
+
         document.getElementById('adminRenameInput').value = activeGroupData.name || '';
     }
 
     /* ══════════════════════════════════════════
-       GROUP SEARCH FILTER
+       GROUP SEARCH
     ══════════════════════════════════════════ */
     function filterGroups(query) {
         const q = query.toLowerCase().trim();
@@ -155,22 +150,20 @@
     }
 
     /* ══════════════════════════════════════════
-       TAB SWITCHING — FIX: proper flex display
+       TAB SWITCHING
     ══════════════════════════════════════════ */
     function switchTab(tab) {
         currentTab = tab;
-        const views = ['messages','tasks','resources','notes','calendars','admin'];
+        const views = ['messages', 'tasks', 'resources', 'notes', 'calendars', 'admin'];
         views.forEach(v => {
             const el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
             if (el) el.style.display = 'none';
         });
         document.querySelectorAll('.sg-tab').forEach(t => t.classList.remove('active'));
 
-        const tabBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        const tabBtn  = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+        const viewEl  = document.getElementById('view' + tab.charAt(0).toUpperCase() + tab.slice(1));
         if (tabBtn) tabBtn.classList.add('active');
-
-        // FIX: always use display:flex for tab views
-        const viewEl = document.getElementById('view' + tab.charAt(0).toUpperCase() + tab.slice(1));
         if (viewEl) viewEl.style.display = 'flex';
 
         clearInterval(pollInterval);
@@ -194,20 +187,18 @@
 
     /* ══════════════════════════════════════════
        SETTINGS DROPDOWN
-       FIX: position it with getBoundingClientRect so it escapes overflow:hidden
     ══════════════════════════════════════════ */
     function toggleSettings(e) {
         e.stopPropagation();
         settingsOpen = !settingsOpen;
-        const btn = document.getElementById('btnSettings');
+        const btn      = document.getElementById('btnSettings');
         const dropdown = document.getElementById('settingsDropdown');
         btn.classList.toggle('active', settingsOpen);
-
         if (settingsOpen) {
             const rect = btn.getBoundingClientRect();
-            dropdown.style.top  = (rect.bottom + 8) + 'px';
+            dropdown.style.top   = (rect.bottom + 8) + 'px';
             dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-            dropdown.style.left = 'auto';
+            dropdown.style.left  = 'auto';
             dropdown.classList.add('open');
             syncSettingsDropdown();
         } else {
@@ -221,7 +212,7 @@
         document.getElementById('btnSettings').classList.remove('active');
     }
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (settingsOpen && !document.getElementById('settingsWrap').contains(e.target)) {
             closeSettingsDropdown();
         }
@@ -236,14 +227,14 @@
         if (photo) {
             sdAvatar.innerHTML = `<img src="${escHtml(photo)}" alt="">`;
         } else {
-            sdAvatar.textContent  = (name || '??').substring(0,2).toUpperCase();
+            sdAvatar.textContent      = (name || '??').substring(0, 2).toUpperCase();
             sdAvatar.style.background = 'linear-gradient(135deg,#6c63ff,#a78bfa)';
         }
         loadGroupMembers();
     }
 
     /* ══════════════════════════════════════════
-       LOAD GROUP MEMBERS
+       LOAD GROUP MEMBERS (settings sidebar)
     ══════════════════════════════════════════ */
     function loadGroupMembers() {
         if (!activeGroupId) return;
@@ -254,13 +245,13 @@
             .then(data => {
                 const members = data.members || [];
                 if (!members.length) { list.innerHTML = '<div style="color:#4b5563;font-size:0.76rem;padding:6px;">No members found.</div>'; return; }
-                list.innerHTML = members.slice(0,5).map(m => memberRowHtml(m,'sd')).join('');
+                list.innerHTML = members.slice(0, 5).map(m => memberRowHtml(m, 'sd')).join('');
             })
             .catch(() => { list.innerHTML = '<div style="color:#f87171;font-size:0.76rem;padding:6px;">Failed to load.</div>'; });
     }
 
     function memberRowHtml(m, type) {
-        const isMe    = ME && String(m.id) === String(ME);
+        const isMe     = ME && String(m.id) === String(ME);
         const initials = (m.first_name || m.name || '?').charAt(0).toUpperCase();
         const avatar   = m.photo ? `<img src="${escHtml(m.photo)}" alt="">` : initials;
         const name     = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.name || 'Member';
@@ -294,13 +285,13 @@
             .then(data => {
                 const members = data.members || [];
                 full.innerHTML = members.length
-                    ? members.map(m => memberRowHtml(m,'full')).join('')
+                    ? members.map(m => memberRowHtml(m, 'full')).join('')
                     : '<div style="color:#4b5563;font-size:0.82rem;text-align:center;padding:16px;">No members.</div>';
             })
             .catch(() => { full.innerHTML = '<div style="color:#f87171;font-size:0.82rem;text-align:center;padding:16px;">Failed to load.</div>'; });
     }
     function closeMembersModal() { document.getElementById('membersModalBackdrop').classList.remove('open'); }
-    document.getElementById('membersModalBackdrop').addEventListener('click', function(e) { if (e.target === this) closeMembersModal(); });
+    document.getElementById('membersModalBackdrop').addEventListener('click', function (e) { if (e.target === this) closeMembersModal(); });
 
     /* ══════════════════════════════════════════
        RENAME / PHOTO / DELETE GROUP
@@ -308,20 +299,20 @@
     function renameGroup() {
         if (!activeGroupId || !isGroupAdmin) return;
         const newName = document.getElementById('sdRenameInput').value.trim();
-        if (!newName) { showToast('Please enter a group name.','error'); return; }
+        if (!newName) { showToast('Please enter a group name.', 'error'); return; }
         _doRename(newName);
     }
     function renameGroupFromAdmin() {
         if (!activeGroupId || !isGroupAdmin) return;
         const newName = document.getElementById('adminRenameInput').value.trim();
-        if (!newName) { showToast('Please enter a group name.','error'); return; }
+        if (!newName) { showToast('Please enter a group name.', 'error'); return; }
         _doRename(newName);
     }
     function _doRename(newName) {
         fetch(`/study-groups/${activeGroupId}`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ name: newName })
+            body:    JSON.stringify({ name: newName }),
         }).then(r => r.json()).then(data => {
             if (data.success || data.group) {
                 activeGroupData.name = newName;
@@ -331,15 +322,14 @@
                     ? `<span class="header-privacy-badge private">🔒 Private</span>`
                     : `<span class="header-privacy-badge public">🌐 Public</span>`;
                 document.getElementById('chatGroupName').innerHTML = escHtml(newName) + ' ' + privacy;
-                document.getElementById('sdGroupName').textContent  = newName;
-                document.getElementById('adminRenameInput').value   = newName;
+                document.getElementById('sdGroupName').textContent = newName;
+                document.getElementById('adminRenameInput').value  = newName;
                 showToast('Group renamed!', 'success');
-            } else { showToast(data.error || 'Failed to rename.','error'); }
-        }).catch(() => showToast('Failed to rename.','error'));
+            } else { showToast(data.error || 'Failed to rename.', 'error'); }
+        }).catch(() => showToast('Failed to rename.', 'error'));
     }
 
-    // Settings dropdown photo click
-    document.getElementById('sdAvatarWrap').addEventListener('click', function() {
+    document.getElementById('sdAvatarWrap').addEventListener('click', function () {
         if (isGroupAdmin) document.getElementById('groupPhotoInput').click();
     });
 
@@ -353,48 +343,44 @@
                 if (data.photo_url) {
                     const url = data.photo_url;
                     activeGroupData.photo = url;
-                    document.getElementById('sdAvatar').innerHTML  = `<img src="${escHtml(url)}" alt="">`;
-                    document.getElementById('chatAvatar').innerHTML = `<img src="${escHtml(url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+                    document.getElementById('sdAvatar').innerHTML   = `<img src="${escHtml(url)}" alt="">`;
+                    document.getElementById('chatAvatar').innerHTML  = `<img src="${escHtml(url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
                     const sa = document.querySelector(`[data-group-id="${activeGroupId}"] .sg-group-avatar`);
                     if (sa) sa.innerHTML = `<img src="${escHtml(url)}" alt="">`;
-                    showToast('Photo updated!','success');
-                } else showToast(data.error || 'Failed to update photo.','error');
-            }).catch(() => showToast('Failed to upload photo.','error'));
+                    showToast('Photo updated!', 'success');
+                } else showToast(data.error || 'Failed to update photo.', 'error');
+            }).catch(() => showToast('Failed to upload photo.', 'error'));
     }
 
-    document.getElementById('groupPhotoInput').addEventListener('change', function() {
-        if (this.files.length) handlePhotoChange(this.files[0]);
-        this.value = '';
-    });
-    document.getElementById('adminPhotoInput').addEventListener('change', function() {
-        if (this.files.length) handlePhotoChange(this.files[0]);
-        this.value = '';
-    });
+    document.getElementById('groupPhotoInput').addEventListener('change', function () { if (this.files.length) handlePhotoChange(this.files[0]); this.value = ''; });
+    document.getElementById('adminPhotoInput').addEventListener('change', function () { if (this.files.length) handlePhotoChange(this.files[0]); this.value = ''; });
 
     function deleteGroup() {
-        if (!activeGroupId || !isGroupAdmin) { showToast('Only the group admin can delete this group.','error'); return; }
+        if (!activeGroupId || !isGroupAdmin) { showToast('Only the group admin can delete this group.', 'error'); return; }
         if (!confirm('Delete this group? This cannot be undone. All messages, tasks, notes, and files will be deleted.')) return;
         fetch(`/study-groups/${activeGroupId}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': CSRF } })
             .then(r => r.json()).then(data => {
                 if (data.success) {
                     document.querySelector(`[data-group-id="${activeGroupId}"]`)?.remove();
                     activeGroupId = null;
-                    clearInterval(pollInterval); clearInterval(threadPollInterval);
+                    clearInterval(pollInterval);
+                    clearInterval(threadPollInterval);
                     closeSettingsDropdown();
                     document.getElementById('chatEmpty').style.display  = 'flex';
                     document.getElementById('chatHeader').style.display = 'none';
                     document.getElementById('sgTabs').style.display     = 'none';
-                    ['viewMessages','viewTasks','viewResources','viewNotes','viewCalendars','viewAdmin']
-                        .forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
-                    showToast('Group deleted.','success');
+                    ['viewMessages', 'viewTasks', 'viewResources', 'viewNotes', 'viewCalendars', 'viewAdmin']
+                        .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+                    showToast('Group deleted.', 'success');
                     if (!document.querySelectorAll('.sg-group-item').length) {
                         const d = document.createElement('div');
-                        d.className = 'no-msg'; d.style.marginTop = '24px';
-                        d.innerHTML = 'No groups yet. Hit <strong>+</strong> to create one!';
+                        d.className  = 'no-msg';
+                        d.style.marginTop = '24px';
+                        d.innerHTML  = 'No groups yet. Hit <strong>+</strong> to create one!';
                         document.getElementById('groupList').appendChild(d);
                     }
-                } else showToast(data.error || 'Failed to delete.','error');
-            }).catch(() => showToast('Failed to delete.','error'));
+                } else showToast(data.error || 'Failed to delete.', 'error');
+            }).catch(() => showToast('Failed to delete.', 'error'));
     }
 
     /* ══════════════════════════════════════════
@@ -415,29 +401,22 @@
     }
 
     function adminMemberRowHtml(m) {
-        const isMe    = ME && String(m.id) === String(ME);
+        const isMe     = ME && String(m.id) === String(ME);
         const initials = (m.first_name || m.name || '?').charAt(0).toUpperCase();
         const avatar   = m.photo ? `<img src="${escHtml(m.photo)}" alt="">` : initials;
         const name     = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.name || 'Member';
 
-        let roleBadge = '';
-        let actions   = '';
+        let roleBadge = m.is_owner
+            ? `<span class="role-badge owner">Owner</span>`
+            : m.role === 'admin'
+                ? `<span class="role-badge admin">Admin</span>`
+                : `<span class="role-badge member">Member</span>`;
 
-        if (m.is_owner) {
-            roleBadge = `<span class="role-badge owner">Owner</span>`;
-        } else if (m.role === 'admin') {
-            roleBadge = `<span class="role-badge admin">Admin</span>`;
-        } else {
-            roleBadge = `<span class="role-badge member">Member</span>`;
-        }
+        if (isMe) roleBadge += ` <span class="role-badge you">You</span>`;
 
-        if (isMe) {
-            roleBadge += ` <span class="role-badge you">You</span>`;
-        }
-
-        // Only show moderation actions for non-owner, non-self members
+        let actions = '';
         if (!isMe && !m.is_owner && isGroupAdmin) {
-            const mid = escHtml(m.id);
+            const mid   = escHtml(m.id);
             const mname = escHtml(name);
             if (m.role !== 'admin') {
                 actions += `<button class="btn-admin-member btn-promote" onclick="promoteMember('${mid}','${mname}')" title="Make admin">⬆ Admin</button>`;
@@ -463,40 +442,40 @@
     function promoteMember(memberId, name) {
         if (!confirm(`Make ${name} an admin of this group?`)) return;
         fetch(`/study-groups/${activeGroupId}/members/${memberId}/role`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ role: 'admin' })
+            body:    JSON.stringify({ role: 'admin' }),
         }).then(r => r.json()).then(data => {
             if (data.ok || data.success) { loadAdminPanel(); showToast(`${name} is now an admin!`, 'success'); }
-            else showToast(data.error || 'Failed.','error');
-        }).catch(() => showToast('Failed to update role.','error'));
+            else showToast(data.error || 'Failed.', 'error');
+        }).catch(() => showToast('Failed to update role.', 'error'));
     }
 
     function demoteMember(memberId, name) {
         if (!confirm(`Remove admin rights from ${name}?`)) return;
         fetch(`/study-groups/${activeGroupId}/members/${memberId}/role`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ role: 'member' })
+            body:    JSON.stringify({ role: 'member' }),
         }).then(r => r.json()).then(data => {
             if (data.ok || data.success) { loadAdminPanel(); showToast(`${name} is now a member.`); }
-            else showToast(data.error || 'Failed.','error');
-        }).catch(() => showToast('Failed to update role.','error'));
+            else showToast(data.error || 'Failed.', 'error');
+        }).catch(() => showToast('Failed to update role.', 'error'));
     }
 
     function kickMember(memberId, name) {
         if (!confirm(`Remove ${name} from this group?`)) return;
         fetch(`/study-groups/${activeGroupId}/members/${memberId}`, {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.json()).then(data => {
-            if (data.ok || data.success) { loadAdminPanel(); loadGroupMembers(); showToast(`${name} removed from group.`,'success'); }
-            else showToast(data.error || 'Failed.','error');
-        }).catch(() => showToast('Failed to remove member.','error'));
+            if (data.ok || data.success) { loadAdminPanel(); loadGroupMembers(); showToast(`${name} removed from group.`, 'success'); }
+            else showToast(data.error || 'Failed.', 'error');
+        }).catch(() => showToast('Failed to remove member.', 'error'));
     }
 
     /* ══════════════════════════════════════════
-       LOAD & RENDER MESSAGES
+       MESSAGES
     ══════════════════════════════════════════ */
     function loadMessages(scrollToBottom) {
         if (!activeGroupId || currentTab !== 'messages') return;
@@ -506,7 +485,7 @@
                 if (!scrollToBottom && data.messages.length === lastMsgCount) return;
                 lastMsgCount = data.messages.length;
                 renderMessages(data.messages, scrollToBottom);
-            }).catch(() => {});
+            }).catch(() => { });
     }
 
     function renderMessages(messages, scroll) {
@@ -518,24 +497,22 @@
             const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             if (date !== lastDate) { html += `<div class="date-sep">${date}</div>`; lastDate = date; }
 
-            const isOwn   = ME && String(m.user_id) === String(ME);
+            const isOwn    = ME && String(m.user_id) === String(ME);
             const initials = (m.sender_first || '?').charAt(0).toUpperCase();
             const name     = isOwn ? 'You' : `${m.sender_first || ''} ${m.sender_last || ''}`.trim();
             const time     = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            const avatar   = m.sender_photo
-                ? `<img src="${escHtml(m.sender_photo)}" alt="">`
-                : initials;
+            const avatar   = m.sender_photo ? `<img src="${escHtml(m.sender_photo)}" alt="">` : initials;
 
             let content = '';
 
-            // Calendar share message detection
+            // Calendar share detection
             let isCalShare = false, calData = null;
             try {
                 if (m.message && m.message.startsWith('{')) {
                     const p = JSON.parse(m.message);
                     if (p.type === 'calendar_share') { isCalShare = true; calData = p; }
                 }
-            } catch(e) {}
+            } catch (e) { }
 
             if (isCalShare && calData) {
                 content += `<div class="msg-calendar-share">
@@ -562,17 +539,14 @@
                 }
             });
 
-            // Thread reply count badge
             const replyCount = parseInt(m.reply_count, 10) || 0;
-            // FIX: store message data in data attributes to avoid unsafe inline JS string injection
-            const msgIdSafe   = escHtml(m.id);
-            const threadBtn   = replyCount > 0
+            const msgIdSafe  = escHtml(m.id);
+            const threadBtn  = replyCount > 0
                 ? `<button class="msg-thread-btn" data-msg-id="${msgIdSafe}" onclick="openThreadById(this)">
-                    💬 ${replyCount} ${replyCount===1?'reply':'replies'}
-                  </button>`
+                    💬 ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}
+                   </button>`
                 : '';
 
-            // FIX: use data attributes on the row rather than inline onclick with string concatenation
             const canDelete = isGroupAdmin || isOwn;
             const deleteBtn = canDelete
                 ? `<button class="msg-action-btn delete-msg" data-msg-id="${msgIdSafe}" onclick="deleteMessage(this)" title="Delete message">🗑️</button>`
@@ -581,7 +555,7 @@
             html += `<div class="msg-row ${isOwn ? 'own' : ''}" id="msg-${msgIdSafe}"
                           data-msg-id="${msgIdSafe}"
                           data-sender="${escHtml(name)}"
-                          data-text="${escHtml((m.message||'').substring(0,120))}">
+                          data-text="${escHtml((m.message || '').substring(0, 120))}">
                 <div class="msg-avatar">${avatar}</div>
                 <div class="msg-body">
                     <div class="msg-sender">${escHtml(name)} · ${time}</div>
@@ -599,27 +573,25 @@
         if (scroll) box.scrollTop = box.scrollHeight;
     }
 
-    /* FIX: open thread from data attributes, not inline string args */
     function openThreadById(btnEl) {
         const row = btnEl.closest('[data-msg-id]');
         if (!row) return;
         openThread(row.dataset.msgId, row.dataset.sender, row.dataset.text);
     }
 
-    /* Admin: delete message */
     function deleteMessage(btnEl) {
         if (!confirm('Delete this message?')) return;
         const msgId = btnEl.dataset.msgId;
         fetch(`/study-groups/${activeGroupId}/messages/${msgId}`, {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.json()).then(data => {
             if (data.ok || data.success) {
                 document.getElementById('msg-' + msgId)?.remove();
                 lastMsgCount = Math.max(0, lastMsgCount - 1);
                 showToast('Message deleted.');
-            } else showToast(data.error || 'Failed to delete.','error');
-        }).catch(() => showToast('Failed to delete.','error'));
+            } else showToast(data.error || 'Failed to delete.', 'error');
+        }).catch(() => showToast('Failed to delete.', 'error'));
     }
 
     /* ══════════════════════════════════════════
@@ -644,7 +616,7 @@
                 document.getElementById('uploadPreview').innerHTML = '';
                 loadMessages(true);
             })
-            .catch(err => showToast(String(err),'error'))
+            .catch(err => showToast(String(err), 'error'))
             .finally(() => { btn.disabled = false; });
     }
 
@@ -652,8 +624,8 @@
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     }
 
-    document.getElementById('imageInput').addEventListener('change', function() { addFiles(this.files,'image'); this.value=''; });
-    document.getElementById('fileInput').addEventListener('change', function() { addFiles(this.files,'file'); this.value=''; });
+    document.getElementById('imageInput').addEventListener('change', function () { addFiles(this.files, 'image'); this.value = ''; });
+    document.getElementById('fileInput').addEventListener('change', function () { addFiles(this.files, 'file'); this.value = ''; });
 
     function addFiles(fileList, type) {
         Array.from(fileList).forEach(f => {
@@ -662,7 +634,8 @@
             if (type === 'image') pf.previewUrl = URL.createObjectURL(f);
             pendingFiles.push(pf);
             const div = document.createElement('div');
-            div.className = 'sg-preview-item'; div.id = 'prev_' + id;
+            div.className = 'sg-preview-item';
+            div.id        = 'prev_' + id;
             if (type === 'image') {
                 div.innerHTML = `<img src="${pf.previewUrl}" alt=""><span class="sg-preview-name">${escHtml(f.name)}</span><button class="sg-preview-remove" onclick="removeFile('${id}')">✕</button>`;
             } else {
@@ -674,7 +647,7 @@
 
     function removeFile(id) {
         pendingFiles = pendingFiles.filter(f => f.id !== id);
-        document.getElementById('prev_'+id)?.remove();
+        document.getElementById('prev_' + id)?.remove();
     }
 
     /* ══════════════════════════════════════════
@@ -706,7 +679,7 @@
                 if (!scroll && replies.length === lastThreadCount) return;
                 lastThreadCount = replies.length;
                 renderThreadReplies(replies, scroll);
-            }).catch(() => {});
+            }).catch(() => { });
     }
 
     function renderThreadReplies(replies, scroll) {
@@ -717,9 +690,9 @@
         }
         let html = '';
         replies.forEach(r => {
-            const isOwn   = ME && String(r.user_id) === String(ME);
-            const name    = isOwn ? 'You' : `${r.sender_first || ''} ${r.sender_last || ''}`.trim() || 'Member';
-            const time    = new Date(r.created_at).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+            const isOwn    = ME && String(r.user_id) === String(ME);
+            const name     = isOwn ? 'You' : `${r.sender_first || ''} ${r.sender_last || ''}`.trim() || 'Member';
+            const time     = new Date(r.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             const initials = (r.sender_first || name || '?').charAt(0).toUpperCase();
             const avatar   = r.sender_photo ? `<img src="${escHtml(r.sender_photo)}" alt="">` : initials;
             const canDel   = isOwn || isGroupAdmin;
@@ -745,16 +718,17 @@
     function deleteReply(btnEl) {
         if (!confirm('Delete this reply?')) return;
         const replyId = btnEl.dataset.replyId;
+        // FIX: use correct delete reply route
         fetch(`/study-groups/${activeGroupId}/messages/${activeThreadMsgId}/replies/${replyId}`, {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.json()).then(data => {
             if (data.ok || data.success) {
                 document.getElementById('reply-' + replyId)?.remove();
                 lastThreadCount = Math.max(0, lastThreadCount - 1);
-                loadMessages(false);
-            } else showToast(data.error || 'Failed.','error');
-        }).catch(() => showToast('Failed to delete reply.','error'));
+                loadMessages(false); // refresh reply count on parent
+            } else showToast(data.error || 'Failed.', 'error');
+        }).catch(() => showToast('Failed to delete reply.', 'error'));
     }
 
     function sendThreadReply() {
@@ -762,16 +736,16 @@
         const text = document.getElementById('threadInput').value.trim();
         if (!text) return;
         fetch(`/study-groups/${activeGroupId}/messages/${activeThreadMsgId}/replies`, {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ message: text })
+            body:    JSON.stringify({ message: text }),
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => {
-            const ta = document.getElementById('threadInput');
-            ta.value = ''; ta.style.height = 'auto';
-            loadThreadReplies(true);
-            loadMessages(false);
-          }).catch(() => showToast('Failed to send reply.','error'));
+              const ta = document.getElementById('threadInput');
+              ta.value = ''; ta.style.height = 'auto';
+              loadThreadReplies(true);
+              loadMessages(false);
+          }).catch(() => showToast('Failed to send reply.', 'error'));
     }
 
     function handleThreadEnter(e) {
@@ -785,7 +759,7 @@
         if (!activeGroupId) return;
         fetch(`/study-groups/${activeGroupId}/tasks`)
             .then(r => r.ok ? r.json() : Promise.resolve({ tasks: [] }))
-            .then(data => { renderTasks(data.tasks || []); })
+            .then(data => renderTasks(data.tasks || []))
             .catch(() => renderTasks([]));
     }
 
@@ -812,19 +786,18 @@
     function taskItemHtml(t) {
         const today    = new Date().toISOString().split('T')[0];
         const overdue  = t.due_date && t.due_date < today && !t.completed;
-        const dueLabel = t.due_date ? `<span class="task-due ${overdue?'overdue':''}">📅 ${t.due_date}</span>` : '';
+        const dueLabel = t.due_date ? `<span class="task-due ${overdue ? 'overdue' : ''}">📅 ${t.due_date}</span>` : '';
         const assignee = t.assigned_to ? `<span class="task-assignee">👤 ${escHtml(t.assigned_to)}</span>` : '';
         const priority = t.priority || 'medium';
         const tid      = escHtml(String(t.id));
-        // Admin or task creator can delete
         const canDel   = isGroupAdmin || (ME && String(t.created_by) === String(ME));
         const delBtn   = canDel ? `<button class="btn-task-action danger" data-task-id="${tid}" onclick="deleteTask(this)" title="Delete">🗑️</button>` : '';
-        return `<div class="task-item ${t.completed?'done':''}" id="task-${tid}">
-            <div class="task-checkbox ${t.completed?'checked':''}" data-task-id="${tid}" data-completed="${!t.completed}" onclick="toggleTask(this)"></div>
+        return `<div class="task-item ${t.completed ? 'done' : ''}" id="task-${tid}">
+            <div class="task-checkbox ${t.completed ? 'checked' : ''}" data-task-id="${tid}" data-completed="${!t.completed}" onclick="toggleTask(this)"></div>
             <div class="task-content">
                 <div class="task-title">${escHtml(t.title)}</div>
                 <div class="task-meta">
-                    <span class="task-badge priority-${priority}">${priority.charAt(0).toUpperCase()+priority.slice(1)}</span>
+                    <span class="task-badge priority-${priority}">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
                     ${dueLabel}${assignee}
                 </div>
             </div>
@@ -844,50 +817,48 @@
         const priority = document.getElementById('taskPriority').value;
         const dueDate  = document.getElementById('taskDueDate').value;
         const assignee = document.getElementById('taskAssignee').value.trim();
-        if (!title) { showToast('Please enter a task title.','error'); return; }
-
+        if (!title) { showToast('Please enter a task title.', 'error'); return; }
         fetch(`/study-groups/${activeGroupId}/tasks`, {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ title, priority, due_date: dueDate || null, assigned_to: assignee || null })
+            body:    JSON.stringify({ title, priority, due_date: dueDate || null, assigned_to: assignee || null }),
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => {
-            document.getElementById('taskTitleInput').value  = '';
-            document.getElementById('taskDueDate').value     = '';
-            document.getElementById('taskAssignee').value    = '';
-            document.getElementById('taskPriority').value    = 'medium';
-            toggleTaskForm();
-            loadTasks();
-            showToast('Task created!','success');
-          }).catch(() => showToast('Failed to create task.','error'));
+              document.getElementById('taskTitleInput').value = '';
+              document.getElementById('taskDueDate').value    = '';
+              document.getElementById('taskAssignee').value   = '';
+              document.getElementById('taskPriority').value   = 'medium';
+              toggleTaskForm();
+              loadTasks();
+              showToast('Task created!', 'success');
+          }).catch(() => showToast('Failed to create task.', 'error'));
     }
 
-    // FIX: use data attributes on checkbox element
     function toggleTask(el) {
         const taskId    = el.dataset.taskId;
         const completed = el.dataset.completed === 'true';
         fetch(`/study-groups/${activeGroupId}/tasks/${taskId}`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ completed })
+            body:    JSON.stringify({ completed }),
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => loadTasks())
-          .catch(() => showToast('Failed to update task.','error'));
+          .catch(() => showToast('Failed to update task.', 'error'));
     }
 
     function deleteTask(btnEl) {
         if (!confirm('Delete this task?')) return;
         const taskId = btnEl.dataset.taskId;
         fetch(`/study-groups/${activeGroupId}/tasks/${taskId}`, {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => { loadTasks(); showToast('Task deleted.'); })
-          .catch(() => showToast('Failed to delete task.','error'));
+          .catch(() => showToast('Failed to delete task.', 'error'));
     }
 
     /* ══════════════════════════════════════════
-       RESOURCES (File Sharing + Pinning)
+       RESOURCES
     ══════════════════════════════════════════ */
     function loadResources() {
         if (!activeGroupId) return;
@@ -899,8 +870,7 @@
 
     function renderResources() {
         const pinned = allResources.filter(r => r.pinned);
-        // FIX: correct filter logic for doc/pdf/other types
-        const all = allResources.filter(r => {
+        const all    = allResources.filter(r => {
             if (resourceFilter === 'all') return true;
             const fname = (r.file_name || '').toLowerCase();
             if (resourceFilter === 'image') return r.type === 'image' || /\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(fname);
@@ -925,27 +895,25 @@
             pinnedSection.style.display = 'none';
         }
 
-        if (!all.length) {
-            allGrid.innerHTML = '<div class="no-msg" style="grid-column:1/-1;padding:40px 0;">No files yet. Upload the first one! 📁</div>';
-        } else {
-            allGrid.innerHTML = all.map(r => resourceCardHtml(r)).join('');
-        }
+        allGrid.innerHTML = all.length
+            ? all.map(r => resourceCardHtml(r)).join('')
+            : '<div class="no-msg" style="grid-column:1/-1;padding:40px 0;">No files yet. Upload the first one! 📁</div>';
     }
 
     function resourceCardHtml(r) {
-        const ext      = (r.file_name || '').split('.').pop().toUpperCase();
-        const icon     = (r.type === 'image' || /\.(png|jpg|jpeg|gif|webp)$/i.test(r.file_name||'')) ? '🖼️' : fileIcon(ext);
-        const pinIcon  = r.pinned ? '<span class="resource-pin-icon">📌</span>' : '';
-        const size     = r.file_size ? formatBytes(r.file_size) : '';
-        const uploader = r.uploader_name ? `by ${escHtml(r.uploader_name)}` : '';
-        const rid      = escHtml(String(r.id));
+        const ext     = (r.file_name || '').split('.').pop().toUpperCase();
+        const icon    = (r.type === 'image' || /\.(png|jpg|jpeg|gif|webp)$/i.test(r.file_name || '')) ? '🖼️' : fileIcon(ext);
+        const pinIcon = r.pinned ? '<span class="resource-pin-icon">📌</span>' : '';
+        const size    = r.file_size ? formatBytes(r.file_size) : '';
+        const up      = r.uploader_name ? `by ${escHtml(r.uploader_name)}` : '';
+        const rid     = escHtml(String(r.id));
         const pinLabel = r.pinned ? '📌 Unpin' : '📌 Pin';
-        return `<div class="resource-card ${r.pinned?'pinned':''}" id="resource-${rid}">
+        return `<div class="resource-card ${r.pinned ? 'pinned' : ''}" id="resource-${rid}">
             ${pinIcon}
             <div class="resource-icon">${icon}</div>
             <div class="resource-name">${escHtml(r.file_name || 'File')}</div>
             <div class="resource-meta">${size}</div>
-            <div class="resource-uploader">${uploader}</div>
+            <div class="resource-uploader">${up}</div>
             <div class="resource-card-actions">
                 <a class="btn-resource-action" href="${escHtml(r.file_url)}" target="_blank" download>⬇ Download</a>
                 <button class="btn-resource-action" data-resource-id="${rid}" data-pin="${!r.pinned}" onclick="togglePin(this)">${pinLabel}</button>
@@ -969,8 +937,8 @@
         showToast('Uploading files…');
         fetch(`/study-groups/${activeGroupId}/resources`, { method: 'POST', body: formData })
             .then(r => r.ok ? r.json() : Promise.reject())
-            .then(() => { loadResources(); showToast('Files uploaded!','success'); })
-            .catch(() => showToast('Upload failed.','error'));
+            .then(() => { loadResources(); showToast('Files uploaded!', 'success'); })
+            .catch(() => showToast('Upload failed.', 'error'));
         document.getElementById('resourceFileInput').value = '';
     }
 
@@ -978,26 +946,27 @@
         const resourceId = btnEl.dataset.resourceId;
         const pin        = btnEl.dataset.pin === 'true';
         fetch(`/study-groups/${activeGroupId}/resources/${resourceId}/pin`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ pinned: pin })
+            body:    JSON.stringify({ pinned: pin }),
         }).then(r => r.ok ? r.json() : Promise.reject())
-          .then(() => { loadResources(); showToast(pin?'Pinned!':'Unpinned.','success'); })
-          .catch(() => showToast('Failed to update pin.','error'));
+          .then(() => { loadResources(); showToast(pin ? 'Pinned!' : 'Unpinned.', 'success'); })
+          .catch(() => showToast('Failed to update pin.', 'error'));
     }
 
     function deleteResource(btnEl) {
         if (!confirm('Delete this file?')) return;
         const resourceId = btnEl.dataset.resourceId;
         fetch(`/study-groups/${activeGroupId}/resources/${resourceId}`, {
-            method: 'DELETE', headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => { loadResources(); showToast('File deleted.'); })
-          .catch(() => showToast('Failed to delete.','error'));
+          .catch(() => showToast('Failed to delete.', 'error'));
     }
 
     /* ══════════════════════════════════════════
-       NOTES (Co-edit / Shared)
+       NOTES
     ══════════════════════════════════════════ */
     function loadNotes() {
         if (!activeGroupId) return;
@@ -1013,7 +982,7 @@
                     document.getElementById('noteEditor').innerHTML  = '';
                     currentNoteId = null;
                 }
-            }).catch(() => {});
+            }).catch(() => { });
     }
 
     function renderNotesList() {
@@ -1044,30 +1013,30 @@
     function createNewNote() {
         if (!activeGroupId) return;
         fetch(`/study-groups/${activeGroupId}/notes`, {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ title: 'Untitled Note', content: '' })
+            body:    JSON.stringify({ title: 'Untitled Note', content: '' }),
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => loadNotes())
-          .catch(() => showToast('Failed to create note.','error'));
+          .catch(() => showToast('Failed to create note.', 'error'));
     }
 
     function deleteNote(btnEl) {
         if (!confirm('Delete this note?')) return;
         const noteId = btnEl.dataset.noteId;
         fetch(`/study-groups/${activeGroupId}/notes/${noteId}`, {
-            method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF }
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF },
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => {
-            if (String(currentNoteId) === String(noteId)) {
-                currentNoteId = null;
-                document.getElementById('noteTitleInput').value = '';
-                document.getElementById('noteEditor').innerHTML = '';
-            }
-            loadNotes();
-            showToast('Note deleted.');
-          }).catch(() => showToast('Failed to delete note.','error'));
+              if (String(currentNoteId) === String(noteId)) {
+                  currentNoteId = null;
+                  document.getElementById('noteTitleInput').value = '';
+                  document.getElementById('noteEditor').innerHTML = '';
+              }
+              loadNotes();
+              showToast('Note deleted.');
+          }).catch(() => showToast('Failed to delete note.', 'error'));
     }
 
     function scheduleNoteSave() {
@@ -1082,26 +1051,25 @@
         const title   = document.getElementById('noteTitleInput').value;
         const content = document.getElementById('noteEditor').innerHTML;
         fetch(`/study-groups/${activeGroupId}/notes/${currentNoteId}`, {
-            method: 'PATCH',
+            method:  'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ title, content })
+            body:    JSON.stringify({ title, content }),
         }).then(r => r.ok ? r.json() : Promise.reject())
           .then(() => {
-            document.getElementById('notesSaveStatus').textContent = '✓ Saved';
-            document.getElementById('notesSaveStatus').className   = 'notes-save-status saved';
-            const note = notesList.find(n => String(n.id) === String(currentNoteId));
-            if (note) { note.title = title; note.updated_at = new Date().toISOString(); renderNotesList(); }
-            setTimeout(() => {
-                document.getElementById('notesSaveStatus').textContent = 'Auto-save on';
-                document.getElementById('notesSaveStatus').className   = 'notes-save-status';
-            }, 2000);
+              document.getElementById('notesSaveStatus').textContent = '✓ Saved';
+              document.getElementById('notesSaveStatus').className   = 'notes-save-status saved';
+              const note = notesList.find(n => String(n.id) === String(currentNoteId));
+              if (note) { note.title = title; note.updated_at = new Date().toISOString(); renderNotesList(); }
+              setTimeout(() => {
+                  document.getElementById('notesSaveStatus').textContent = 'Auto-save on';
+                  document.getElementById('notesSaveStatus').className   = 'notes-save-status';
+              }, 2000);
           }).catch(() => {
-            document.getElementById('notesSaveStatus').textContent = 'Save failed';
-            document.getElementById('notesSaveStatus').className   = 'notes-save-status';
+              document.getElementById('notesSaveStatus').textContent = 'Save failed';
+              document.getElementById('notesSaveStatus').className   = 'notes-save-status';
           });
     }
 
-    // FIX: execFormat with optional value argument
     function execFormat(cmd, val) {
         document.getElementById('noteEditor').focus();
         document.execCommand(cmd, false, val || null);
@@ -1127,27 +1095,27 @@
                 }
                 let html = '<div style="display:grid;gap:14px;">';
                 cals.forEach(cal => {
-                    const evCount = (cal.events || []).length;
+                    const evCount    = (cal.events || []).length;
                     const avatarHtml = cal.owner_photo
                         ? `<img src="${escHtml(cal.owner_photo)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
-                        : `<div class="cal-member-avatar">${(cal.owner_name||'?').charAt(0).toUpperCase()}</div>`;
+                        : `<div class="cal-member-avatar">${(cal.owner_name || '?').charAt(0).toUpperCase()}</div>`;
                     html += `<div class="cal-member-card">
                         <div class="cal-member-header">
                             ${avatarHtml}
                             <div>
                                 <div class="cal-member-name">${escHtml(cal.owner_name)}'s Calendar</div>
-                                <div class="cal-member-count">${evCount} event${evCount!==1?'s':''}</div>
+                                <div class="cal-member-count">${evCount} event${evCount !== 1 ? 's' : ''}</div>
                             </div>
                         </div>
                         <div class="cal-events-list">
                             ${!evCount
                                 ? '<div style="color:#4b5563;font-size:0.8rem;padding:8px 4px;">No upcoming events</div>'
-                                : (cal.events||[]).map(e => `
+                                : (cal.events || []).map(e => `
                                     <div class="cal-event-row">
                                         <div class="cal-event-dot"></div>
                                         <div>
                                             <div class="cal-event-title">${escHtml(e.title)}</div>
-                                            <div class="cal-event-time">${escHtml(e.event_date)} ${escHtml(e.event_time||'')}</div>
+                                            <div class="cal-event-time">${escHtml(e.event_date)} ${escHtml(e.event_time || '')}</div>
                                         </div>
                                     </div>`).join('')
                             }
@@ -1171,7 +1139,7 @@
         document.getElementById('radioPublic').checked = true;
         document.getElementById('optPublic').classList.add('selected-public');
         document.getElementById('optPublic').classList.remove('selected-private');
-        document.getElementById('optPrivate').classList.remove('selected-public','selected-private');
+        document.getElementById('optPrivate').classList.remove('selected-public', 'selected-private');
         document.getElementById('friendsField').style.display = 'none';
         document.getElementById('publicDesc').style.display   = 'block';
         document.getElementById('privateDesc').style.display  = 'none';
@@ -1180,9 +1148,9 @@
     };
 
     document.querySelectorAll('input[name="groupPrivacy"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            document.getElementById('optPublic').classList.remove('selected-public','selected-private');
-            document.getElementById('optPrivate').classList.remove('selected-public','selected-private');
+        radio.addEventListener('change', function () {
+            document.getElementById('optPublic').classList.remove('selected-public', 'selected-private');
+            document.getElementById('optPrivate').classList.remove('selected-public', 'selected-private');
             if (this.value === '1') {
                 document.getElementById('optPrivate').classList.add('selected-private');
                 document.getElementById('friendsField').style.display = 'block';
@@ -1207,30 +1175,30 @@
                 fl.innerHTML = data.friends.map(f => `
                     <label class="friend-item" for="friend_${escHtml(String(f.id))}">
                         <input type="checkbox" id="friend_${escHtml(String(f.id))}" value="${escHtml(String(f.id))}">
-                        <div class="friend-avatar">${f.photo ? `<img src="${escHtml(f.photo)}" alt="">` : escHtml(f.initials||'?')}</div>
+                        <div class="friend-avatar">${f.photo ? `<img src="${escHtml(f.photo)}" alt="">` : escHtml(f.initials || '?')}</div>
                         <div>
                             <div class="friend-name">${escHtml(f.name)}</div>
-                            <div class="friend-username">@${escHtml(f.username||'friend')}</div>
+                            <div class="friend-username">@${escHtml(f.username || 'friend')}</div>
                         </div>
                     </label>`).join('');
             }).catch(() => { fl.innerHTML = '<div class="no-msg">Failed to load friends.</div>'; });
     }
 
     function closeModal() { document.getElementById('modalBackdrop').classList.remove('open'); }
-    document.getElementById('modalBackdrop').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+    document.getElementById('modalBackdrop').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
 
     function createGroup() {
         const name      = document.getElementById('groupNameInput').value.trim();
         const subject   = document.getElementById('groupSubjectInput').value.trim();
         const isPrivate = document.querySelector('input[name="groupPrivacy"]:checked').value;
-        if (!name) { showToast('Please enter a group name.','error'); return; }
+        if (!name) { showToast('Please enter a group name.', 'error'); return; }
         const members = isPrivate === '1'
             ? Array.from(document.querySelectorAll('#friendList input[type="checkbox"]:checked')).map(c => c.value)
             : [];
         fetch('/study-groups', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ name, subject, members, is_private: isPrivate })
+            body:    JSON.stringify({ name, subject, members, is_private: isPrivate }),
         }).then(r => r.json()).then(data => {
             if (data.group) {
                 closeModal();
@@ -1246,7 +1214,7 @@
                 div.dataset.name    = name.toLowerCase();
                 div.setAttribute('onclick', `openGroup('${data.group.id}', this)`);
                 div.innerHTML = `
-                    <div class="sg-group-avatar">${name.substring(0,2).toUpperCase()}</div>
+                    <div class="sg-group-avatar">${name.substring(0, 2).toUpperCase()}</div>
                     <div class="sg-group-item-wrap">
                         <div class="sg-group-name">${escHtml(name)}</div>
                         <div class="sg-group-meta">
@@ -1256,9 +1224,9 @@
                     </div>`;
                 document.getElementById('groupList').prepend(div);
                 openGroup(data.group.id, div);
-                showToast('Group created!','success');
-            } else { showToast(data.error || 'Failed to create group.','error'); }
-        }).catch(() => showToast('Failed to create group.','error'));
+                showToast('Group created!', 'success');
+            } else { showToast(data.error || 'Failed to create group.', 'error'); }
+        }).catch(() => showToast('Failed to create group.', 'error'));
     }
 
     /* ══════════════════════════════════════════
@@ -1271,46 +1239,51 @@
        AUTO-OPEN FIRST GROUP
     ══════════════════════════════════════════ */
     window.addEventListener('DOMContentLoaded', () => {
-    if (window.studyGroupData.hasGroups) {
-        const first = document.querySelector('.sg-group-item');
-
-        if (first) {
-            openGroup(window.studyGroupData.firstGroupId, first);
+        if (window.studyGroupData.hasGroups) {
+            const first = document.querySelector('.sg-group-item');
+            if (first) openGroup(window.studyGroupData.firstGroupId, first);
         }
-    } });
+    });
 
-
-    window.openGroup = openGroup;
-    window.filterGroups = filterGroups;
-    window.switchTab = switchTab;
-    window.toggleSettings = toggleSettings;
-    window.openMembersModal = openMembersModal;
-    window.closeMembersModal = closeMembersModal;
-    window.renameGroup = renameGroup;
+    // Expose to global scope for inline HTML onclick handlers
+    window.openGroup          = openGroup;
+    window.filterGroups       = filterGroups;
+    window.switchTab          = switchTab;
+    window.toggleSettings     = toggleSettings;
+    window.openMembersModal   = openMembersModal;
+    window.closeMembersModal  = closeMembersModal;
+    window.renameGroup        = renameGroup;
     window.renameGroupFromAdmin = renameGroupFromAdmin;
-    window.deleteGroup = deleteGroup;
-    window.sendMessage = sendMessage;
-    window.handleEnter = handleEnter;
-    window.removeFile = removeFile;
-    window.openThreadById = openThreadById;
-    window.deleteMessage = deleteMessage;
-    window.closeThread = closeThread;
-    window.sendThreadReply = sendThreadReply;
-    window.handleThreadEnter = handleThreadEnter;
-    window.toggleTaskForm = toggleTaskForm;
-    window.saveTask = saveTask;
-    window.toggleTask = toggleTask;
-    window.deleteTask = deleteTask;
-    window.filterResources = filterResources;
-    window.togglePin = togglePin;
-    window.deleteResource = deleteResource;
-    window.openNote = openNote;
-    window.createNewNote = createNewNote;
-    window.deleteNote = deleteNote;
-    window.scheduleNoteSave = scheduleNoteSave;
-    window.execFormat = execFormat;
-    window.createGroup = createGroup;
-    window.closeModal = closeModal;
-    window.openLightbox = openLightbox;
-    window.closeLightbox = closeLightbox;
-    })();
+    window.deleteGroup        = deleteGroup;
+    window.sendMessage        = sendMessage;
+    window.handleEnter        = handleEnter;
+    window.autoResize         = autoResize;
+    window.removeFile         = removeFile;
+    window.openThreadById     = openThreadById;
+    window.deleteMessage      = deleteMessage;
+    window.closeThread        = closeThread;
+    window.sendThreadReply    = sendThreadReply;
+    window.handleThreadEnter  = handleThreadEnter;
+    window.deleteReply        = deleteReply;
+    window.toggleTaskForm     = toggleTaskForm;
+    window.saveTask           = saveTask;
+    window.toggleTask         = toggleTask;
+    window.deleteTask         = deleteTask;
+    window.filterResources    = filterResources;
+    window.uploadResources    = uploadResources;
+    window.togglePin          = togglePin;
+    window.deleteResource     = deleteResource;
+    window.openNote           = openNote;
+    window.createNewNote      = createNewNote;
+    window.deleteNote         = deleteNote;
+    window.scheduleNoteSave   = scheduleNoteSave;
+    window.execFormat         = execFormat;
+    window.createGroup        = createGroup;
+    window.closeModal         = closeModal;
+    window.openLightbox       = openLightbox;
+    window.closeLightbox      = closeLightbox;
+    window.promoteMember      = promoteMember;
+    window.demoteMember       = demoteMember;
+    window.kickMember         = kickMember;
+
+})();
