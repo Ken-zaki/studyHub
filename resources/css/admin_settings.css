@@ -1,0 +1,121 @@
+/* ============================================================
+   public/css/admin_settings.css
+   Settings page — sections, form inputs, toggle switches
+   Link AFTER admin.css in settings.blade.php
+   ============================================================ */
+
+/* ── SETTINGS LAYOUT ── */
+.adm-settings-wrap {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.adm-settings-section {
+    background: var(--adm-card);
+    border: 1px solid var(--adm-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.adm-settings-section-head {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--adm-border);
+}
+.adm-settings-title {
+    font-family: 'Crimson Pro', serif;
+    font-size: 18px; font-weight: 700;
+    color: var(--adm-text); margin-bottom: 3px;
+}
+.adm-settings-sub {
+    font-size: 13px; color: var(--adm-muted);
+}
+
+.adm-settings-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── FORM ── */
+.adm-form-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.adm-form-group { display: flex; flex-direction: column; gap: 6px; }
+.adm-form-label { font-size: 13px; font-weight: 600; color: var(--adm-text); }
+.adm-form-input {
+    padding: 10px 14px;
+    border: 1.5px solid var(--adm-border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--adm-text); background: var(--adm-bg);
+    outline: none; transition: border-color 0.2s;
+}
+.adm-form-input:focus { border-color: var(--adm-primary); background: white; }
+.adm-form-input[readonly] {
+    background: var(--adm-bg); color: var(--adm-muted); cursor: default;
+}
+.adm-form-hint { font-size: 12px; color: var(--adm-light); margin-top: 2px; }
+
+/* ── TOGGLE ROWS ── */
+.adm-toggle-row {
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--adm-border);
+}
+.adm-toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+.adm-toggle-info { flex: 1; min-width: 0; }
+.adm-toggle-label {
+    font-size: 14px; font-weight: 600; color: var(--adm-text); margin-bottom: 3px;
+}
+.adm-toggle-desc { font-size: 12px; color: var(--adm-muted); line-height: 1.4; }
+
+/* Toggle switch */
+.adm-toggle {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: var(--adm-border); position: relative;
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.25s;
+}
+.adm-toggle::after {
+    content: '';
+    position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    transition: transform 0.25s;
+}
+.adm-toggle.on { background: var(--adm-primary); }
+.adm-toggle.on::after { transform: translateX(20px); }
+.adm-toggle.danger.on { background: var(--adm-danger); }
+
+/* ── DANGER ZONE ── */
+.adm-danger-row {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 20px;
+    padding: 14px 0; border-bottom: 1px solid var(--adm-border);
+}
+.adm-danger-row:last-child { border-bottom: none; padding-bottom: 0; }
+.adm-danger-label {
+    font-size: 14px; font-weight: 700;
+    color: var(--adm-danger); margin-bottom: 3px;
+}
+.adm-danger-desc { font-size: 12px; color: var(--adm-muted); line-height: 1.4; }
+
+/* ── ADMIN AVATAR CARD ── */
+.adm-settings-profile-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px; background: var(--adm-bg);
+    border: 1px solid var(--adm-border); border-radius: 12px;
+    margin-bottom: 4px;
+}
+.adm-settings-avatar {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--adm-primary), var(--adm-accent));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 20px; font-weight: 700; flex-shrink: 0;
+}
+.adm-settings-profile-name { font-size: 15px; font-weight: 700; color: var(--adm-text); }
+.adm-settings-profile-role { font-size: 12px; color: var(--adm-light); margin-top: 2px; }
+
+@media (max-width: 600px) {
+    .adm-form-row { grid-template-columns: 1fr; }
+    .adm-toggle-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .adm-danger-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
