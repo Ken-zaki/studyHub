@@ -1,4 +1,4 @@
-{{-- resources/views/settings/index.blade.php --}}
+{{-- resources/views/home/settings.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Settings – StudyHub')
@@ -135,12 +135,14 @@
                 <div class="team-grid">
                     @php
                         $team = [
-                            ['initials' => 'AJ', 'name' => 'Alex Johnson', 'role' => 'Project Lead'],
-                            ['initials' => 'MR', 'name' => 'Maria Reyes', 'role' => 'UI/UX Designer'],
-                            ['initials' => 'KC', 'name' => 'Kyle Cruz', 'role' => 'Backend Developer'],
-                            ['initials' => 'SL', 'name' => 'Sofia Lim', 'role' => 'Frontend Developer'],
-                            ['initials' => 'DP', 'name' => 'Diego Perez', 'role' => 'Database Engineer'],
-                            ['initials' => 'NK', 'name' => 'Nina Kim', 'role' => 'QA & Testing'],
+                            [
+                                'initials' => 'KV',
+                                'name' => 'Kenneth Valdez',
+                                'role' => 'Project Vice-Lead and Backend Developer',
+                            ],
+                            ['initials' => 'SE', 'name' => 'Shiela Ebreo', 'role' => 'UI/UX Designer'],
+                            ['initials' => 'PS', 'name' => 'Pauleed Sayat', 'role' => 'Project Lead'],
+                            ['initials' => 'PC', 'name' => 'Paula Causapin', 'role' => 'Frontend Developer'],
                         ];
                     @endphp
                     @foreach ($team as $member)
