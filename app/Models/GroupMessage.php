@@ -9,6 +9,8 @@ class GroupMessage extends Model
 {
     use HasUuids;
 
+    public $timestamps = false;
+
     protected $table = 'group_messages';
 
     protected $fillable = [

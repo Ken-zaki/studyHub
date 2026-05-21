@@ -233,7 +233,7 @@
             background: #fff;
             border: 1px solid #e8e4de;
             border-radius: 10px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
             z-index: 20;
             min-width: 120px;
             overflow: hidden;
@@ -305,7 +305,7 @@
             background: #ffffff;
             border: 1.5px solid #e8e4de;
             border-radius: 12px;
-            box-shadow: 0 10px 28px rgba(0,0,0,0.13);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.13);
             overflow: hidden;
             z-index: 50;
             animation: menuDrop 0.16s ease;
@@ -336,6 +336,7 @@
                 opacity: 0;
                 transform: translateY(-6px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -674,8 +675,15 @@
         }
 
         @keyframes fadeInSeen {
-            from { opacity: 0; transform: translateY(3px); }
-            to   { opacity: 0.85; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+
+            to {
+                opacity: 0.85;
+                transform: translateY(0);
+            }
         }
 
         /* Input */
@@ -865,11 +873,14 @@
                                 ˅
                             </button>
                             <div class="friend-menu">
-                                <button onclick="event.stopPropagation(); archiveConversation('{{ $friend->id }}')">Archive</button>
+                                <button
+                                    onclick="event.stopPropagation(); archiveConversation('{{ $friend->id }}')">Archive</button>
                                 @if ($friend->is_muted ?? false)
-                                    <button onclick="event.stopPropagation(); unmuteConversation('{{ $friend->id }}')">Unmute</button>
+                                    <button
+                                        onclick="event.stopPropagation(); unmuteConversation('{{ $friend->id }}')">Unmute</button>
                                 @else
-                                    <button onclick="event.stopPropagation(); muteConversation('{{ $friend->id }}')">Mute</button>
+                                    <button
+                                        onclick="event.stopPropagation(); muteConversation('{{ $friend->id }}')">Mute</button>
                                 @endif
                             </div>
                         </div>
@@ -890,15 +901,15 @@
                     <div class="archived-list" id="archivedList">
                         @forelse($archivedFriends ?? [] as $friend)
                             @php
-                                $initials = strtoupper(substr($friend->first_name, 0, 1) . substr($friend->last_name, 0, 1));
+                                $initials = strtoupper(
+                                    substr($friend->first_name, 0, 1) . substr($friend->last_name, 0, 1),
+                                );
                             @endphp
 
-                            <div class="friend-item archived-friend-item"
-                                data-friend-id="{{ $friend->id }}"
+                            <div class="friend-item archived-friend-item" data-friend-id="{{ $friend->id }}"
                                 data-friend-name="{{ $friend->first_name }} {{ $friend->last_name }}"
                                 data-friend-photo="{{ $friend->profile_photo_url }}"
-                                data-friend-initials="{{ $initials }}"
-                                onclick="openConversation(this)">
+                                data-friend-initials="{{ $initials }}" onclick="openConversation(this)">
 
                                 <div class="friend-avatar">
                                     @if ($friend->profile_photo_url)
@@ -937,8 +948,7 @@
                 </div>
 
                 {{-- Active conversation (hidden until a friend is selected) --}}
-                <div id="chatActive"
-                    style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+                <div id="chatActive" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
                     <div class="chat-header" id="chatHeader">
                         <div class="chat-header-avatar" id="chatHeaderAvatar"></div>
                         <div class="chat-header-info">
@@ -959,8 +969,8 @@
                                 oninput="autoResize(this)"></textarea>
                         </div>
                         <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.2">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.2">
                                 <path d="M22 2 11 13" />
                                 <path d="M22 2 15 22 11 13 2 9l20-7z" />
                             </svg>
@@ -987,7 +997,10 @@
         // ── Helpers ────────────────────────────────────────────
         function formatTime(dateStr) {
             const d = new Date(dateStr);
-            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            return d.toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
         }
 
         function formatDate(dateStr) {
@@ -1063,17 +1076,18 @@
         }
 
         // ── Friend search ──────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const friendSearch = document.getElementById('friendSearch');
 
             if (!friendSearch) return;
 
-            friendSearch.addEventListener('input', function () {
+            friendSearch.addEventListener('input', function() {
                 const q = this.value.trim().toLowerCase();
 
                 document.querySelectorAll('#friendsList > .friend-item').forEach(item => {
                     const name = (item.dataset.friendName || '').toLowerCase();
-                    const lastMsg = item.querySelector('.friend-last-msg')?.textContent.toLowerCase() || '';
+                    const lastMsg = item.querySelector('.friend-last-msg')?.textContent
+                        .toLowerCase() || '';
 
                     item.style.display = name.includes(q) || lastMsg.includes(q) ? 'flex' : 'none';
                 });
@@ -1082,9 +1096,9 @@
 
         // ── Open Conversation ──────────────────────────────────
         function openConversation(el) {
-            const friendId       = el.dataset.friendId;
-            const friendName     = el.dataset.friendName;
-            const friendPhoto    = el.dataset.friendPhoto;
+            const friendId = el.dataset.friendId;
+            const friendName = el.dataset.friendName;
+            const friendPhoto = el.dataset.friendPhoto;
             const friendInitials = el.dataset.friendInitials;
 
             // Mark active
@@ -1098,25 +1112,25 @@
             // Stop previous poll
             if (pollInterval) clearInterval(pollInterval);
 
-            activeFriendId       = friendId;
-            lastMessageId        = null;
+            activeFriendId = friendId;
+            lastMessageId = null;
             currentSeenMessageId = null; // reset seen state for new conversation
 
             // Update header
             const headerAvatar = document.getElementById('chatHeaderAvatar');
-            headerAvatar.innerHTML = friendPhoto
-                ? `<img src="${friendPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;"
-                       onerror="this.style.display='none'; this.parentElement.textContent='${friendInitials}'">`
-                : friendInitials;
+            headerAvatar.innerHTML = friendPhoto ?
+                `<img src="${friendPhoto}" alt="" style="width:100%;height:100%;object-fit:cover;"
+                       onerror="this.style.display='none'; this.parentElement.textContent='${friendInitials}'">` :
+                friendInitials;
             document.getElementById('chatHeaderName').textContent = friendName;
 
             // Show chat panel
             document.getElementById('chatEmpty').style.display = 'none';
             const chatActive = document.getElementById('chatActive');
-            chatActive.style.display       = 'flex';
+            chatActive.style.display = 'flex';
             chatActive.style.flexDirection = 'column';
-            chatActive.style.flex          = '1';
-            chatActive.style.overflow      = 'hidden';
+            chatActive.style.flex = '1';
+            chatActive.style.overflow = 'hidden';
 
             // Load messages
             loadConversation(friendId);
@@ -1134,8 +1148,11 @@
             area.innerHTML = '<div class="msg-loading"><div class="spinner"></div> Loading messages…</div>';
 
             try {
-                const res  = await fetch(`/messages/conversation/${friendId}`, {
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
+                const res = await fetch(`/messages/conversation/${friendId}`, {
+                    headers: {
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'Accept': 'application/json'
+                    }
                 });
                 const data = await res.json();
 
@@ -1169,7 +1186,7 @@
                 return;
             }
 
-            let lastDate   = null;
+            let lastDate = null;
             let lastSender = null;
 
             if (!replace) {
@@ -1188,17 +1205,17 @@
                     divider.className = 'date-divider';
                     divider.innerHTML = `<span>${formatDate(msg.created_at)}</span>`;
                     area.appendChild(divider);
-                    lastDate   = msgDate;
+                    lastDate = msgDate;
                     lastSender = null;
                 }
 
-                const isSent    = String(msg.sender_id) === String(AUTH_ID);
+                const isSent = String(msg.sender_id) === String(AUTH_ID);
                 const sameGroup = msg.sender_id === lastSender;
-                const ini       = initials(msg.first_name || '', msg.last_name || '');
+                const ini = initials(msg.first_name || '', msg.last_name || '');
 
                 const row = document.createElement('div');
-                row.className          = `msg-row ${isSent ? 'sent' : 'received'}`;
-                row.dataset.senderId   = msg.sender_id;
+                row.className = `msg-row ${isSent ? 'sent' : 'received'}`;
+                row.dataset.senderId = msg.sender_id;
 
                 // Store message ID on the row so seen indicator can find it
                 if (isSent) {
@@ -1213,16 +1230,16 @@
                 }
 
                 const bubbleWrap = document.createElement('div');
-                bubbleWrap.style.display       = 'flex';
+                bubbleWrap.style.display = 'flex';
                 bubbleWrap.style.flexDirection = 'column';
-                bubbleWrap.style.alignItems    = isSent ? 'flex-end' : 'flex-start';
+                bubbleWrap.style.alignItems = isSent ? 'flex-end' : 'flex-start';
 
                 const bubble = document.createElement('div');
-                bubble.className  = 'msg-bubble';
+                bubble.className = 'msg-bubble';
                 bubble.textContent = msg.message;
 
                 const timeEl = document.createElement('div');
-                timeEl.className  = 'msg-time';
+                timeEl.className = 'msg-time';
                 timeEl.textContent = formatTime(msg.created_at);
 
                 bubbleWrap.appendChild(bubble);
@@ -1243,8 +1260,11 @@
 
             try {
                 const params = lastMessageId ? `?after_id=${lastMessageId}` : '';
-                const res    = await fetch(`/messages/poll/${friendId}${params}`, {
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
+                const res = await fetch(`/messages/poll/${friendId}${params}`, {
+                    headers: {
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'Accept': 'application/json'
+                    }
                 });
                 const data = await res.json();
 
@@ -1270,26 +1290,26 @@
 
         // ── Send message ───────────────────────────────────────
         async function sendMessage() {
-            const input   = document.getElementById('messageInput');
+            const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
             const message = input.value.trim();
 
             if (!message || !activeFriendId) return;
 
-            input.value        = '';
+            input.value = '';
             input.style.height = 'auto';
-            sendBtn.disabled   = true;
+            sendBtn.disabled = true;
 
             // Optimistic render — give the temporary bubble a temp ID
             const tmpId = 'tmp-' + Date.now();
             const optimistic = {
-                id:                tmpId,
-                sender_id:         AUTH_ID,
-                receiver_id:       activeFriendId,
-                message:           message,
-                created_at:        new Date().toISOString(),
-                first_name:        '',
-                last_name:         '',
+                id: tmpId,
+                sender_id: AUTH_ID,
+                receiver_id: activeFriendId,
+                message: message,
+                created_at: new Date().toISOString(),
+                first_name: '',
+                last_name: '',
                 profile_photo_url: null,
             };
             renderMessages([optimistic], false);
@@ -1299,14 +1319,17 @@
             if (placeholder) placeholder.remove();
 
             try {
-                const res  = await fetch('/messages/send', {
-                    method:  'POST',
+                const res = await fetch('/messages/send', {
+                    method: 'POST',
                     headers: {
-                        'Content-Type':  'application/json',
-                        'X-CSRF-TOKEN':  CSRF_TOKEN,
-                        'Accept':        'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ receiver_id: activeFriendId, message }),
+                    body: JSON.stringify({
+                        receiver_id: activeFriendId,
+                        message
+                    }),
                 });
                 const data = await res.json();
 
@@ -1320,9 +1343,10 @@
                     lastMessageId = data.message.id;
 
                     // Update sidebar preview
-                    const lastMsgEl  = document.getElementById('lastMsg-'  + activeFriendId);
+                    const lastMsgEl = document.getElementById('lastMsg-' + activeFriendId);
                     const lastTimeEl = document.getElementById('lastTime-' + activeFriendId);
-                    if (lastMsgEl)  lastMsgEl.textContent  = message.length > 35 ? message.substring(0, 35) + '…' : message;
+                    if (lastMsgEl) lastMsgEl.textContent = message.length > 35 ? message.substring(0, 35) + '…' :
+                        message;
                     if (lastTimeEl) lastTimeEl.textContent = formatTime(data.message.created_at);
                 }
             } catch (e) {
@@ -1443,18 +1467,19 @@
     </script>
 
     <script>
-        const SB_URL  = '{{ config('services.supabase.url') }}';
+        const SB_URL = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
-        const UID     = '{{ session('user_id') }}';
+        const SB_SVC = '{{ config('services.supabase.service_key') }}';
+        const UID = '{{ session('user_id') }}';
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => initNotifications());
     </script>
 
+    @include('layouts.admin_bar')
 </body>
 
 </html>

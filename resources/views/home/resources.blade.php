@@ -83,17 +83,18 @@
                 <div id="othersSubjectSearch" style="display:none; align-items:center; gap:6px; width:100%;">
                     <div class="res-others-search-wrap">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="M21 21l-4.35-4.35" />
                         </svg>
-                        <input type="text" id="othersSubjectInput"
-                            placeholder="Search custom subjects…"
-                            oninput="applyOthersSearch()"
-                            onkeydown="if(event.key==='Enter') applyOthersSearch()">
+                        <input type="text" id="othersSubjectInput" placeholder="Search custom subjects…"
+                            oninput="applyOthersSearch()" onkeydown="if(event.key==='Enter') applyOthersSearch()">
                         <button class="res-search-clear" id="othersClear" onclick="clearOthersSearch()">✕</button>
                     </div>
                     <button class="res-others-search-btn" onclick="applyOthersSearch()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            style="width:14px;height:14px;">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="M21 21l-4.35-4.35" />
                         </svg>
                         Search
                     </button>
@@ -145,7 +146,8 @@
             <div class="widget-card">
                 <div class="widget-title">
                     📤 My Uploads
-                    <button class="res-bk-view-all" onclick="viewAllMyUploads()" title="View all uploads">View all</button>
+                    <button class="res-bk-view-all" onclick="viewAllMyUploads()" title="View all uploads">View
+                        all</button>
                 </div>
                 <button class="res-upload-btn-sm" onclick="openUploadModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -165,7 +167,8 @@
             <div class="widget-card">
                 <div class="widget-title">
                     🔖 Saved Resources
-                    <button class="res-bk-view-all" onclick="toggleBookmarkFilter()" title="View all saved resources">View all</button>
+                    <button class="res-bk-view-all" onclick="toggleBookmarkFilter()"
+                        title="View all saved resources">View all</button>
                 </div>
                 <div id="bookmarksSidebar">
                     <div class="res-empty-small">No saved resources yet</div>
@@ -377,14 +380,19 @@
                     Back
                 </button>
                 <div class="res-detail-header-actions">
-                    <button class="res-detail-bk-btn" id="detailBookmarkBtn" onclick="toggleBookmark(currentResource?.id, event)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;">
-                            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                    <button class="res-detail-bk-btn" id="detailBookmarkBtn"
+                        onclick="toggleBookmark(currentResource?.id, event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            style="width:15px;height:15px;">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
                         </svg>
                         Save
                     </button>
-                    <button class="res-edit-btn" id="detailEditBtn" style="display:none;" onclick="openEditModal()">✏️ Edit</button>
-                    <button class="res-edit-btn" id="detailDeleteBtn" style="display:none;border-color:rgba(255,107,107,0.4);color:#ef4444;" onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
+                    <button class="res-edit-btn" id="detailEditBtn" style="display:none;"
+                        onclick="openEditModal()">✏️ Edit</button>
+                    <button class="res-edit-btn" id="detailDeleteBtn"
+                        style="display:none;border-color:rgba(255,107,107,0.4);color:#ef4444;"
+                        onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
                 </div>
             </div>
 
@@ -401,7 +409,8 @@
                         </button>
                         <div class="res-detail-owner-actions" id="detailOwnerActionsBar" style="display:none;">
                             <button class="res-edit-btn-inline" onclick="openEditModal()">✏️ Edit</button>
-                            <button class="res-delete-btn-inline" onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
+                            <button class="res-delete-btn-inline"
+                                onclick="deleteResource(currentResource?.id, null)">🗑 Delete</button>
                         </div>
                     </div>
 
@@ -678,28 +687,28 @@
     </div>
 
     <script>
-        const SB_URL  = '{{ config('services.supabase.url') }}';
+        const SB_URL = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
-        const UID     = '{{ session('user_id') }}';
+        const SB_SVC = '{{ config('services.supabase.service_key') }}';
+        const UID = '{{ session('user_id') }}';
 
         // CURRENT_USER is referenced throughout resources.js
         const CURRENT_USER = {
-            id:        '{{ session('user_id', '') }}',
+            id: '{{ session('user_id', '') }}',
             firstName: '{{ session('user_first_name', '') }}',
-            lastName:  '{{ session('user_last_name', '') }}',
-            username:  '{{ session('username', '') }}',
-            photoUrl:  '{{ session('profile_photo_url', '') }}',
+            lastName: '{{ session('user_last_name', '') }}',
+            username: '{{ session('username', '') }}',
+            photoUrl: '{{ session('profile_photo_url', '') }}',
         };
     </script>
-
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
     <script src="{{ asset('js/resources.js') }}"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => initNotifications());
     </script>
-
+    @include('layouts.admin_bar')
 </body>
 
 </html>

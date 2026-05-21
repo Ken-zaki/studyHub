@@ -38,6 +38,7 @@
     {{-- Page-specific scripts injected here by each blade via @push('scripts') --}}
     @stack('scripts')
 
+    @include('layouts.admin_bar')
 </body>
 
 </html>

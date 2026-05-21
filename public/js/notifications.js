@@ -11,11 +11,6 @@
 //  • Real-time poll: friend_request_received / friend_request_accepted
 // ================================================================
 
-const UID = window.UID;
-const SB_URL = window.SB_URL;
-const SB_ANON = window.SB_ANON;
-const SB_SVC = window.SB_SVC;
-
 const NOTIF = {
     checkMs: 5_000, // scheduled-reminder check interval
     maxPanel: 30, // max rows shown in dropdown
@@ -48,24 +43,6 @@ const NOTIF = {
 let _dropdown = null;
 let _badgeEl = null;
 let _cached = [];
-
-function hdrs(withBody = false) {
-    return {
-        apikey: SB_ANON,
-        Authorization: `Bearer ${SB_ANON}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation'
-    };
-}
-
-async function sbReq(path, options = {}) {
-    const url = path.startsWith('http') ? path : `${SB_URL}/rest/v1/${path}`;
-    const res = await fetch(url, options);
-    if (!res.ok) {
-        throw new Error(`Supabase request failed: ${res.status}`);
-    }
-    return await res.json();
-}
 
 // ================================================================
 // PUBLIC ENTRY
@@ -175,8 +152,12 @@ async function _tick() {
 // FR-3.6: if the event has reminder_minutes set, use ONLY that single
 // custom trigger (plus overdue/1hr_after which always apply).
 function _triggersFor(item) {
-    if (item.source_type !== "event" || !item.customReminder) {
-        return NOTIF.triggers; // tasks + events without custom reminder
+    if (item.source_type !== "event") {
+        return NOTIF.triggers;
+    }
+
+    if (!item.customReminder) {
+        return NOTIF.triggers;
     }
 
     const customMs = item.customReminder * 60 * 1000;
@@ -187,14 +168,9 @@ function _triggersFor(item) {
         custom: true,
     };
 
-    // Always include overdue + 1hr_after so user knows when event passed
-    const always = NOTIF.triggers.filter(
-        (t) => t.key === "overdue" || t.key === "1hr_after",
-    );
-
-    // Avoid duplicating a standard trigger that matches the custom offset
-    const alreadyCovered = always.some((t) => t.offsetMs === customMs);
-    return alreadyCovered ? always : [customTrigger, ...always];
+    const overdueOnly = NOTIF.triggers.filter((t) => t.key === "overdue");
+    const alreadyCovered = customMs === 0;
+    return alreadyCovered ? overdueOnly : [customTrigger, ...overdueOnly];
 }
 
 function _reminderLabel(minutes) {
@@ -536,8 +512,7 @@ function _buildTitle(item, trig) {
     if (trig.key === "1hr_after") return `🕐 1 hour ago: ${item.title}`;
 
     const prefix = item.source_type === "task" ? "✅" : _evIcon(item.category);
-    const label = trig.custom ? trig.label : trig.label; // custom already has readable label
-    return `${prefix} ${label}: ${item.title}`;
+    return `${prefix} ${trig.label}: ${item.title}`;
 }
 
 function _buildBody(item, dueDate) {

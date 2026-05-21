@@ -68,7 +68,9 @@ class ResourceController extends Controller
             return redirect()->route('login');
         }
 
-        return view('home.resources');
+        return view('home.resources', [
+            'activeNav' => 'resources',
+        ]);
     }
 
     // ── List / search ─────────────────────────────────────────
@@ -95,12 +97,23 @@ class ResourceController extends Controller
         if ($visibility === 'public') {
             $query->where('visibility', 'public');
         } elseif ($visibility === 'private' && $userId !== '') {
+
             $following = DB::table('follows')
                 ->where('follower_id', $userId)
-                ->pluck('following_id');
+                ->pluck('following_id')
+                ->toArray();
 
             $query->where('visibility', 'private')
-                  ->whereIn('uploaded_by', $following);
+                ->where(function ($q) use ($following, $userId) {
+
+                    // Friends uploads
+                    if (!empty($following)) {
+                        $q->whereIn('uploaded_by', $following);
+                    }
+
+                    // Own uploads
+                    $q->orWhere('uploaded_by', $userId);
+                });
         }
 
         if ($subject) {

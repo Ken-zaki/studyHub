@@ -203,21 +203,21 @@
     @include('layouts.admin_bar')
 
     <script>
-        const SB_URL  = '{{ config('services.supabase.url') }}';
+        const SB_URL = '{{ config('services.supabase.url') }}';
         const SB_ANON = '{{ config('services.supabase.anon_key') }}';
-        const SB_SVC  = '{{ config('services.supabase.service_key') }}';
-        const UID     = '{{ session('user_id') }}';
-        const TABLE   = 'notifications';
+        const SB_SVC = '{{ config('services.supabase.service_key') }}';
+        const UID = '{{ session('user_id') }}';
+        const TABLE = 'notifications';
 
-        let _all    = [];
+        let _all = [];
         let _filter = 'all';
 
         const FILTER_TITLES = {
-            all:          'All Notifications',
-            unread:       'Unread',
-            urgent:       'Urgent',
-            event:        'Events',
-            task:         'Tasks',
+            all: 'All Notifications',
+            unread: 'Unread',
+            urgent: 'Urgent',
+            event: 'Events',
+            task: 'Tasks',
             announcement: 'Announcements',
         };
 
@@ -225,12 +225,12 @@
         function notifIcon(type) {
             const map = {
                 announcement: '📣',
-                urgent:       '🚨',
-                event:        '📅',
-                task:         '✅',
-                friend:       '👋',
-                message:      '💬',
-                report:       '⚠️',
+                urgent: '🚨',
+                event: '📅',
+                task: '✅',
+                friend: '👋',
+                message: '💬',
+                report: '⚠️',
             };
             return map[type] ?? '🔔';
         }
@@ -239,11 +239,11 @@
         function hdrs(write = false) {
             const key = (write && SB_SVC) ? SB_SVC : SB_ANON;
             return {
-                apikey:           key,
-                Authorization:    `Bearer ${key}`,
-                'Content-Type':   'application/json',
+                apikey: key,
+                Authorization: `Bearer ${key}`,
+                'Content-Type': 'application/json',
                 'Accept-Profile': 'public',
-                'Content-Profile':'public',
+                'Content-Profile': 'public',
             };
         }
 
@@ -251,7 +251,10 @@
         function fetchWithTimeout(url, options = {}, ms = 8000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), ms);
-            return fetch(url, { ...options, signal: controller.signal })
+            return fetch(url, {
+                    ...options,
+                    signal: controller.signal
+                })
                 .finally(() => clearTimeout(timer));
         }
 
@@ -283,8 +286,9 @@
                 const res = await fetchWithTimeout(
                     // FIX #4: include `priority` in the select so it arrives in every row
                     `${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&order=created_at.desc&limit=200` +
-                    `&select=*`,
-                    { headers: hdrs() }
+                    `&select=*`, {
+                        headers: hdrs()
+                    }
                 );
                 if (!res.ok) {
                     const text = await res.text();
@@ -322,22 +326,22 @@
                 n.source_type === 'announcement'
             ).length;
 
-            document.getElementById('sTotal').textContent  = _all.length;
+            document.getElementById('sTotal').textContent = _all.length;
             document.getElementById('sUnread').textContent = unread;
             document.getElementById('sUrgent').textContent = urgent;
-            document.getElementById('sRead').textContent   = read;
+            document.getElementById('sRead').textContent = read;
 
             const pill = document.getElementById('topPill');
 
-            pill.textContent   = unread;
+            pill.textContent = unread;
             pill.style.display = unread > 0 ? 'inline' : 'none';
 
             document.getElementById('pageSubtitle').textContent =
-                unread > 0
-                    ? `You have ${unread} unread notification${unread !== 1 ? 's' : ''}`
-                    : "You're all caught up!";
+                unread > 0 ?
+                `You have ${unread} unread notification${unread !== 1 ? 's' : ''}` :
+                "You're all caught up!";
 
-            document.getElementById('fc-all').textContent    = _all.length;
+            document.getElementById('fc-all').textContent = _all.length;
             document.getElementById('fc-unread').textContent = unread;
             document.getElementById('fc-urgent').textContent = urgent;
 
@@ -400,7 +404,7 @@
 
         /* ── RENDER ─────────────────────────────────────────────── */
         function render() {
-            const list  = document.getElementById('notifList');
+            const list = document.getElementById('notifList');
             const items = filtered();
             document.getElementById('listSub').textContent =
                 `${items.length} notification${items.length !== 1 ? 's' : ''}`;
@@ -422,17 +426,19 @@
             });
 
             let html = '';
-            let idx  = 0;
+            let idx = 0;
             for (const [label, notifs] of Object.entries(groups)) {
                 html += `<div class="ng-label">${esc(label)}</div>`;
-                notifs.forEach(n => { html += rowHTML(n, idx++); });
+                notifs.forEach(n => {
+                    html += rowHTML(n, idx++);
+                });
             }
             list.innerHTML = html;
         }
 
         function rowHTML(n, i) {
 
-            const ago    = timeAgo(new Date(n.created_at));
+            const ago = timeAgo(new Date(n.created_at));
             const unread = !(n.read || n.is_read);
 
             const level =
@@ -452,8 +458,7 @@
 
             if (urgent) {
                 priorityClass = 'urgent';
-            }
-            else if (important) {
+            } else if (important) {
                 priorityClass = 'important';
             }
 
@@ -463,23 +468,21 @@
 
             if (urgent) {
                 tagUrgent = `<span class="nr-tag urgent">Urgent</span>`;
-            }
-            else if (important) {
+            } else if (important) {
                 tagUrgent = `<span class="nr-tag important">Important</span>`;
-            }
-            else {
+            } else {
                 tagUrgent = `<span class="nr-tag normal">Normal</span>`;
             }
 
-            const tagType = n.notification_type
-                ? `<span class="nr-tag ${esc(n.notification_type)}">
+            const tagType = n.notification_type ?
+                `<span class="nr-tag ${esc(n.notification_type)}">
                     ${esc(n.notification_type)}
-                </span>`
-                : '';
+                </span>` :
+                '';
 
-            const udot = unread
-                ? `<div class="udot"></div>`
-                : '';
+            const udot = unread ?
+                `<div class="udot"></div>` :
+                '';
 
             // ✨ CHECK IF ANNOUNCEMENT
             const isAnnouncement =
@@ -487,17 +490,17 @@
                 n.source_type === 'announcement';
 
             // ✨ REDIRECT URL
-            const redirectUrl = isAnnouncement
-                ? `/announcements?open=${n.related_id}`
-                : '#';
+            const redirectUrl = isAnnouncement ?
+                `/announcements?open=${n.related_id}` :
+                '#';
 
             return `
 
             ${isAnnouncement ? `
-            <a href="${redirectUrl}"
-            class="notif-link"
-            onclick="markRead('${n.id}')">
-            ` : ''}
+                    <a href="${redirectUrl}"
+                    class="notif-link"
+                    onclick="markRead('${n.id}')">
+                    ` : ''}
 
             <div class="nr ${readClass} ${priorityClass}"
                 id="nr-${n.id}"
@@ -519,10 +522,10 @@
 
                     ${n.message
                         ? `
-                            <div class="nr-sub">
-                                ${esc(n.message)}
-                            </div>
-                        `
+                                    <div class="nr-sub">
+                                        ${esc(n.message)}
+                                    </div>
+                                `
                         : ''
                     }
 
@@ -575,9 +578,11 @@
             }
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
-                method:  'PATCH',
+                method: 'PATCH',
                 headers: hdrs(true),
-                body:    JSON.stringify({ is_read: true }),
+                body: JSON.stringify({
+                    is_read: true
+                }),
             });
         }
 
@@ -586,9 +591,11 @@
             render();
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&is_read=eq.false`, {
-                method:  'PATCH',
+                method: 'PATCH',
                 headers: hdrs(true),
-                body:    JSON.stringify({ is_read: true }),
+                body: JSON.stringify({
+                    is_read: true
+                }),
             });
         }
 
@@ -597,7 +604,7 @@
             render();
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
-                method:  'DELETE',
+                method: 'DELETE',
                 headers: hdrs(true),
             });
         }
@@ -611,7 +618,7 @@
             updateCounts();
             await fetch(
                 `${SB_URL}/rest/v1/${TABLE}?id=in.(${ids.map(i => `"${i}"`).join(',')})`, {
-                    method:  'DELETE',
+                    method: 'DELETE',
                     headers: hdrs(true),
                 }
             );
@@ -619,21 +626,24 @@
 
         /* ── HELPERS ────────────────────────────────────────────── */
         function groupLabel(d) {
-            const now   = new Date();
+            const now = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const dd    = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const diff  = Math.round((today - dd) / 86400000);
+            const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const diff = Math.round((today - dd) / 86400000);
             if (diff === 0) return 'Today';
             if (diff === 1) return 'Yesterday';
-            if (diff < 7)  return `${diff} days ago`;
-            return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            if (diff < 7) return `${diff} days ago`;
+            return d.toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric'
+            });
         }
 
         function timeAgo(d) {
             const s = Math.floor((Date.now() - d) / 1000);
-            if (s < 10)    return 'just now';
-            if (s < 60)    return `${s}s ago`;
-            if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
+            if (s < 10) return 'just now';
+            if (s < 60) return `${s}s ago`;
+            if (s < 3600) return `${Math.floor(s / 60)}m ago`;
             if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
             return `${Math.floor(s / 86400)}d ago`;
         }
@@ -649,17 +659,19 @@
     </script>
 
 
-@include('layouts.admin_bar')
+    @include('layouts.admin_bar')
 
-<script>
-    window.UID = @json(session('user_id'));
-    window.SB_URL = @json(config('services.supabase.url'));
-    window.SB_ANON = @json(config('services.supabase.anon_key'));
-    window.SB_SVC = @json(config('services.supabase.service_key'));
-</script>
+    <script>
+        window.UID = @json(session('user_id'));
+        window.SB_URL = @json(config('services.supabase.url'));
+        window.SB_ANON = @json(config('services.supabase.anon_key'));
+        window.SB_SVC = @json(config('services.supabase.service_key'));
+    </script>
 
-<script src="{{ asset('js/notifications.js') }}"></script>
+    <script src="{{ asset('js/studyhub-core.js') }}"></script>
+    <script src="{{ asset('js/notifications.js') }}"></script>
 
+    @include('layouts.admin_bar')
 </body>
 
 </html>

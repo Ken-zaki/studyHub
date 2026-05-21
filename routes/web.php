@@ -109,298 +109,6 @@ Route::get('/browse/newsfeed',   fn() => view('home.guest-newsfeed'))  ->name('g
 Route::get('/browse/resources',  fn() => view('home.guest-resources')) ->name('guest.resources');
 Route::get('/browse/settings',   fn() => view('home.guest-settings'))  ->name('guest.settings');
 
-// DEBUG ROUTE - Check all friend requests in database
-Route::get('/debug/all-requests', function () {
-    $allRequests = FriendRequest::all();
-    $schemaColumns = \DB::getSchemaBuilder()->getColumnListing('friend_requests');
-    $userId = trim((string) session('user_id', ''));
-
-    $myIncoming = FriendRequest::where('receiver_id', $userId)->get();
-    $myOutgoing = FriendRequest::where('sender_id', $userId)->get();
-
-    return response()->json([
-        'current_session_user_id' => $userId,
-        'db_columns' => $schemaColumns,
-        'total_requests_in_db' => count($allRequests),
-        'all_requests_raw' => $allRequests->toArray(),
-        'my_incoming_count' => count($myIncoming),
-        'my_incoming' => $myIncoming->toArray(),
-        'my_outgoing_count' => count($myOutgoing),
-        'my_outgoing' => $myOutgoing->toArray(),
-        'sample_raw_query' => \DB::table('friend_requests')->get()->toArray(),
-    ]);
-});
-
-// DEBUG — raw Supabase profile data
-Route::get('/debug/profiles', function () {
-    $provider = new SupabaseServiceProvider();
-    $profiles = $provider->getAllProfiles();
-
-    return response()->json([
-        'session_user_id'  => session('user_id'),
-        'supabase_url_set' => !empty(env('SUPABASE_URL')),
-        'anon_key_set'     => !empty(env('SUPABASE_ANON_KEY')),
-        'service_key_set'  => !empty(env('SUPABASE_SERVICE_KEY')),
-        'profile_count'    => count($profiles),
-        'profiles_sample'  => array_map(function ($p) {
-            return [
-                'id'         => $p['id']         ?? '(missing)',
-                'first_name' => $p['first_name'] ?? '(missing)',
-                'last_name'  => $p['last_name']  ?? '(missing)',
-                'username'   => $p['username']   ?? '(missing)',
-                'email'      => $p['email']      ?? '(missing)',
-                'all_keys'   => array_keys($p),
-            ];
-        }, array_slice($profiles, 0, 5)),
-    ]);
-});
-
-// DEBUG — simulates friend-request send step by step
-Route::get('/debug/send/{receiverId}', function (string $receiverId) {
-    $senderId   = trim((string) session('user_id', ''));
-    $receiverId = trim($receiverId);
-
-    $isValidUuid = (bool) preg_match(
-        '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
-        $receiverId
-    );
-
-    $provider    = new SupabaseServiceProvider();
-    $allProfiles = $provider->getAllProfiles();
-
-    $matchedProfile = null;
-    foreach ($allProfiles as $p) {
-        if ((string) ($p['id'] ?? '') === $receiverId) {
-            $matchedProfile = $p;
-            break;
-        }
-    }
-
-    return response()->json([
-        'sender_id'           => $senderId,
-        'receiver_id_param'   => $receiverId,
-        'is_valid_uuid'       => $isValidUuid,
-        'total_profiles'      => count($allProfiles),
-        'matched_profile'     => $matchedProfile,
-        'first_profile_id'    => $allProfiles[0]['id'] ?? '(none)',
-        'first_profile_keys'  => isset($allProfiles[0]) ? array_keys($allProfiles[0]) : [],
-    ]);
-});
-
-Route::post('/debug/study-groups-test', function (Request $request) {
-    return response()->json([
-        'session_user_id' => session('user_id'),
-        'body'            => $request->all(),
-        'csrf_ok'         => true,
-    ]);
-});
-
-Route::get('/debug/my-friends-for-groups', function () {
-    $userId = session('user_id');
-
-    $friendsAsUser = \DB::table('friends')
-        ->where('user_id', $userId)
-        ->get();
-
-    $friendsAsFriend = \DB::table('friends')
-        ->where('friend_id', $userId)
-        ->get();
-
-    return response()->json([
-        'session_user_id'   => $userId,
-        'friends_as_user'   => $friendsAsUser,
-        'friends_as_friend' => $friendsAsFriend,
-        'total'             => $friendsAsUser->count() + $friendsAsFriend->count(),
-    ]);
-});
-
-Route::get('/debug/supabase-friends-raw', function () {
-    $provider = new \App\Providers\SupabaseServiceProvider();
-    $userId = session('user_id');
-
-    $r1 = $provider->queryTable('friends',      ['select' => '*', 'limit' => '5']);
-    $r2 = $provider->queryTable('user_friends', ['select' => '*', 'limit' => '5']);
-
-    return response()->json([
-        'friends_any_rows'      => $r1,
-        'user_friends_any_rows' => $r2,
-    ]);
-});
-
-Route::get('/debug/supabase-friends-service', function () {
-    $provider = new \App\Providers\SupabaseServiceProvider();
-    $userId = session('user_id');
-
-    $f1 = $provider->queryTable('friends', ['select' => '*', 'user_id' => 'eq.' . $userId], true);
-    $f2 = $provider->queryTable('friends', ['select' => '*', 'friend_id' => 'eq.' . $userId], true);
-    $f3 = $provider->queryTable('user_friends', ['select' => '*', 'user_id' => 'eq.' . $userId], true);
-    $f4 = $provider->queryTable('user_friends', ['select' => '*', 'friend_id' => 'eq.' . $userId], true);
-
-    // Also get ALL rows from friends table regardless of user
-    $allFriends     = $provider->queryTable('friends',      ['select' => '*', 'limit' => '10'], true);
-    $allUserFriends = $provider->queryTable('user_friends', ['select' => '*', 'limit' => '10'], true);
-
-    return response()->json([
-        'session_user_id'        => $userId,
-        'friends_as_user'        => $f1,
-        'friends_as_friend'      => $f2,
-        'user_friends_as_user'   => $f3,
-        'user_friends_as_friend' => $f4,
-        'all_friends_rows'       => $allFriends,
-        'all_user_friends_rows'  => $allUserFriends,
-    ]);
-});
-
-Route::get('/debug/study-group-friends', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
-
-    $friendsAsUser   = $provider->queryTable('friends', [
-        'select'  => 'friend_id',
-        'user_id' => 'eq.' . $userId,
-    ], true);
-
-    $friendsAsFriend = $provider->queryTable('friends', [
-        'select'    => 'user_id',
-        'friend_id' => 'eq.' . $userId,
-    ], true);
-
-    // Collect all unique friend IDs
-    $friendIds = [];
-    if (is_array($friendsAsUser)) {
-        foreach ($friendsAsUser as $row) {
-            $id = (string) ($row['friend_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-    if (is_array($friendsAsFriend)) {
-        foreach ($friendsAsFriend as $row) {
-            $id = (string) ($row['user_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-
-    // Try to resolve profiles
-    $friends = [];
-    $failedIds = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        $profile = $provider->getProfileById($friendId);
-
-        if (!is_array($profile) || empty($profile)) {
-            $failedIds[] = $friendId;
-            continue;
-        }
-
-        $firstName = trim((string) ($profile['first_name'] ?? ''));
-        $lastName  = trim((string) ($profile['last_name']  ?? ''));
-        $name      = trim($firstName . ' ' . $lastName);
-
-        if ($name === '') {
-            $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-        }
-
-        $friends[] = [
-            'id'       => (string) ($profile['id'] ?? $friendId),
-            'name'     => $name,
-            'username' => (string) ($profile['username'] ?? ''),
-            'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
-        ];
-    }
-
-    return response()->json([
-        'session_user_id'      => $userId,
-        'friend_ids_found'     => array_keys($friendIds),
-        'friends_resolved'     => $friends,
-        'friends_failed_count' => count($failedIds),
-        'friends_failed_ids'   => $failedIds,
-        'raw_friends_as_user'  => $friendsAsUser,
-        'raw_friends_as_friend' => $friendsAsFriend,
-    ]);
-});
-
-Route::get('/debug/study-groups-friends-detail', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
-
-    // Load ALL profiles
-    $allProfiles  = $provider->getAllProfiles();
-    $profilesById = [];
-    foreach ($allProfiles as $profile) {
-        $id = (string) ($profile['id'] ?? '');
-        if ($id !== '') {
-            $profilesById[$id] = $profile;
-        }
-    }
-
-    // Query friends
-    $friendsAsUser   = $provider->queryTable('friends', [
-        'select'  => 'friend_id',
-        'user_id' => 'eq.' . $userId,
-    ], true);
-
-    $friendsAsFriend = $provider->queryTable('friends', [
-        'select'    => 'user_id',
-        'friend_id' => 'eq.' . $userId,
-    ], true);
-
-    // Collect friend IDs
-    $friendIds = [];
-    if (is_array($friendsAsUser)) {
-        foreach ($friendsAsUser as $row) {
-            $id = (string) ($row['friend_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-    if (is_array($friendsAsFriend)) {
-        foreach ($friendsAsFriend as $row) {
-            $id = (string) ($row['user_id'] ?? '');
-            if ($id !== '') $friendIds[$id] = true;
-        }
-    }
-
-    // Build friends with details
-    $friends = [];
-    $notFound = [];
-    foreach (array_keys($friendIds) as $friendId) {
-        if (!isset($profilesById[$friendId])) {
-            $notFound[] = $friendId;
-            continue;
-        }
-
-        $profile  = $profilesById[$friendId];
-        $firstName = trim((string) ($profile['first_name'] ?? ''));
-        $lastName  = trim((string) ($profile['last_name']  ?? ''));
-        $name      = trim($firstName . ' ' . $lastName);
-
-        if ($name === '') {
-            $name = trim((string) ($profile['username'] ?? '')) ?: 'Friend';
-        }
-
-        $friends[] = [
-            'id'       => $friendId,
-            'name'     => $name,
-            'username' => (string) ($profile['username'] ?? ''),
-            'photo'    => (string) ($profile['profile_photo_url'] ?? ''),
-            'initials' => strtoupper(
-                substr($firstName ?: $name, 0, 1) . substr($lastName, 0, 1)
-            ),
-        ];
-    }
-
-    return response()->json([
-        'session_user_id'          => $userId,
-        'all_profiles_count'       => count($profilesById),
-        'friend_ids_count'         => count($friendIds),
-        'friend_ids'               => array_keys($friendIds),
-        'friends_resolved_count'   => count($friends),
-        'friends_resolved'         => $friends,
-        'friends_not_found_count'  => count($notFound),
-        'friends_not_found'        => $notFound,
-        'raw_friends_as_user'      => $friendsAsUser,
-        'raw_friends_as_friend'    => $friendsAsFriend,
-    ]);
-});
-
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -503,6 +211,28 @@ Route::get('/study-groups/{groupId}/members',  [StudyGroupController::class, 'me
 Route::delete('/study-groups/{groupId}',       [StudyGroupController::class, 'destroy'])    ->name('study-groups.destroy');
 Route::get('/study-groups/{groupId}/messages', [StudyGroupController::class, 'messages'])   ->name('study-groups.messages');
 Route::post('/study-groups/{groupId}/messages',[StudyGroupController::class, 'sendMessage'])->name('study-groups.send');
+
+// ── NEW: Threaded Replies ──
+Route::get('/study-groups/{groupId}/messages/{messageId}/replies',  [StudyGroupController::class, 'getReplies'])   ->name('study-groups.replies.index');
+Route::post('/study-groups/{groupId}/messages/{messageId}/replies', [StudyGroupController::class, 'sendReply'])    ->name('study-groups.replies.store');
+
+// ── NEW: Tasks ──
+Route::get('/study-groups/{groupId}/tasks',               [StudyGroupController::class, 'getTasks'])              ->name('study-groups.tasks.index');
+Route::post('/study-groups/{groupId}/tasks',              [StudyGroupController::class, 'createTask'])            ->name('study-groups.tasks.store');
+Route::patch('/study-groups/{groupId}/tasks/{taskId}',    [StudyGroupController::class, 'updateTask'])            ->name('study-groups.tasks.update');
+Route::delete('/study-groups/{groupId}/tasks/{taskId}',   [StudyGroupController::class, 'deleteTask'])            ->name('study-groups.tasks.destroy');
+
+// ── NEW: Resources (file sharing + pinning) ──
+Route::get('/study-groups/{groupId}/resources',           [StudyGroupController::class, 'getResources'])          ->name('study-groups.resources.index');
+Route::post('/study-groups/{groupId}/resources',          [StudyGroupController::class, 'uploadResources'])       ->name('study-groups.resources.store');
+Route::patch('/study-groups/{groupId}/resources/{resourceId}/pin', [StudyGroupController::class, 'pinResource'])  ->name('study-groups.resources.pin');
+Route::delete('/study-groups/{groupId}/resources/{resourceId}',    [StudyGroupController::class, 'deleteResource'])->name('study-groups.resources.destroy');
+
+// ── NEW: Notes (shared/co-edit) ──
+Route::get('/study-groups/{groupId}/notes',               [StudyGroupController::class, 'getNotes'])              ->name('study-groups.notes.index');
+Route::post('/study-groups/{groupId}/notes',              [StudyGroupController::class, 'createNote'])            ->name('study-groups.notes.store');
+Route::patch('/study-groups/{groupId}/notes/{noteId}',    [StudyGroupController::class, 'updateNote'])            ->name('study-groups.notes.update');
+Route::delete('/study-groups/{groupId}/notes/{noteId}',   [StudyGroupController::class, 'deleteNote'])            ->name('study-groups.notes.destroy');
 
 // ── CALENDAR SHARING ───────────────────────────────────────────
 Route::get('/calendar/sharing/friends',           [CalendarShareController::class, 'getFriendsForSharing'])->name('calendar.sharing.friends');
@@ -616,36 +346,6 @@ Route::get('/friends', function () {
     ]);
 })->name('friends');
 
-// Debug route moved outside /friends
-Route::get('/debug/my-friends', function () {
-    $userId = session('user_id');
-    $provider = new \App\Providers\SupabaseServiceProvider();
-
-    $friends1 = $provider->queryTable('friends', [
-        'select'  => '*',
-        'user_id' => 'eq.' . $userId,
-    ]);
-    $friends2 = $provider->queryTable('friends', [
-        'select'    => '*',
-        'friend_id' => 'eq.' . $userId,
-    ]);
-    $friends3 = $provider->queryTable('user_friends', [
-        'select'  => '*',
-        'user_id' => 'eq.' . $userId,
-    ]);
-    $friends4 = $provider->queryTable('user_friends', [
-        'select'    => '*',
-        'friend_id' => 'eq.' . $userId,
-    ]);
-
-    return response()->json([
-        'session_user_id'        => $userId,
-        'friends_as_user_id'     => $friends1,
-        'friends_as_friend_id'   => $friends2,
-        'user_friends_as_user'   => $friends3,
-        'user_friends_as_friend' => $friends4,
-    ]);
-});
 
 Route::get('/friend-requests', [FriendRequestController::class, 'index'])->name('friend-requests');
 Route::post('/friend-requests/{receiverId}', [FriendRequestController::class, 'send'])->name('friend-requests.send');
@@ -843,11 +543,31 @@ Route::get('/profile/{userId}', function ($userId) {
 
     $currentUserId = (string) session('user_id', '');
     $provider = new SupabaseServiceProvider();
-    $viewedProfile = $provider->getProfileById($userId);
 
-    // If the route param is a username (not a UUID), resolve to the actual UUID.
-    // The profile card links use /profile/{username}, but Friendship expects UUIDs.
-    $resolvedUserId = (string) ($viewedProfile['id'] ?? $userId);
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve profile by UUID or username
+    |--------------------------------------------------------------------------
+    */
+    if (preg_match(
+        '/^[0-9a-fA-F-]{36}$/',
+        $userId
+    )) {
+
+        // UUID
+        $viewedProfile = $provider->getProfileById($userId);
+
+    } else {
+
+        // Username
+        $viewedProfile = $provider->getProfileByUsername($userId);
+    }
+
+    if (!$viewedProfile || empty($viewedProfile['id'])) {
+        abort(404, 'Profile not found.');
+    }
+
+    $resolvedUserId = (string) $viewedProfile['id'];
 
     $relationshipState = 'none';
     $pendingRequestId = null;

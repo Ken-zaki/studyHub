@@ -384,8 +384,8 @@
         const UID = '{{ $userId }}';
     </script>
     <script src="{{ asset('js/studyhub-core.js') }}"></script>
-    <script src="{{ asset('js/calendar.js') }}"></script>
     <script src="{{ asset('js/notifications.js') }}"></script>
+    <script src="{{ asset('js/calendar.js') }}"></script>
 
     {{-- ── INJECT CALENDAR ACTIONS INTO THE TOP-BAR ────────────────────────── --}}
     <script>
