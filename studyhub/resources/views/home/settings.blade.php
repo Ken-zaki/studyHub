@@ -416,7 +416,7 @@
                         <div class="account-avatar-name">
                             {{ trim(session('user_first_name', '') . ' ' . session('user_last_name', '')) ?: session('user_username', 'StudyHub User') }}
                         </div>
-                        <div class="account-avatar-username">@{{ session('user_username', 'username') }}</div>
+                        <div class="account-avatar-username">{{ session('user_username', 'username') }}</div>
                         <a href="{{ route('profile') }}" class="account-avatar-btn">Edit Profile →</a>
                     </div>
                 </div>
@@ -431,7 +431,7 @@
                     </div>
                     <div class="settings-field">
                         <div class="settings-field-label">Username</div>
-                        <div class="settings-field-value">@{{ session('user_username', '—') }}</div>
+                        <div class="settings-field-value">{{ session('user_username', '—') }}</div>
                         <a href="{{ route('profile') }}" class="settings-field-action">Edit</a>
                     </div>
                     <div class="settings-field">
