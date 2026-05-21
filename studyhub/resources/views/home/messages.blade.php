@@ -17,7 +17,7 @@
         /* ── Layout ── */
         .messages-layout {
             display: flex;
-            height: calc(100vh - 0px);
+            height: calc(100vh - var(--topbar-height, 64px));
             overflow: hidden;
             background: #f5f4f0;
         }
@@ -797,7 +797,8 @@
 
     @include('layouts.sidebar')
 
-    <main class="messages-fullscreen" style="margin-left:70px;">
+    <main class="messages-fullscreen"
+        style="margin-left:70px; margin-top:calc(var(--topbar-height, 64px)); min-height:calc(100vh - var(--topbar-height, 64px));">
         <div class="messages-layout">
 
             {{-- ── Friends Panel ── --}}
