@@ -2,6 +2,7 @@
  * focus-mode.js – StudyHub Focus Mode
  * Fixed: menu button navigation, deck segregation for flashcards,
  *        persistent DB-backed decks & flashcards.
+ * Updated: simplified music player (on/off only, DB-backed default track)
  */
 (function () {
     "use strict";
@@ -18,7 +19,7 @@
     const state = {
         focusOn: false,
         musicOn: false,
-        isPlaying: true,
+        isPlaying: false,
         currentScreen: "screenMenu",
         screenHistory: [],
         pomoPhase: "focus",
@@ -31,8 +32,8 @@
         materials: Array.isArray(window.__focusMaterials) ? window.__focusMaterials : [],
         decks: Array.isArray(window.__focusDecks) ? window.__focusDecks : [],
         quizzes: Array.isArray(window.__focusQuizzes) ? window.__focusQuizzes : [],
-        activeDeckId: null,   // currently selected deck
-        flashcardIndex: 0,    // current card in slider
+        activeDeckId: null,
+        flashcardIndex: 0,
         uploadBusy: false,
         deckBusy: false,
         flashcardBusy: false,
@@ -44,95 +45,94 @@
     const el = {
         body: document.body,
         // Focus / lock
-        focusToggleBtn:         $("focusToggleBtn"),
-        lockOpen:               $("lockOpen"),
-        lockClosed:             $("lockClosed"),
-        focusFooter:            $("focusFooter"),
+        focusToggleBtn:              $("focusToggleBtn"),
+        lockOpen:                    $("lockOpen"),
+        lockClosed:                  $("lockClosed"),
+        focusFooter:                 $("focusFooter"),
         // Music
-        musicToggleBtn:         $("musicToggleBtn"),
-        musicHideBtn:           $("musicHideBtn"),
-        musicWidget:            $("musicWidget"),
-        playPauseBtn:           $("playPauseBtn"),
-        playIcon:               $("playIcon"),
-        pauseIcon:              $("pauseIcon"),
-        progressFill:           $("progressFill"),
-        shuffleBtn:             $("shuffleBtn"),
-        // Materials panel (top sidebar)
-        materialsPanel:         $("materialsPanel"),
-        materialsInput:         $("materialsInput"),
-        materialsList:          $("materialsList"),
-        materialsStatus:        $("materialsStatus"),
+        musicToggleBtn:              $("musicToggleBtn"),
+        musicHideBtn:                $("musicHideBtn"),
+        musicWidget:                 $("musicWidget"),
+        playPauseBtn:                $("playPauseBtn"),
+        playIcon:                    $("playIcon"),
+        pauseIcon:                   $("pauseIcon"),
+        progressFill:                $("progressFill"),
+        // Materials panel
+        materialsPanel:              $("materialsPanel"),
+        materialsInput:              $("materialsInput"),
+        materialsList:               $("materialsList"),
+        materialsStatus:             $("materialsStatus"),
         // Deck browser
-        deckBrowser:            $("deckBrowser"),
-        deckGrid:               $("deckGrid"),
-        deckCreateBtn:          $("deckCreateBtn"),
-        deckModalOverlay:       $("deckModalOverlay") || $("deckCreateBackdrop"),
-        deckNameInput:          $("deckNameInput"),
-        deckCancelBtn:          $("deckCancelBtn"),
-        deckSaveBtn:            $("deckSaveBtn"),
-        deckStatus:             $("deckStatus"),
-        // Deck content (after selecting a deck)
-        deckContent:            $("deckContent"),
-        deckBackBtn:            $("deckBackBtn"),
-        deckContentTitle:       $("deckContentTitle"),
-        deckContentDesc:        $("deckContentDesc"),
-        flashcardScreenBackBtn: $("flashcardScreenBackBtn"),
-        // Flashcard action buttons (inside deck content)
-        flashcardCreatePromptBtn: $("flashcardCreatePromptBtn"),
+        deckBrowser:                 $("deckBrowser"),
+        deckGrid:                    $("deckGrid"),
+        deckCreateBtn:               $("deckCreateBtn"),
+        deckModalOverlay:            $("deckModalOverlay") || $("deckCreateBackdrop"),
+        deckNameInput:               $("deckNameInput"),
+        deckCancelBtn:               $("deckCancelBtn"),
+        deckSaveBtn:                 $("deckSaveBtn"),
+        deckStatus:                  $("deckStatus"),
+        // Deck content
+        deckContent:                 $("deckContent"),
+        deckBackBtn:                 $("deckBackBtn"),
+        deckContentTitle:            $("deckContentTitle"),
+        deckContentDesc:             $("deckContentDesc"),
+        flashcardScreenBackBtn:      $("flashcardScreenBackBtn"),
+        // Flashcard action buttons
+        flashcardCreatePromptBtn:    $("flashcardCreatePromptBtn"),
         // Flashcard slider
-        flashcardStageTrack:    $("flashcardStageTrack"),
-        flashcardStageCounter:  $("flashcardStageCounter"),
-        flashcardPrevBtn:       $("flashcardPrevBtn"),
-        flashcardNextBtn:       $("flashcardNextBtn"),
+        flashcardStageTrack:         $("flashcardStageTrack"),
+        flashcardStageCounter:       $("flashcardStageCounter"),
+        flashcardPrevBtn:            $("flashcardPrevBtn"),
+        flashcardNextBtn:            $("flashcardNextBtn"),
         // Flashcard modal
-        flashcardModal:         $("flashcardModal"),
-        flashcardModalBackdrop: $("flashcardModalBackdrop"),
-        flashcardModalCloseBtn: $("flashcardModalCloseBtn"),
-        flashcardUploadPane:    $("flashcardUploadPane"),
-        flashcardCreatePane:    $("flashcardCreatePane"),
+        flashcardModal:              $("flashcardModal"),
+        flashcardModalBackdrop:      $("flashcardModalBackdrop"),
+        flashcardModalCloseBtn:      $("flashcardModalCloseBtn"),
+        flashcardUploadPane:         $("flashcardUploadPane"),
+        flashcardCreatePane:         $("flashcardCreatePane"),
         flashcardMaterialsUploadBtn: $("flashcardMaterialsUploadBtn"),
         flashcardMaterialsInput:     $("flashcardMaterialsInput"),
         flashcardMaterialsStatus:    $("flashcardMaterialsStatus"),
         flashcardMaterialsList:      $("flashcardMaterialsList"),
-        flashcardForm:          $("flashcardForm"),
-        flashcardQuestion:      $("flashcardQuestion"),
-        flashcardAnswer:        $("flashcardAnswer"),
-        flashcardCancelBtn:     $("flashcardCancelBtn"),
-        flashcardSaveBtn:       $("flashcardSaveBtn"),
-        flashcardStatus:        $("flashcardStatus"),
+        flashcardForm:               $("flashcardForm"),
+        flashcardQuestion:           $("flashcardQuestion"),
+        flashcardAnswer:             $("flashcardAnswer"),
+        flashcardCancelBtn:          $("flashcardCancelBtn"),
+        flashcardSaveBtn:            $("flashcardSaveBtn"),
+        flashcardStatus:             $("flashcardStatus"),
         // Review upload
-        reviewUploadBtn:        $("reviewUploadBtn"),
+        reviewUploadBtn:             $("reviewUploadBtn"),
         // Quiz modal
-        quizUploadPromptBtn:    $("quizUploadPromptBtn"),
-        quizCreatePromptBtn:    $("quizCreatePromptBtn"),
-        quizModal:              $("quizModal"),
-        quizModalBackdrop:      $("quizModalBackdrop"),
-        quizModalCloseBtn:      $("quizModalCloseBtn"),
-        quizUploadPane:         $("quizUploadPane"),
-        quizCreatePane:         $("quizCreatePane"),
-        quizMaterialsUploadBtn: $("quizMaterialsUploadBtn"),
-        quizMaterialsInput:     $("quizMaterialsInput"),
-        quizMaterialsStatus:    $("quizMaterialsStatus"),
-        quizMaterialsList:      $("quizMaterialsList"),
-        quizForm:               $("quizForm"),
-        quizQuestion:           $("quizQuestion"),
-        quizOptionA:            $("quizOptionA"),
-        quizOptionB:            $("quizOptionB"),
-        quizOptionC:            $("quizOptionC"),
-        quizOptionD:            $("quizOptionD"),
-        quizCorrectOption:      $("quizCorrectOption"),
-        quizExplanation:        $("quizExplanation"),
-        quizCancelBtn:          $("quizCancelBtn"),
-        quizSaveBtn:            $("quizSaveBtn"),
-        quizStageTrack:         $("quizStageTrack"),
-        quizStageCounter:       $("quizStageCounter"),
-        quizPrevBtn:            $("quizPrevBtn"),
-        quizNextBtn:            $("quizNextBtn"),
-        quizStatus:             $("quizStatus"),
-        topBarFocusBackBtn:    $("focusTopBackBtn"),
+        quizUploadPromptBtn:         $("quizUploadPromptBtn"),
+        quizCreatePromptBtn:         $("quizCreatePromptBtn"),
+        quizModal:                   $("quizModal"),
+        quizModalBackdrop:           $("quizModalBackdrop"),
+        quizModalCloseBtn:           $("quizModalCloseBtn"),
+        quizUploadPane:              $("quizUploadPane"),
+        quizCreatePane:              $("quizCreatePane"),
+        quizMaterialsUploadBtn:      $("quizMaterialsUploadBtn"),
+        quizMaterialsInput:          $("quizMaterialsInput"),
+        quizMaterialsStatus:         $("quizMaterialsStatus"),
+        quizMaterialsList:           $("quizMaterialsList"),
+        quizForm:                    $("quizForm"),
+        quizQuestion:                $("quizQuestion"),
+        quizOptionA:                 $("quizOptionA"),
+        quizOptionB:                 $("quizOptionB"),
+        quizOptionC:                 $("quizOptionC"),
+        quizOptionD:                 $("quizOptionD"),
+        quizCorrectOption:           $("quizCorrectOption"),
+        quizExplanation:             $("quizExplanation"),
+        quizCancelBtn:               $("quizCancelBtn"),
+        quizSaveBtn:                 $("quizSaveBtn"),
+        quizStageTrack:              $("quizStageTrack"),
+        quizStageCounter:            $("quizStageCounter"),
+        quizPrevBtn:                 $("quizPrevBtn"),
+        quizNextBtn:                 $("quizNextBtn"),
+        quizStatus:                  $("quizStatus"),
+        topBarFocusBackBtn:          $("focusTopBackBtn"),
     };
 
-    // Expose a lightweight plugin API so deck/flashcard modules can register
+    // Plugin API
     window.FocusMode = window.FocusMode || {};
     window.FocusMode.state = state;
     window.FocusMode.el = el;
@@ -145,19 +145,12 @@
     };
     window.FocusMode.getCsrfToken = getCsrfToken;
     window.FocusMode.escHtml = escHtml;
-    window.FocusMode.renderFlashcardSlider = function (cards) { if (typeof renderFlashcardSlider === 'function') return renderFlashcardSlider(cards); };
-
-    // renderQuizSlider is overridden by quiz.js after it initialises.
-    // This stub is a no-op placeholder so focus-mode.js doesn't throw
-    // if handleQuizSubmit fires before quiz.js has loaded.
+    window.FocusMode.renderFlashcardSlider = function (cards) {
+        if (typeof renderFlashcardSlider === "function") return renderFlashcardSlider(cards);
+    };
     window.FocusMode.renderQuizSlider = function (questions) {
         // quiz.js overrides this — intentional no-op stub
     };
-
-    // showQuizSetUI / hideQuizSetUI are called by quiz.js when
-    // entering / leaving a quiz set. The action-row and old slider
-    // are now managed entirely inside quiz.js injected HTML,
-    // so these stubs are intentionally empty.
     window.FocusMode.showQuizSetUI = function () { /* handled by quiz.js */ };
     window.FocusMode.hideQuizSetUI = function () { /* handled by quiz.js */ };
 
@@ -176,22 +169,34 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       SCREEN NAVIGATION  (FIX: was broken by bad el references)
+       SCREEN NAVIGATION
     ═══════════════════════════════════════════════════════════ */
     function showScreen(id, options = {}) {
         const fromHistory = options.fromHistory === true;
 
-        // When focus mode is on, restrict navigation to only the menu options
+        // Restrict navigation while focus mode is on; derive allowed targets from menu.
+        // screenMaterialViewer is always allowed so the file viewer works in focus mode.
         if (state.focusOn) {
             const menu = document.getElementById('screenMenu');
-            // always allow returning to the menu itself
-            let allowed = ["screenMenu", "screenReview", "screenFlashcard", "screenQuiz"];
+            let allowed = [
+                "screenMenu",
+                "screenReview",
+                "screenFlashcard",
+                "screenQuiz",
+                "screenMaterialViewer", // ← FIXED: viewer must always be reachable
+            ];
             if (menu) {
                 const btns = Array.from(menu.querySelectorAll('.menu-btn[data-target]'));
                 const targets = btns.map(b => b.getAttribute('data-target')).filter(Boolean);
-                if (targets.length) allowed = Array.from(new Set(["screenMenu", ...targets]));
+                if (targets.length) {
+                    allowed = Array.from(new Set([
+                        "screenMenu",
+                        "screenMaterialViewer", // always keep viewer allowed
+                        ...targets,
+                    ]));
+                }
             }
-            if (!allowed.includes(id)) return; // ignore attempts to navigate away while focused
+            if (!allowed.includes(id)) return;
         }
 
         if (!fromHistory && state.currentScreen && state.currentScreen !== id) {
@@ -210,23 +215,26 @@
 
     function updateFocusTopBackButtonVisibility() {
         if (!el.topBarFocusBackBtn) return;
-        el.topBarFocusBackBtn.classList.toggle("hidden", state.screenHistory.length === 0);
+        const showBackButton = state.currentScreen && state.currentScreen !== 'screenMenu';
+        el.topBarFocusBackBtn.classList.toggle('hidden', !showBackButton);
     }
 
     function goToPreviousFocusScreen() {
-        if (!state.screenHistory.length) return;
-        const previous = state.screenHistory.pop();
-        if (previous) showScreen(previous, { fromHistory: true });
+        if (state.screenHistory.length) {
+            const previous = state.screenHistory.pop();
+            if (previous) showScreen(previous, { fromHistory: true });
+            return;
+        }
+
+        showScreen('screenMenu', { fromHistory: true });
     }
 
     el.topBarFocusBackBtn?.addEventListener("click", goToPreviousFocusScreen);
     updateFocusTopBackButtonVisibility();
 
-    // Menu buttons → navigate to target screen
     document.querySelectorAll(".menu-btn[data-target]").forEach((btn) =>
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
-    // Back buttons → navigate to target screen
     document.querySelectorAll(".focus-back-btn[data-target], .back-btn[data-target]").forEach((btn) =>
         btn.addEventListener("click", () => showScreen(btn.dataset.target))
     );
@@ -234,13 +242,14 @@
     /* ═══════════════════════════════════════════════════════════
        MATERIALS PANEL
     ═══════════════════════════════════════════════════════════ */
-    // Review screen upload button triggers the shared materials input
     el.reviewUploadBtn?.addEventListener("click", () => el.materialsInput?.click());
     el.materialsInput?.addEventListener("change", handleMaterialUpload);
 
     function updateMaterialsPanelVisibility() {
         if (!el.materialsPanel) return;
-        const inStudy = state.currentScreen !== "screenMenu";
+        // Hide the materials panel when on the menu or when the full-screen viewer is open
+        const inStudy = state.currentScreen !== "screenMenu"
+                     && state.currentScreen !== "screenMaterialViewer"; // ← FIXED
         el.materialsPanel.classList.toggle("hidden", !inStudy);
         if (inStudy) renderMaterialsPanel();
         else setMaterialsStatus("");
@@ -312,10 +321,8 @@
         }
     }
 
-    /* Deck UI & functionality moved to resources/js/flashcards-decks.js via plugin registration. */
-
     /* ═══════════════════════════════════════════════════════════
-       FLASHCARD MODAL  (Upload / Create — opened from deck content)
+       FLASHCARD MODAL
     ═══════════════════════════════════════════════════════════ */
     function openFlashcardModal(pane) {
         if (!el.flashcardModal) return;
@@ -331,10 +338,9 @@
     }
 
     el.flashcardCreatePromptBtn?.addEventListener("click", () => openFlashcardModal("create"));
-    el.flashcardModalCloseBtn?.addEventListener("click",  closeFlashcardModal);
-    el.flashcardModalBackdrop?.addEventListener("click",  closeFlashcardModal);
+    el.flashcardModalCloseBtn?.addEventListener("click",   closeFlashcardModal);
+    el.flashcardModalBackdrop?.addEventListener("click",   closeFlashcardModal);
 
-    // Upload inside flashcard modal
     el.flashcardMaterialsUploadBtn?.addEventListener("click", () => el.flashcardMaterialsInput?.click());
     el.flashcardMaterialsInput?.addEventListener("change", async (e) => {
         const file = e.target.files?.[0];
@@ -360,7 +366,6 @@
         }
     });
 
-    // Flashcard create form inside modal
     el.flashcardCancelBtn?.addEventListener("click", () => {
         el.flashcardForm?.reset();
         setFlashcardStatus("");
@@ -387,7 +392,6 @@
             return;
         }
         try {
-            // If the active deck is a local-only deck (created offline), try to sync it first
             if (String(state.activeDeckId).startsWith("local-")) {
                 const localDeck = state.decks.find((d) => d.id === state.activeDeckId);
                 if (!localDeck) { setFlashcardStatus("Deck not found.", true); return; }
@@ -404,7 +408,6 @@
                     });
                     const p = await r.json().catch(() => null);
                     if (!r.ok || !p || !p.deck) throw new Error(p?.message || "Sync failed");
-                    // Replace local deck with server deck
                     state.decks = state.decks.map((d) => d.id === localDeck.id ? p.deck : d);
                     state.activeDeckId = p.deck.id;
                     setFlashcardStatus("Deck synced.");
@@ -429,7 +432,6 @@
             const payload = await res.json();
             if (!res.ok) throw new Error(payload?.message || "Save failed.");
 
-            // Update the active deck's flashcards in state
             const deck = state.decks.find((d) => d.id === state.activeDeckId);
             if (deck) deck.flashcards = payload.flashcards || [...(deck.flashcards || []), payload.flashcard];
 
@@ -474,13 +476,11 @@
                 </div>
             </div>`).join("");
 
-        // Flip on click / Enter
         el.flashcardStageTrack.querySelectorAll(".flashcard-card").forEach((card) => {
             card.addEventListener("click",   () => card.classList.toggle("flipped"));
             card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.classList.toggle("flipped"); });
         });
 
-        /* Bind delete buttons for flashcards */
         el.flashcardStageTrack.querySelectorAll(".flashcard-card-delete-btn").forEach((btn) => {
             btn.addEventListener("click", async (e) => {
                 e.stopPropagation();
@@ -488,7 +488,6 @@
                 if (!fid) return;
                 if (!confirm("Delete this flashcard? This cannot be undone.")) return;
                 try {
-                    // Local-only flashcards (ids like local-#)
                     if (String(fid).startsWith('local-')) {
                         const deck = state.decks.find((d) => d.id === state.activeDeckId);
                         if (deck) {
@@ -500,7 +499,6 @@
                         }
                         return;
                     }
-
                     const res = await fetch(`/focus-mode/flashcards/${fid}`, {
                         method: "DELETE",
                         headers: { "X-CSRF-TOKEN": getCsrfToken(), Accept: "application/json" },
@@ -530,7 +528,6 @@
         total = total ?? slides.length;
         index = Math.max(0, Math.min(index, total - 1));
         state.flashcardIndex = index;
-        // Unflip current cards
         slides.forEach((s) => s.querySelector(".flashcard-card")?.classList.remove("flipped"));
         el.flashcardStageTrack.style.transform = `translateX(calc(-${index} * (100% + 24px)))`;
         if (el.flashcardStageCounter) el.flashcardStageCounter.textContent = `${index + 1} / ${total}`;
@@ -608,13 +605,13 @@
 
     async function handleQuizSubmit(e) {
         e.preventDefault();
-        const question       = (el.quizQuestion?.value      || "").trim();
-        const optionA        = (el.quizOptionA?.value        || "").trim();
-        const optionB        = (el.quizOptionB?.value        || "").trim();
-        const optionC        = (el.quizOptionC?.value        || "").trim();
-        const optionD        = (el.quizOptionD?.value        || "").trim();
-        const correctOption  = (el.quizCorrectOption?.value  || "").trim();
-        const explanation    = (el.quizExplanation?.value    || "").trim();
+        const question      = (el.quizQuestion?.value     || "").trim();
+        const optionA       = (el.quizOptionA?.value       || "").trim();
+        const optionB       = (el.quizOptionB?.value       || "").trim();
+        const optionC       = (el.quizOptionC?.value       || "").trim();
+        const optionD       = (el.quizOptionD?.value       || "").trim();
+        const correctOption = (el.quizCorrectOption?.value || "").trim();
+        const explanation   = (el.quizExplanation?.value  || "").trim();
         if (!question || !optionA || !optionB || !optionC || !optionD || !correctOption) {
             setQuizStatus("Please fill in the question, all options, and the correct answer.", true);
             return;
@@ -635,14 +632,28 @@
             const payload = await res.json();
             if (!res.ok) throw new Error(payload?.message || "Save failed.");
 
-            if (state.activeQuizSetId && payload.questions) {
-                // Update the active set's nested questions
-                const activeSet = (state.quizSets || []).find((s) => s.id === state.activeQuizSetId);
-                if (activeSet) activeSet.questions = payload.questions;
-                window.FocusMode.renderQuizSlider(payload.questions);
+            // Server returns 'questions' for set-based quizzes, 'quizzes' for standalone
+            const updatedList = payload.questions || payload.quizzes || null;
+
+            if (window.FocusMode.state.activeQuizSetId && updatedList) {
+                // Update the set in state directly so renderQuizSlider fallback is fresh
+                const activeSet = (window.FocusMode.state.quizSets || []).find(
+                    (s) => s.id === window.FocusMode.state.activeQuizSetId
+                );
+                if (activeSet) {
+                    // Set has 'questions' key based on server data
+                    if (activeSet.questions !== undefined) {
+                        activeSet.questions = updatedList;
+                    } else {
+                        activeSet.quizzes = updatedList;
+                    }
+                }
+                window.FocusMode.state.quizzes = updatedList;
+                window.FocusMode.renderQuizSlider(updatedList); // pass explicitly
             } else {
-                state.quizzes = payload.quizzes || [...state.quizzes, payload.quiz];
-                window.FocusMode.renderQuizSlider();
+                const newList = updatedList || [...state.quizzes, payload.quiz];
+                state.quizzes = newList;
+                window.FocusMode.renderQuizSlider(newList);
             }
             setQuizStatus("Quiz question saved!");
             el.quizForm?.reset();
@@ -660,8 +671,7 @@
         quizIndex = 0;
         const questions = Array.isArray(questionsOverride) ? questionsOverride : state.quizzes;
 
-        // Show/hide the stage and counter alongside the slider
-        const quizStage = document.getElementById("quizStage");
+        const quizStage        = document.getElementById("quizStage");
         const quizStageCounter = el.quizStageCounter;
 
         if (!questions.length) {
@@ -729,24 +739,42 @@
     ═══════════════════════════════════════════════════════════ */
     el.focusToggleBtn.addEventListener("click", toggleFocusMode);
     function toggleFocusMode() {
-        state.focusOn = !state.focusOn;
-        el.focusToggleBtn.classList.toggle("focus-on", state.focusOn);
-        el.focusToggleBtn.setAttribute("aria-pressed", state.focusOn);
-        el.lockOpen.classList.toggle("hidden", state.focusOn);
-        el.lockClosed.classList.toggle("hidden", !state.focusOn);
-        el.focusFooter.classList.toggle("visible", state.focusOn);
-        el.body.classList.toggle("focus-mode-on", state.focusOn);
-        state.focusOn ? showPomodoroWidget() : hidePomodoroWidget();
-        updateMusicFabVisibility();
-        // When turning focus mode on, show the focus menu so user can pick options
-        if (state.focusOn) {
-            showScreen('screenMenu');
-        }
-        el.focusToggleBtn.animate(
-            [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
-            { duration: 300, easing: "ease-out" }
-        );
+    state.focusOn = !state.focusOn;
+    el.focusToggleBtn.classList.toggle("focus-on", state.focusOn);
+    el.focusToggleBtn.setAttribute("aria-pressed", state.focusOn);
+    el.lockOpen.classList.toggle("hidden", state.focusOn);
+    el.lockClosed.classList.toggle("hidden", !state.focusOn);
+    el.focusFooter.classList.toggle("visible", state.focusOn);
+    el.body.classList.toggle("focus-mode-on", state.focusOn);
+    state.focusOn ? showPomodoroWidget() : hidePomodoroWidget();
+    updateMusicFabVisibility();
+    if (state.focusOn) {
+        showScreen('screenMenu');
     }
+
+    // ── Lock / unlock sidebar & top bar keyboard navigation ──
+    const lockTargets = document.querySelectorAll(
+        '.sidebar a, .sidebar button, .top-bar a, .top-bar button'
+    );
+    lockTargets.forEach((node) => {
+        if (state.focusOn) {
+            node.dataset.prevTabindex = node.getAttribute('tabindex') ?? '';
+            node.setAttribute('tabindex', '-1');
+            node.setAttribute('aria-disabled', 'true');
+        } else {
+            const prev = node.dataset.prevTabindex;
+            if (prev === '') node.removeAttribute('tabindex');
+            else if (prev != null) node.setAttribute('tabindex', prev);
+            node.removeAttribute('aria-disabled');
+            delete node.dataset.prevTabindex;
+        }
+    });
+
+    el.focusToggleBtn.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
+        { duration: 300, easing: "ease-out" }
+    );
+}
 
     /* ── Pomodoro ───────────────────────────────────────────── */
     let pomoWidget = null;
@@ -940,9 +968,9 @@
     }
 
     const PHASE_META = {
-        focus:      { label: "Focus Time",   color: "#7c4dca" },
-        shortBreak: { label: "Short Break",  color: "#1eaabb" },
-        longBreak:  { label: "Long Break",   color: "#2a9d8f" },
+        focus:      { label: "Focus Time",  color: "#7c4dca" },
+        shortBreak: { label: "Short Break", color: "#1eaabb" },
+        longBreak:  { label: "Long Break",  color: "#2a9d8f" },
     };
     const CIRC = 2 * Math.PI * 52;
 
@@ -996,38 +1024,90 @@
         } catch (e) {}
     }
 
-    /* ── Music ──────────────────────────────────────────────── */
-    el.musicToggleBtn.addEventListener("click", () => { state.musicOn = !state.musicOn; updateMusicFabVisibility(); });
-    el.musicHideBtn?.addEventListener("click",  () => { state.musicOn = false; updateMusicFabVisibility(); });
+    /* ═══════════════════════════════════════════════════════════
+       MUSIC PLAYER  (on/off only — single DB-backed default track)
+    ═══════════════════════════════════════════════════════════ */
+    const bgAudio = new Audio();
+    bgAudio.src     = "/focus-mode/music/stream";
+    bgAudio.loop    = true;
+    bgAudio.preload = "none";
 
-    function updateMusicFabVisibility() {
-        const inStudy = state.currentScreen !== "screenMenu";
-        el.musicToggleBtn.classList.toggle("hidden", !inStudy);
-        el.musicToggleBtn.classList.toggle("is-playing", state.musicOn && state.isPlaying && inStudy);
-        if (!el.musicWidget) return;
-        const show = state.musicOn && inStudy;
-        el.body.classList.toggle("music-panel-visible", show);
-        if (show) {
-            el.musicWidget.classList.remove("hidden", "hiding");
-        } else {
-            el.musicWidget.classList.add("hiding");
-            setTimeout(() => { el.musicWidget.classList.add("hidden"); el.musicWidget.classList.remove("hiding"); }, 280);
-        }
+    bgAudio.addEventListener("timeupdate", () => {
+        if (!bgAudio.duration || !el.progressFill) return;
+        const pct = (bgAudio.currentTime / bgAudio.duration) * 100;
+        el.progressFill.style.width      = `${pct}%`;
+        el.progressFill.style.animation  = "none";
+        el.progressFill.style.transition = "width 1s linear";
+    });
+
+    bgAudio.addEventListener("loadstart", () => {
+        if (el.progressFill) el.progressFill.style.width = "0%";
+    });
+
+    bgAudio.addEventListener("play",  () => { el.musicToggleBtn?.classList.add("is-playing"); });
+    bgAudio.addEventListener("pause", () => { el.musicToggleBtn?.classList.remove("is-playing"); });
+    bgAudio.addEventListener("ended", () => { el.musicToggleBtn?.classList.remove("is-playing"); });
+
+    function startMusic() {
+        bgAudio.play().catch((err) => {
+            console.warn("Music play blocked:", err);
+        });
+        state.isPlaying = true;
+        syncPlayPauseIcons();
     }
 
-    el.playPauseBtn?.addEventListener("click", () => {
-        state.isPlaying = !state.isPlaying;
-        el.playIcon?.classList.toggle("hidden", state.isPlaying);
+    function stopMusic() {
+        bgAudio.pause();
+        state.isPlaying = false;
+        syncPlayPauseIcons();
+    }
+
+    function syncPlayPauseIcons() {
+        el.playIcon?.classList.toggle("hidden",  state.isPlaying);
         el.pauseIcon?.classList.toggle("hidden", !state.isPlaying);
-        if (el.progressFill) el.progressFill.style.animationPlayState = state.isPlaying ? "running" : "paused";
-        el.musicToggleBtn.classList.toggle("is-playing", state.musicOn && state.isPlaying && state.currentScreen !== "screenMenu");
+    }
+
+    // FAB toggle — show/hide the music widget panel
+    el.musicToggleBtn.addEventListener("click", () => {
+        state.musicOn = !state.musicOn;
+        updateMusicFabVisibility();
     });
-    el.shuffleBtn?.addEventListener("click", () => {
-        el.shuffleBtn.animate(
-            [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(180deg) scale(1.2)" }, { transform: "rotate(360deg) scale(1)" }],
-            { duration: 400, easing: "ease-in-out" }
-        );
+
+    // × button inside the widget — hide panel but keep music playing
+    el.musicHideBtn?.addEventListener("click", () => {
+        state.musicOn = false;
+        updateMusicFabVisibility();
     });
+
+    // Play / Pause button inside the widget
+    el.playPauseBtn?.addEventListener("click", () => {
+        if (bgAudio.paused) {
+            startMusic();
+        } else {
+            stopMusic();
+        }
+    });
+
+    function updateMusicFabVisibility() {
+        // Show FAB on ALL screens (including menu and viewer)
+        el.musicToggleBtn.classList.remove("hidden");
+
+        if (!el.musicWidget) return;
+
+        const show = state.musicOn;
+        el.body.classList.toggle("music-panel-visible", show);
+
+        if (show) {
+            el.musicWidget.classList.remove("hidden", "hiding");
+            if (bgAudio.paused) startMusic();
+        } else {
+            el.musicWidget.classList.add("hiding");
+            setTimeout(() => {
+                el.musicWidget.classList.add("hidden");
+                el.musicWidget.classList.remove("hiding");
+            }, 280);
+        }
+    }
 
     /* ── Session save ───────────────────────────────────────── */
     function saveFocusSession(secs) {

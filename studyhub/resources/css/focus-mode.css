@@ -16,10 +16,16 @@
 
 /* Focus-mode top bar back button: anchor near the sidebar edge */
 #focusTopBackBtn {
-    position: absolute;
-    left: 10px;
-    top: 50%;
+    position: fixed;
+    left: calc(var(--sidebar-collapsed) + 16px);
+    top: calc(var(--topbar-height, 64px) / 2);
     transform: translateY(-50%);
+    z-index: 999;
+    display: flex; /* override back-btn's display:none default */
+}
+
+#focusTopBackBtn.hidden {
+    display: none !important;
 }
 
 /* ── LAYOUT WRAPPER ── */
@@ -37,10 +43,8 @@
     max-width: 900px;
     margin: 0 auto;
     transition: padding-right 0.28s ease;
-    margin-top: -70px;
+    margin-top: 160px;
 }
-
-
 
 body.focus-mode-on .fm-main {
     padding-bottom: calc(var(--footer-h) + 20px);
@@ -58,6 +62,7 @@ body.modal-open {
     align-items: center;
     justify-content: center;
     gap: 32px;
+    margin-top: -50px;
 }
 
 .menu-intro {

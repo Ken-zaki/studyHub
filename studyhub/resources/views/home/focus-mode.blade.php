@@ -28,6 +28,8 @@
 
     <div class="fm-wrapper" id="focusModeApp">
 
+        <button id="focusTopBackBtn" class="back-btn" type="button">← Back</button>
+
         <main class="fm-main" id="mainContent">
 
             {{-- ══ SCREEN: MAIN MENU ══ --}}

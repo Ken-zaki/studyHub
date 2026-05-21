@@ -431,28 +431,26 @@
         }
 
         /* ── Open / close set content ────────────────────────── */
-        function openSetContent(qs) {
-            state.activeQuizSetId = qs.id;
-            if (qel.browser)      qel.browser.classList.add("hidden");
-            if (qel.content)      qel.content.classList.remove("hidden");
-            if (qel.contentTitle) qel.contentTitle.textContent = qs.name || qs.title;
+        window.FocusMode.renderQuizSlider = function (questions) {
+            const qs   = state.quizSets.find((s) => s.id === state.activeQuizSetId);
+            
+            // Use passed questions first, then set questions, then state.quizzes
+            const list = questions
+                ?? (qs ? (qs.quizzes || qs.questions || []) : null)
+                ?? state.quizzes  // ← this is now updated before renderQuizSlider is called
+                ?? [];
 
-            const questions = qs.quizzes || qs.questions || [];
-            state.quizzes = questions;
-
-            /* Wire the green "Create Quiz Questions" button directly to the modal.
-               Uses a data attribute to avoid attaching duplicate listeners. */
-            const greenCreateBtn = document.getElementById("quizReviewCreateBtn");
-            if (greenCreateBtn && !greenCreateBtn.dataset.wired) {
-                greenCreateBtn.dataset.wired = "1";
-                greenCreateBtn.addEventListener("click", openQuizCreateModal);
+            // Sync back into the set
+            if (qs && list) {
+                const key = qs.questions ? "questions" : "quizzes";
+                qs[key] = list;
             }
+            state.quizzes = list;
 
-            /* Render both panels; start on review */
-            renderReviewPanel(questions);
-            renderQuizInteractive(questions);
+            renderReviewPanel(list);
+            renderQuizInteractive(list);
             showReviewPanel();
-        }
+        };
 
         /* ── Expose renderQuizSlider so focus-mode.js can refresh after save ── */
         window.FocusMode.renderQuizSlider = function (questions) {

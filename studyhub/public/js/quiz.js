@@ -196,7 +196,7 @@
                         "X-CSRF-TOKEN": csrf(),
                         Accept: "application/json",
                     },
-                    body: JSON.stringify({ name: title }),
+                    body: JSON.stringify({ title: title }),
                 });
                 const payload = await res.json();
                 if (!res.ok) throw new Error(payload?.message || "Failed to create quiz set.");

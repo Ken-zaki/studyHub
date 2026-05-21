@@ -690,3 +690,4 @@ Route::prefix('admin')->group(function () {
     })->name('admin.settings');
 
 });
+

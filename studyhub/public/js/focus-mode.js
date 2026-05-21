@@ -215,13 +215,18 @@
 
     function updateFocusTopBackButtonVisibility() {
         if (!el.topBarFocusBackBtn) return;
-        el.topBarFocusBackBtn.classList.toggle("hidden", state.screenHistory.length === 0);
+        const showBackButton = state.currentScreen && state.currentScreen !== 'screenMenu';
+        el.topBarFocusBackBtn.classList.toggle('hidden', !showBackButton);
     }
 
     function goToPreviousFocusScreen() {
-        if (!state.screenHistory.length) return;
-        const previous = state.screenHistory.pop();
-        if (previous) showScreen(previous, { fromHistory: true });
+        if (state.screenHistory.length) {
+            const previous = state.screenHistory.pop();
+            if (previous) showScreen(previous, { fromHistory: true });
+            return;
+        }
+
+        showScreen('screenMenu', { fromHistory: true });
     }
 
     el.topBarFocusBackBtn?.addEventListener("click", goToPreviousFocusScreen);

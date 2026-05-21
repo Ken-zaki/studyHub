@@ -31,13 +31,21 @@
         return m + "m";
     }
 
+    function getPhTime() {
+        // Always compute date in Asia/Manila (UTC+8) regardless of browser locale
+        const now = new Date();
+        const phOffset = 8 * 60; // minutes
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        return new Date(utc + phOffset * 60000);
+    }
+
     function todayKey() {
-        const d = new Date();
+        const d = getPhTime();
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     }
 
     function dayOfWeek() {
-        return new Date().getDay(); // 0=Sun
+        return getPhTime().getDay();
     }
 
     /* ── Persistent local storage helpers ──────────────────── */
@@ -119,14 +127,12 @@
 
     /* ── Compute streak (consecutive days with focus time) ─── */
     function computeStreak(store) {
-        // Build a set of days that have recorded time
         const activeDays = new Set(Object.keys(store.days).filter(k => store.days[k] > 60));
+        const today      = getPhTime(); // ← was new Date()
+        let streak       = 0;
+        let cursor       = new Date(today.getTime());
+        const todayStr   = todayKey();
 
-        const today = new Date();
-        let streak  = 0;
-        let cursor  = new Date(today);
-        // If today already has time, count it; otherwise start from yesterday
-        const todayStr = todayKey();
         if (!activeDays.has(todayStr)) {
             cursor.setDate(cursor.getDate() - 1);
         }
@@ -144,12 +150,12 @@
 
     /* ── Build last-7-days data for bar chart ──────────────── */
     function last7Days(store) {
-        const result = [];
-        const today  = new Date();
+        const result   = [];
+        const today    = getPhTime(); // ← was new Date()
         const todayStr = todayKey();
 
         for (let i = 6; i >= 0; i--) {
-            const d   = new Date(today);
+            const d = new Date(today.getTime()); // clone PH time
             d.setDate(d.getDate() - i);
             const key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
             result.push({
@@ -162,15 +168,14 @@
         return result;
     }
 
-    /* ── Streak dots: last 7 days ───────────────────────────── */
     function streakDots(store) {
-        const result  = [];
+        const result   = [];
         const todayStr = todayKey();
-        const today    = new Date();
+        const today    = getPhTime(); // ← was new Date()
         const activeToday = (store.days[todayStr] || 0) > 60;
 
         for (let i = 6; i >= 0; i--) {
-            const d   = new Date(today);
+            const d = new Date(today.getTime()); // clone PH time
             d.setDate(d.getDate() - i);
             const key    = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
             const label  = DAYS[d.getDay()];
