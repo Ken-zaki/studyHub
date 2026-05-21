@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMyUploads();
     loadTopRatedWidget();
     if (CURRENT_USER.id) syncBookmarksFromDB();
-    initNotifications?.();
 });
 
 // ─────────────────────────────────────────────────────────────

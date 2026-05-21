@@ -1,0 +1,68 @@
+/* ============================================================
+   public/css/admin_viewasuser.css
+   Persistent admin bar shown at the top of user pages when
+   an admin is using "View as User" mode.
+   This file is linked by the regular user pages (newsfeed, etc.)
+   — it only shows when the admin bar is active.
+   ============================================================ */
+
+.adm-user-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 99999;
+    height: 48px;
+    background: linear-gradient(135deg, #1a5f7a, #144d61);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    gap: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+    font-family: 'DM Sans', sans-serif;
+}
+
+.adm-user-bar-left {
+    display: flex; align-items: center; gap: 10px;
+}
+
+.adm-user-bar-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.18);
+    color: white;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.adm-user-bar-text {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+}
+
+.adm-user-bar-links {
+    display: flex; align-items: center; gap: 6px;
+}
+
+.adm-user-bar-link {
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-size: 12px; font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.adm-user-bar-link:hover { background: rgba(255,255,255,0.22); }
+.adm-user-bar-link.exit {
+    border-color: rgba(255,255,255,0.4);
+}
+.adm-user-bar-link.exit:hover { background: rgba(255,255,255,0.28); }
+
+/* Push down the page content so it's not hidden behind the bar */
+.adm-user-bar-active body,
+body.adm-user-bar-active {
+    padding-top: 48px;
+}

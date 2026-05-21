@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTrending();
     loadTrendingResources();
     loadActiveStudyGroups();
-    initNotifications?.();
 
     document.addEventListener('click', e => {
         if (!e.target.closest('.cp-vis-wrap'))
