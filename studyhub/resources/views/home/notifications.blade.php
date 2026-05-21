@@ -497,10 +497,10 @@
             return `
 
             ${isAnnouncement ? `
-                    <a href="${redirectUrl}"
-                    class="notif-link"
-                    onclick="markRead('${n.id}')">
-                    ` : ''}
+                        <a href="${redirectUrl}"
+                        class="notif-link"
+                        onclick="markRead('${n.id}')">
+                        ` : ''}
 
             <div class="nr ${readClass} ${priorityClass}"
                 id="nr-${n.id}"
@@ -522,10 +522,10 @@
 
                     ${n.message
                         ? `
-                                    <div class="nr-sub">
-                                        ${esc(n.message)}
-                                    </div>
-                                `
+                                        <div class="nr-sub">
+                                            ${esc(n.message)}
+                                        </div>
+                                    `
                         : ''
                     }
 
@@ -568,8 +568,9 @@
         /* ── ACTIONS ────────────────────────────────────────────── */
         async function markRead(id) {
             const n = _all.find(x => x.id === id);
-            if (!n || n.is_read) return;
+            if (!n || n.read || n.is_read) return;
             n.is_read = true;
+            n.read = true;
             const row = document.getElementById('nr-' + id);
             if (row) {
                 row.classList.replace('unread', 'read');
@@ -587,7 +588,10 @@
         }
 
         async function markAllRead() {
-            _all.forEach(n => (n.is_read = true));
+            _all.forEach(n => {
+                n.is_read = true;
+                n.read = true;
+            });
             render();
             updateCounts();
             await fetch(`${SB_URL}/rest/v1/${TABLE}?user_id=eq.${UID}&is_read=eq.false`, {
@@ -611,13 +615,16 @@
 
         async function clearAllRead() {
             if (!confirm('Delete all read notifications?')) return;
-            const ids = _all.filter(n => n.is_read).map(n => n.id);
-            if (!ids.length) return;
-            _all = _all.filter(n => !n.is_read);
+            const ids = _all.filter(n => n.read || n.is_read).map(n => n.id);
+            if (!ids.length) {
+                alert('No read notifications to clear.');
+                return;
+            }
+            _all = _all.filter(n => !n.read && !n.is_read);
             render();
             updateCounts();
             await fetch(
-                `${SB_URL}/rest/v1/${TABLE}?id=in.(${ids.map(i => `"${i}"`).join(',')})`, {
+                `${SB_URL}/rest/v1/${TABLE}?id=in.(${ids.join(',')})`, {
                     method: 'DELETE',
                     headers: hdrs(true),
                 }
