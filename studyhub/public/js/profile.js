@@ -1044,21 +1044,76 @@ async function saveProfileEdit() {
 /* ============================================================
    PROFILE PHOTO
 ============================================================ */
-function handleProfilePhotoChange(event) {
+async function handleProfilePhotoChange(event) {
     const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-        const url = String(reader.result || "");
-        if (!url) return;
-        currentUser.profile_photo_url = url;
-        profileData.profile_photo_url = url;
+    if (!file || !currentUser.id) return;
+
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+        alert("Only JPEG and PNG photos are supported.");
+        event.target.value = "";
+        return;
+    }
+
+    const btn = document.getElementById("profilePhotoButton");
+    if (btn) { btn.disabled = true; btn.textContent = "Uploading…"; }
+
+    try {
+        // 1. Upload file to Supabase Storage (profile-photos bucket)
+        const ext  = file.name.split(".").pop();
+        const path = `${currentUser.id}/profile.${ext}`;
+
+        const uploadRes = await fetch(
+            `${SB_URL}/storage/v1/object/profile-photos/${path}`,
+            {
+                method: "POST",
+                headers: {
+                    apikey: SB_SVC,
+                    Authorization: `Bearer ${SB_SVC}`,
+                    "Content-Type": file.type,
+                    "x-upsert": "true",
+                },
+                body: file,
+            }
+        );
+        if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({}));
+            throw new Error(err.message || "Upload failed");
+        }
+
+        // 2. Build the public URL
+        const publicUrl = `${SB_URL}/storage/v1/object/public/profile-photos/${path}?t=${Date.now()}`;
+
+        // 3. Save the URL to the profiles table in the database
+        const patchRes = await fetch(
+            `${SB_URL}/rest/v1/profiles?id=eq.${currentUser.id}`,
+            {
+                method: "PATCH",
+                headers: {
+                    apikey: SB_SVC,
+                    Authorization: `Bearer ${SB_SVC}`,
+                    "Content-Type": "application/json",
+                    Prefer: "return=representation",
+                },
+                body: JSON.stringify({ profile_photo_url: publicUrl }),
+            }
+        );
+        if (!patchRes.ok) throw new Error("Could not save photo to profile");
+
+        // 4. Update all avatars visible on the page
+        currentUser.profile_photo_url = publicUrl;
+        profileData.profile_photo_url = publicUrl;
         ["profileAvatarLarge", "sidebarAvatar", "topBarAvatar"].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+            if (el) el.innerHTML =
+                `<img src="${publicUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
         });
-    };
-    reader.readAsDataURL(file);
+
+    } catch (e) {
+        alert("Photo upload failed: " + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Change photo"; }
+        event.target.value = "";
+    }
 }
 
 /* ============================================================
